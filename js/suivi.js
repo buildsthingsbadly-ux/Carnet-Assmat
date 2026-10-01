@@ -476,7 +476,7 @@ function suiviFillMois(c, ym){
   setVal('mois-deduction', round2(ded)); setVal('mois-jprev', T.jPrev); setVal('mois-jded', T.jDed); setVal('mois-hded', round2((T.hDed+T.hOut)/60));
   setSegVal('mois-heuresup', (T.compl||T.maj) ? 1 : 0); setVal('mois-hcompl', round2(T.compl/60)); setVal('mois-hmaj', round2(T.maj/60)); setVal('mois-majoration', M.majPct);
   setSegVal('mois-ferie', (T.ferieMin||T.mai1Min) ? 1 : 0); setVal('mois-hferie', round2(T.ferieMin/60)); setVal('mois-h1mai', round2(T.mai1Min/60));
-  if(paramsAt(c, parseD(ym)).type===1) setVal('mois-jcp', T.cpOuv||'');
+  setVal('mois-jcp', T.cpOuv||'');   // jours de congés pris (suivi), quel que soit le type de contrat
   setVal('mois-jours', T.jAcc);
   setVal('mois-hjour', T.jAcc ? round2(T.R/60/T.jAcc) : '');
   // moyenne non arrondie : le total du mois retombe exactement sur le total jour par jour (0 centime d'écart)

@@ -79,6 +79,7 @@ CALC.mensu = ()=>{
   const majPct = Math.max(num('mensu-maj')||R('majMin'), R('majMin'));
   const hNorm=(moy-moyMaj)*sem/12, hMaj=moyMaj*sem/12;
   const salaire = hNorm*taux + hMaj*taux*(1+majPct/100);
+  show('row-mensu-cp12', seg('mensu-type')===1 && salaire>0, 'flex'); setTxt('out-mensu-cp12', fmtEUR(salaire*1.10));
   const w = [];
   if(tSaisi && tSaisi < tauxMin-1e-9) w.push('⛔ Le salaire horaire saisi ('+fmtEUR(tSaisi)+') est inférieur au minimum légal ('+fmtEUR(tauxMin)+' depuis le '+fmtDate(Rdu(seg('mensu-titre')?'salMinTitre':'salMin'))+'). Le calcul applique le minimum.');
   if(seg('mensu-type')===1 && sem>46) w.push('En année incomplète, le nombre de semaines d\'accueil ne dépasse pas 46 (52 semaines − 6 semaines au moins sans accueil, congés compris). Au-delà, il s\'agit d\'une année complète.');
@@ -192,7 +193,7 @@ function moisCompute(){
   const j8 = val('mois-j8')!=='' ? num('mois-j8') : (hj >= H8 ? jours : 0), hm8 = val('mois-hm8')!=='' ? num('mois-hm8') : (hj < H8 ? jours*hj : 0);
   return {m, d, inc, taux, base, ded, hContrat, brutMensu: Math.max(0, base-ded), hcompl, hmaj, majPct, supFerie, brutCompl, brutMaj, brutNormal, cp12, cpVerse, cpTot, brut,
     net, netHs, netImp, jours, hj, ieLeg, ieSaisie, ieJour, ie, repas, km, hNormDecl, jDecl, hReel, hReelAuto, j8, hm8,
-    jcp: inc ? num('mois-jcp') : 0, acompte: num('mois-acompte'), datepaie: val('mois-datepaie')};
+    jcp: num('mois-jcp'), acompte: num('mois-acompte'), datepaie: val('mois-datepaie')};
 }
 CALC.mois = ()=>{
   const r = moisCompute(), d = r.d;
@@ -205,7 +206,7 @@ CALC.mois = ()=>{
   if(r.taux && r.taux < tauxMin-1e-9) w.push('⛔ Salaire horaire inférieur au minimum légal de ce mois ('+fmtEUR(tauxMin)+').');
   if(r.ieSaisie && r.ieSaisie < r.ieLeg-1e-9) w.push('⚠️ L\'indemnité d\'entretien saisie ('+fmtEUR(r.ieSaisie)+') est sous le minimum légal ('+fmtEUR(r.ieLeg)+') : le minimum est appliqué.');
   if(seg('mois-incomplet')===1 && !num('mois-deduction')) w.push('Indiquez le montant déduit (calcul « Mois incomplet & absences », bouton « Reporter »).');
-  if(!r.inc && (num('mois-cpmontant')||num('mois-jcp'))) w.push('Année complète : pas de congés payés à ajouter ni à déclarer.');
+  if(!r.inc && num('mois-cpmontant')) w.push('Année complète : pas d’indemnité de congés à ajouter, elle est déjà dans le salaire mensualisé.');
   const c = moisContrat();
   if(c && journalOf(c.id)[r.m]) w.push('ℹ️ Ce mois est déjà validé : valider à nouveau remplacera l\'enregistrement.');
   setHTML('mois-warn', warnHTML(w));
@@ -589,6 +590,16 @@ PREFILL.cp = c=>{
   if(!c) return;
   const dv = derive(c);
   setSegVal('cp-type', c.type); setVal('cp-taux', round2(dv.tauxEff)); setVal('cp-heures', round2(dv.moyH));
+  // jours de congés déjà notés : suivi au jour le jour, sinon mois validés (+ reprise d'un contrat en cours)
+  const S = (STATE.suivi||{})[c.id], rp = c.rep||{};
+  cpRefPeriods(c).forEach(p=>{
+    if(!p.s) return;
+    const a = iso(p.s), b = iso(p.e);
+    const sCP = S ? Object.keys(S.days||{}).filter(k=>k>=a && k<=b && (ST[S.days[k].st]||{}).cp).length : 0;
+    let pris = Math.max(sCP, journalTotals(c.id, a.slice(0,7), b.slice(0,7)).jCP);
+    if(p.k==='n') pris += parseFloat(rp.cpPrisN)||0;
+    if(pris) setVal('cp-'+p.k+'-solde', pris);
+  });
 };
 CALC.cp = ()=>{
   const A = {}, S = {};
@@ -718,7 +729,12 @@ function finPreavis(){
 VIS.fin = ()=>{
   const inc = seg('fin-type')===1;
   show('fin-faute-row', seg('fin-qui')===0, 'flex');
-  const quiV = seg('fin-qui'), deces = quiV===5 || quiV===6;
+  const quiV = seg('fin-qui'), deces = quiV===5 || quiV===6, avant = quiV===4;
+  // avant le début de l'accueil : seul le salaire mensuel prévu sert (demi-mois) ; le reste est sans objet
+  ['fin-entretien-row','fin-cp-row','fin-regul-row','fin-rupture-row'].forEach(id=>show(id, !avant, 'flex'));
+  if(avant){ show('fin-entretien-wrap', false); show('fin-cp-wrap', false); show('fin-regul-wrap', false); show('fin-rupture-wrap', false); }
+  setTxt('fin-salaire-label', avant ? 'Salaire mensuel brut prévu au contrat (€)' : 'Salaire du dernier mois, hors indemnités d\'entretien (€)');
+  setTxt('fin-salaire-hint', avant ? 'Sert à calculer l\'indemnité forfaitaire : la moitié de ce montant.' : 'Si le dernier mois est incomplet, utilisez le thème « Mois incomplet ».');
   show('fin-retraite-wrap', quiV===7);
   setTxt('fin-notif-label', deces ? 'Date du décès' : quiV===7 ? 'Date d\'envoi / de remise de votre lettre de départ' : 'Date d\'envoi / de remise de la lettre');
   setTxt('fin-notif-hint', deces ? 'Le contrat s\'arrête ce jour-là. Un proche (ayant droit) doit vous prévenir par écrit ; les documents de fin de contrat sont à remettre sous 30 jours.' : 'Le préavis commence le jour de la première présentation de la lettre.');
@@ -746,6 +762,7 @@ VIS.fin = ()=>{
   setTxt('fin-regul-base-label', av ? 'Avant le 1er avenant' : 'Sur toute la période');
   setTxt('fin-regul-verse-label', av ? 'Total des salaires mensualisés versés avant le 1er avenant (€)' : 'Total des salaires mensualisés versés sur la période (€)');
   setTxt('fin-regul-heures-label', av ? 'Heures réellement effectuées avant le 1er avenant' : 'Total des heures réellement effectuées sur la période');
+  if(seg('fin-qui')===4){ ['fin-entretien-wrap','fin-cp-wrap','fin-cp-results','fin-regul-wrap','fin-regul-results','fin-rupture-wrap','fin-rupture-results','row-fin-entretien'].forEach(id=>show(id, false)); }
 };
 PREFILL.fin = c=>{
   setVal('fin-notif', iso(today()));

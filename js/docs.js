@@ -65,11 +65,14 @@ function finValues(c){
   const prev = CURRENT; STATE.sel.fin = c.id; loadThemeForm('fin');
   const g = id=>($(id)||{}).textContent||'—';
   const vis = id=>{ const e=$(id); return e && e.style.display!=='none'; };
-  const out = {salaire:g('out-fin-salaire'), preavis: vis('row-fin-preavis')?g('out-fin-preavis'):null, entretien: vis('row-fin-entretien')?g('out-fin-entretien-r'):null,
+  const quiFin = seg('fin-qui');
+  const out = {qui: quiFin, salaire: quiFin===4 ? null : g('out-fin-salaire'), preavis: vis('row-fin-preavis')?g('out-fin-preavis'):null, entretien: vis('row-fin-entretien')?g('out-fin-entretien-r'):null,
     cp: seg('fin-cp')===1?g('out-fin-cp'):null,
     regul: (seg('fin-regul')===1 && vis('fin-regul-results') && g('fin-regul-badge')==='Rappel dû') ? g('out-fin-regul-ecart') : null,
     tropPercu: (seg('fin-regul')===1 && vis('fin-regul-results') && g('fin-regul-badge')==='Trop-perçu') ? g('out-fin-regul-ecart') : null,
     rupture: seg('fin-rupture')===1?g('out-fin-rupture'):null, total:g('out-fin-total'), net:g('out-fin-net'), preavisTxt: $('fin-preavis-info').textContent, notif: val('fin-notif')};
+  // avant le début de l'accueil : seule l'indemnité forfaitaire est due
+  if(quiFin===4){ ['preavis','entretien','cp','regul','tropPercu','rupture'].forEach(k=>out[k]=null); }
   CURRENT = prev;
   return out;
 }
@@ -141,7 +144,10 @@ function printDoc(id){
       + '<h3>Article 10 — Rupture du contrat</h3><p>Hors période d\'essai, préavis : 8 jours calendaires si l\'ancienneté est inférieure à 3 mois, 15 jours de 3 mois à moins d\'un an, un mois au-delà. Le retrait de l\'enfant par l\'employeur est notifié par lettre recommandée avec accusé de réception ou remise en main propre contre décharge ; après 9 mois d\'ancienneté, il ouvre droit à une indemnité de rupture égale à 1/80ᵉ du total des salaires bruts perçus pendant le contrat (sauf faute grave ou lourde). La suspension ou le retrait d\'agrément entraîne la rupture sans préavis ni indemnité. En fin de contrat, l\'employeur remet le certificat de travail, l\'attestation France Travail et le reçu pour solde de tout compte ; en année incomplète, une régularisation du salaire est calculée.</p>'
       + '<h3>Article 11 — Dispositions diverses</h3><p>Les parents fournissent le carnet de santé (vaccinations), les autorisations écrites (personnes habilitées à reprendre l\'enfant, sorties, transport, photos) et signalent tout changement de situation. La salariée respecte la confidentialité des informations concernant la famille. Pour tout ce qui n\'est pas prévu ici, la convention collective IDCC 3239 s\'applique. Clauses particulières : '+BL+BL+'</p>'
       + lieuDate() + sign('L\'employeur', 'La salariée')
-      + (c.type===1 ? '<h3>Annexe — Semaines d\'accueil programmées (année incomplète)</h3><p>Semaines où l\'enfant est accueilli (n° de semaine ou dates) : '+BL+BL+BL+'</p><p>Semaines sans accueil (hors congés payés de la salariée) : '+BL+BL+'</p>' : '')
+      + (c.type===1 ? '<h3>Annexe — Semaines d\'accueil programmées (année incomplète)</h3><p>Nombre de semaines d\'accueil par an : <b>'+esc(c.semaines||'__')+'</b>.</p>'
+        + ((c.semOff||[]).length ? '<p>Semaines <b>sans accueil</b> (du lundi au dimanche) : '+(c.semOff||[]).slice().sort().map(k=>{ const d=parseD(k); return 'S'+isoWeek(d)+' ('+d.toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit'})+' – '+addDays(d,6).toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric'})+')'; }).join(', ')+'.</p>'
+           : '<p>Semaines sans accueil (hors congés payés de la salariée) : '+BL+BL+'</p>')
+        + '<p>Toute modification de ces semaines fait l\'objet d\'un accord écrit.</p>' : '')
       + '<p class="legal-p">Modèle indicatif établi d\'après la convention collective IDCC 3239 en vigueur au '+fmtDate(REG.version)+'. Relisez-le et adaptez-le ; en cas de doute, rapprochez-vous de votre relais petite enfance (RPE).</p>';
   }
   else if(id==='autorisations'){
@@ -197,7 +203,9 @@ function printDoc(id){
   }
   else if(id==='certificat'){
     h = docHead('Certificat de travail', c)
-      + '<p>Je soussigné(e) '+employeurs(c)+', demeurant '+v(c.adresse)+', particulier employeur, certifie avoir employé :</p><table>'
+      + (((STATE.forms.fin||{})[c.id]||{s:{}}).s['fin-qui']===5
+          ? '<p>Je soussigné(e) '+BL+', agissant en qualité d\'ayant droit de '+employeurs(c)+', particulier employeur décédé le '+v(fmtDate(c.fin))+', certifie que celui-ci a employé :</p><table>'
+          : '<p>Je soussigné(e) '+employeurs(c)+', demeurant '+v(c.adresse)+', particulier employeur, certifie avoir employé :</p><table>')
       + row('Salariée', assmatNom()) + row('Adresse', v(p.adresse)) + row('Emploi occupé', 'Assistante maternelle agréée (agrément n° '+v(p.agrementNum)+')')
       + row('Du', v(fmtDate(c.debut))) + row('Au', v(fmtDate(c.fin))+' (fin du préavis, effectué ou non)') + '</table>'
       + '<p>Convention collective applicable : particuliers employeurs et emploi à domicile (IDCC 3239).</p>'
@@ -209,7 +217,8 @@ function printDoc(id){
     const f = finValues(c);
     h = docHead('Reçu pour solde de tout compte', c)
       + '<p>Je soussignée '+assmatNom()+', assistante maternelle, reconnais avoir reçu de '+employeurs(c)+', pour solde de tout compte, les sommes suivantes au titre de mon contrat de travail du '+v(fmtDate(c.debut))+' au '+v(fmtDate(c.fin))+' :</p><table>'
-      + row('Salaire du dernier mois (brut)', esc(f.salaire))
+      + (f.salaire ? row('Salaire du dernier mois (brut)', esc(f.salaire)) : '')
+      + (f.qui===4 ? row('Indemnité forfaitaire d\'engagement réciproque (½ mois de salaire brut)', esc(($('out-fin-engag')||{}).textContent||'')) : '')
       + (f.preavis?row('Indemnité compensatrice de préavis (brut)', esc(f.preavis)):'')
       + (f.cp?row('Indemnité compensatrice de congés payés (brut)', esc(f.cp)):'')
       + (f.regul?row('Rappel de salaire (régularisation)', esc(f.regul)):'')
