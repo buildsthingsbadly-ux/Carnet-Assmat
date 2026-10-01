@@ -337,6 +337,7 @@
         <div class="result-line"><span class="lbl">Jours d'accueil par mois (moyenne)</span><span class="val" id="out-mensu-jours">—</span></div>
         <div class="result-line total"><span class="lbl">Salaire mensuel brut</span><span class="val" id="out-mensu-salaire">—</span></div>
         <div class="result-line"><span class="lbl">Salaire mensuel net (estimation)</span><span class="val" id="out-mensu-net">—</span></div>
+        <div class="result-line" id="row-mensu-cp12" style="display:none"><span class="lbl">Si les congés sont payés chaque mois (1/12ᵉ, année incomplète) : + 10 %, soit un salaire brut de</span><span class="val" id="out-mensu-cp12">—</span></div>
         <div class="net-hint" id="mensu-net-hint">—</div>
         <div class="legal"><strong>Règle —</strong> CCN des particuliers employeurs et de l'emploi à domicile (IDCC 3239), socle assistant maternel : salaire mensualisé = heures par semaine × 52 (année complète) ou × nombre de semaines d'accueil (année incomplète) ÷ 12 × salaire horaire. Les heures au-delà de 45 h par semaine sont payées avec la majoration prévue au contrat (10 % minimum). Le salaire horaire ne peut pas être inférieur au minimum conventionnel en vigueur. Les jours par mois sont indicatifs (repère pour l'entretien et les repas).</div>
         <button class="btn primary block" onclick="askPrintChoice('mensu','Salaire mensualisé — Récapitulatif')">📄 Récapitulatif PDF (enregistrer ou imprimer)</button>
@@ -396,15 +397,14 @@
     </div>
 
     <div class="section-label">Congés payés ce mois-ci</div>
-    <div id="mois-cp-complete" class="info-box">Année complète : vos congés sont déjà dans le salaire mensualisé. Sur Pajemploi, ne remplissez <b>pas</b> la case « congés payés ».</div>
+    <div class="field"><label>Jours de congés payés pris ce mois-ci</label><input type="number" step="0.5" min="0" id="mois-jcp" placeholder="0">
+      <div class="hint" id="mois-jcp-hint">En jours ouvrables (une semaine de congés = 6 jours). Sert à votre compteur de congés et à la fin de contrat.</div></div>
+    <div id="mois-cp-complete" class="info-box">Année complète : rien à ajouter au salaire, vos congés sont déjà payés dans le salaire mensualisé. Sur Pajemploi, ne remplissez <b>pas</b> la case « congés payés » : les jours notés ci-dessus servent seulement à votre suivi.</div>
     <div id="mois-cp-incomplete" style="display:none">
       <div class="toggle-row"><span class="q">Ajouter le 1/12ᵉ de congés payés (si votre contrat prévoit un paiement chaque mois) ?</span>
         <div class="seg" id="mois-cp12"><button class="on">Non</button><button>Oui</button></div>
         <div class="hint">10 % du salaire brut du mois.</div></div>
-      <div class="grid2">
-        <div class="field"><label>Indemnité de congés payés versée ce mois-ci (€ brut)</label><input type="number" step="0.01" id="mois-cpmontant" placeholder="0"><div class="hint">Paiement en juin ou à la prise des congés : voir « Congés payés ».</div></div>
-        <div class="field"><label>Jours de congés payés pris ce mois-ci</label><input type="number" step="0.5" id="mois-jcp" placeholder="0"></div>
-      </div>
+      <div class="field"><label>Indemnité de congés payés versée ce mois-ci (€ brut)</label><input type="number" step="0.01" id="mois-cpmontant" placeholder="0"><div class="hint">Paiement en juin ou à la prise des congés : voir « Congés payés ». Ce montant et les jours pris se déclarent sur Pajemploi.</div></div>
     </div>
 
     <div class="section-label">Frais remboursés (pas du salaire)</div>
@@ -687,13 +687,13 @@
     <div class="toggle-row"><span class="q">Les montants que vous allez saisir sont-ils en brut ou en net ?</span>
       <div class="seg" id="fin-unite"><button class="on">Brut</button><button>Net</button></div>
       <div class="hint">En net, ils sont reconvertis en brut pour appliquer les méthodes légales.</div></div>
-    <div class="field"><label>Salaire du dernier mois, hors indemnités d'entretien (€)</label><input type="number" step="0.01" id="fin-salaire" placeholder="ex. 831.74">
-      <div class="hint">Si le dernier mois est incomplet, utilisez le thème « Mois incomplet ».</div></div>
-    <div class="toggle-row"><span class="q">Des indemnités d'entretien sont-elles dues pour ce dernier mois ?</span>
+    <div class="field"><label id="fin-salaire-label">Salaire du dernier mois, hors indemnités d'entretien (€)</label><input type="number" step="0.01" id="fin-salaire" placeholder="ex. 831.74">
+      <div class="hint" id="fin-salaire-hint">Si le dernier mois est incomplet, utilisez le thème « Mois incomplet ».</div></div>
+    <div class="toggle-row" id="fin-entretien-row"><span class="q">Des indemnités d'entretien sont-elles dues pour ce dernier mois ?</span>
       <div class="seg" id="fin-entretien"><button class="on">Non</button><button>Oui</button></div></div>
     <div id="fin-entretien-wrap" class="field subblock" style="display:none"><label>Montant des indemnités d'entretien (€)</label><input type="number" step="0.01" id="fin-entretien-montant" placeholder="ex. 65"></div>
 
-    <div class="toggle-row"><span class="q">Reste-t-il des jours de congés payés non pris ou non payés ?</span>
+    <div class="toggle-row" id="fin-cp-row"><span class="q">Reste-t-il des jours de congés payés non pris ou non payés ?</span>
       <div class="seg" id="fin-cp"><button>Non</button><button class="on">Oui</button></div></div>
     <div id="fin-cp-wrap" class="subblock">
       <div class="field"><label>Jours de congés restants dus</label><input type="number" step="0.5" id="fin-jours" placeholder="ex. 3"><div class="hint">Voir le thème « Congés payés ».</div></div>
@@ -735,7 +735,7 @@
       </div>
     </div>
 
-    <div class="toggle-row"><span class="q">L'indemnité de rupture est-elle due ?</span>
+    <div class="toggle-row" id="fin-rupture-row"><span class="q">L'indemnité de rupture est-elle due ?</span>
       <div class="seg" id="fin-rupture"><button class="on">Non</button><button>Oui</button></div>
       <div class="hint" id="fin-rupture-hint">Due par les parents qui retirent l'enfant après au moins 9 mois de contrat, sauf faute grave ou lourde.</div></div>
     <div id="fin-rupture-wrap" class="field subblock" style="display:none"><label>Total des salaires bruts perçus pendant tout le contrat (hors entretien, repas, km)</label>
