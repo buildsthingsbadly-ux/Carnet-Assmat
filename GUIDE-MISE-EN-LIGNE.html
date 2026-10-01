@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Guide de mise en ligne</title>
+<style>
+  :root{--ink:#1E332F;--soft:#5B6D68;--teal:#204E4B;--line:#D8E0DC;--amber:#F6E4C6;--bg:#F4F6F5;}
+  @media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){--ink:#E4ECE9;--soft:#9DB0AB;--teal:#8FD0C9;--line:#2E3D3A;--amber:#3A2E1C;--bg:#121A19;} }
+  :root[data-theme="dark"]{--ink:#E4ECE9;--soft:#9DB0AB;--teal:#8FD0C9;--line:#2E3D3A;--amber:#3A2E1C;--bg:#121A19;}
+  body{font-family:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;color:var(--ink);background:var(--bg);max-width:760px;margin:0 auto;padding:20px 16px 60px;line-height:1.55;}
+  h1{font-size:1.45rem;margin:0 0 4px;color:var(--teal);} h2{font-size:1.1rem;margin:28px 0 8px;color:var(--teal);border-bottom:2px solid var(--line);padding-bottom:4px;}
+  .sub{color:var(--soft);margin:0 0 18px;} ol li{margin:6px 0;} code{background:var(--amber);padding:1px 6px;border-radius:4px;}
+  .box{background:var(--amber);border-radius:8px;padding:10px 14px;margin:12px 0;} .ok{color:#1F7A5C;font-weight:600;}
+  table{border-collapse:collapse;width:100%;font-size:.92rem;} td,th{border:1px solid var(--line);padding:6px 8px;text-align:left;vertical-align:top;}
+  .check{list-style:none;padding-left:0;} .check li::before{content:'☐ ';font-size:1.1rem;}
+  @media print{ body{max-width:none;background:#fff;color:#000;} h2{break-after:avoid;} .noprint{display:none;} }
+</style>
+</head>
+<body>
+<h1>Carnet Assmat — mise en ligne et installation</h1>
+<p class="sub">Version 3.6.3 · environ 15 minutes · à faire une seule fois. Imprimez ce guide (Ctrl + P) pour l'avoir à côté de vous.</p>
+
+<div class="box"><b>Les fichiers prêts à l'emploi</b> sont dans <code>Téléchargements\Assmat\a-publier</code> : 6 fichiers et 2 dossiers (<code>js</code> avec 9 fichiers, <code>icons</code> avec 3 images). Ne modifiez rien dedans.</div>
+
+<h2>Étape 1 — Créer un compte GitHub (ordinateur)</h2>
+<ol>
+  <li>Allez sur <b>github.com</b>, cliquez <b>Sign up</b>.</li>
+  <li>E-mail, mot de passe, et un <b>nom d'utilisateur</b> : il fera partie de l'adresse de l'appli (ex. <code>marie-assmat</code>).</li>
+  <li>Validez le code reçu par e-mail.</li>
+</ol>
+
+<h2>Étape 2 — Créer l'espace de l'appli</h2>
+<ol>
+  <li>En haut à droite : <b>+</b> ▸ <b>New repository</b>.</li>
+  <li>Repository name : <code>carnet-assmat</code>.</li>
+  <li>Cochez <b>Public</b> (obligatoire pour la version gratuite). Seul le programme est visible : <b>vos données ne quittent jamais le téléphone</b>.</li>
+  <li>Ne cochez rien d'autre ▸ <b>Create repository</b>.</li>
+</ol>
+
+<h2>Étape 3 — Envoyer les fichiers</h2>
+<ol>
+  <li>Cliquez le lien <b>uploading an existing file</b>.</li>
+  <li>Ouvrez l'Explorateur Windows dans <code>Téléchargements\Assmat\a-publier</code>.</li>
+  <li>Sélectionnez <b>tout le contenu</b> (Ctrl + A), pas le dossier lui-même, et <b>glissez-le</b> dans la page GitHub.</li>
+  <li>Attendez que la liste affiche aussi <code>js/…</code> et <code>icons/…</code>, puis cliquez <b>Commit changes</b>.</li>
+</ol>
+<p class="ok">✔ Vérification : la page de votre espace montre directement index.html, sw.js, js, icons… (et non un dossier « a-publier »).</p>
+
+<h2>Étape 4 — Activer la page web</h2>
+<ol>
+  <li><b>Settings</b> (onglet en haut) ▸ <b>Pages</b> (menu de gauche).</li>
+  <li>Branch : <b>main</b>, dossier : <b>/ (root)</b> ▸ <b>Save</b>.</li>
+  <li>Patientez 1 à 2 minutes, rafraîchissez : l'adresse s'affiche, du type <code>https://VOTRE-NOM.github.io/carnet-assmat/</code>.</li>
+  <li>Envoyez-vous cette adresse par SMS ou e-mail.</li>
+</ol>
+
+<h2>Étape 5 — Installer sur le téléphone Android</h2>
+<ol>
+  <li>Ouvrez l'adresse dans <b>Chrome</b> (depuis un SMS ou un e-mail : « Ouvrir dans Chrome »). <b>Internet est nécessaire cette première fois.</b></li>
+  <li>Installez : bandeau <b>« Installer l'application »</b>, ou menu <b>⋮</b> ▸ <b>Installer l'application</b> (ou « Ajouter à l'écran d'accueil ») ▸ <b>Installer</b>.<br>Avec Samsung Internet : menu <b>☰</b> ▸ <b>Ajouter la page à</b> ▸ <b>Écran d'accueil</b>.</li>
+  <li>Ouvrez désormais le carnet par l'icône <b>Carnet Assmat</b> de l'écran d'accueil.</li>
+  <li>Vérifiez : passez en <b>mode avion</b> et ouvrez l'appli : elle fonctionne.</li>
+</ol>
+
+<h2>Étape 6 — Tablette (Android) et iPhone / iPad</h2>
+<ul>
+  <li><b>Tablette Android</b> : exactement l'étape 5, avec la même adresse.</li>
+  <li><b>iPhone / iPad</b> : ouvrez l'adresse dans <b>Safari</b> ▸ bouton <b>Partager</b> (carré avec une flèche) ▸ <b>Sur l'écran d'accueil</b>. Installez-la vraiment : sur iPhone, un site non installé peut perdre ses données après quelques semaines sans visite.</li>
+  <li>⚠️ Chaque appareil a <b>ses propres données</b>. Choisissez un appareil principal pour la saisie de tous les jours. Pour passer de l'un à l'autre, voir « Vos données et la copie de sécurité » plus bas.</li>
+</ul>
+
+<h2>Étape 7 — Premiers pas dans l'appli</h2>
+<ul class="check">
+  <li>Facultatif : <b>Outils ▸ Essayer avec un exemple</b> pour tout découvrir sans risque (vos vraies données sont mises de côté et reviennent en quittant la démo).</li>
+  <li><b>Outils ▸ Réglages ▸ Mon profil</b> : nom, n° d'agrément, date et durée de l'agrément (5 ou 10 ans), zone de vacances scolaires.</li>
+  <li><b>Enfants ▸ Ajouter un enfant</b>, pour chaque enfant. Un contrat déjà commencé ? Ouvrez « Contrat déjà commencé : reprendre les compteurs ».</li>
+  <li><b>Outils ▸ Mes données ▸ Faire une copie de sécurité</b>, rangée dans Google Drive (voir la section suivante).</li>
+  <li>Facultatif : <b>Aujourd'hui ▸ Ajouter les rappels à mon agenda</b> (rappel du soir et du 25 du mois).</li>
+  <li>Vous aviez des données dans la version « fichier » sur l'ordinateur ? Ouvrez-la ▸ Outils ▸ Copie de sécurité, puis sur le téléphone ▸ Restaurer une copie.</li>
+</ul>
+
+<h2>Vos données et la copie de sécurité</h2>
+<p><b>Où sont vos données ?</b> Uniquement dans la mémoire de l'appareil où l'appli est installée. Rien n'est envoyé sur internet : ni GitHub ni personne d'autre n'y a accès.</p>
+<table>
+  <tr><th>Enregistré tout seul</th><th>Demande un appui</th></tr>
+  <tr><td>Chaque case remplie, dès la saisie.<br>Tout, quand vous quittez l'appli (appel, écran éteint, fermeture).<br>Une fiche enfant ou une journée commencée : elle est reprise telle quelle au retour.</td>
+      <td><b>« ✔ Enregistrer »</b> : valide la journée de l'enfant.<br><b>« Valider le mois »</b> : range le mois dans l'historique de l'enfant.<br><b>« Faire une copie de sécurité »</b> : jamais automatique.</td></tr>
+</table>
+<div class="box">⚠️ <b>Sans copie, tout est perdu</b> si vous désinstallez l'appli, effacez les données de Chrome, changez de téléphone, ou si le téléphone est perdu, cassé ou réinitialisé.</div>
+
+<p><b>Faire une copie</b> (1 minute) :</p>
+<ol>
+  <li><b>Outils</b> ▸ rubrique <b>💾 Mes données</b> ▸ <b>⬆️ Faire une copie de sécurité</b>.</li>
+  <li>Le téléphone propose de partager le fichier : choisissez <b>Drive</b> (le plus sûr) ou envoyez-le-vous par <b>Gmail</b>. Sur ordinateur, le fichier va dans Téléchargements.</li>
+  <li>Le fichier s'appelle <code>copie-carnet-assmat-AAAA-MM-JJ.json</code>. Il contient tout : enfants, contrats, suivi, mois validés, réglages et photos jointes. Gardez au moins la dernière copie de chaque mois.</li>
+</ol>
+<p class="ok">✔ Sous les boutons, l'appli affiche la date de la dernière copie.</p>
+
+<p><b>Quand la faire ?</b></p>
+<ul>
+  <li><b>Chaque mois</b>, juste après <b>« Valider le mois »</b> : l'appli vous le propose (fenêtre « Faire une copie de sécurité ? » ▸ <b>Oui, faire la copie</b> ou <b>Plus tard</b>). La question n'est pas reposée si une copie a déjà été faite ce jour-là.</li>
+  <li><b>Avant</b> de changer de téléphone, de le faire réparer ou de le réinitialiser.</li>
+  <li>En fin d'année : l'appli le rappelle dans <b>Aujourd'hui</b>. Elle vous signale aussi quand la dernière copie a plus de 2 mois.</li>
+</ul>
+
+<p><b>Retrouver ses données</b> (nouveau téléphone, tablette, après une réinstallation) :</p>
+<ol>
+  <li>Installez l'appli sur l'appareil (étape 5 ou 6).</li>
+  <li>Récupérez le fichier de copie sur l'appareil (Drive ou pièce jointe du mail ▸ Télécharger).</li>
+  <li><b>Outils ▸ Mes données ▸ ⬇️ Restaurer une copie</b> ▸ choisissez le fichier ▸ <b>Oui, restaurer</b>.</li>
+</ol>
+<div class="box">Restaurer <b>remplace</b> toutes les données de l'appareil par celles du fichier. Utilisez toujours la copie la plus récente, et ne restaurez pas une ancienne copie sur l'appareil où vous saisissez tous les jours.</div>
+
+<h2>Plus tard : publier une nouvelle version</h2>
+<ol>
+  <li>Sur github.com ▸ <code>carnet-assmat</code> ▸ <b>Add file</b> ▸ <b>Upload files</b>.</li>
+  <li>Glissez de nouveau tout le contenu de <code>a-publier</code> (les anciens fichiers sont remplacés) ▸ <b>Commit changes</b>.</li>
+  <li>Sur les téléphones, à la prochaine ouverture : bandeau <b>« Mettre à jour »</b> ▸ un appui. <b>Les données ne sont pas touchées.</b></li>
+</ol>
+
+<h2>En cas de souci</h2>
+<table>
+  <tr><th>Problème</th><th>Solution</th></tr>
+  <tr><td>Page 404 après l'étape 4</td><td>Attendez 2 à 3 minutes ; vérifiez que <code>index.html</code> est bien à la racine de l'espace.</td></tr>
+  <tr><td>Pas de « Installer l'application »</td><td>Rechargez la page connectée à internet, attendez quelques secondes, rouvrez le menu ⋮.</td></tr>
+  <tr><td>Ancienne version affichée</td><td>Fermez complètement l'appli puis rouvrez-la : le bandeau « Mettre à jour » apparaît.</td></tr>
+  <tr><td>Le PDF ne s'imprime pas depuis l'appli installée</td><td>Ouvrez la même adresse dans Chrome et imprimez depuis là.</td></tr>
+  <tr><td>Changement de téléphone</td><td>Copie de sécurité sur l'ancien ▸ installation sur le nouveau (étape 5) ▸ Restaurer une copie.</td></tr>
+  <tr><td>Le partage ne s'ouvre pas pendant la copie</td><td>Ouvrez la même adresse dans Chrome et refaites la copie : le fichier va dans Téléchargements, envoyez-le ensuite sur Drive.</td></tr>
+  <tr><td>« Ce fichier ne vient pas du Carnet Assmat »</td><td>Choisissez le fichier <code>copie-carnet-assmat-….json</code>, pas un PDF ni une capture d'écran.</td></tr>
+  <tr><td>Téléphone perdu, sans copie</td><td>Les données ne peuvent pas être récupérées. Les déclarations déjà faites restent visibles sur Pajemploi.</td></tr>
+</table>
+</body>
+</html>
