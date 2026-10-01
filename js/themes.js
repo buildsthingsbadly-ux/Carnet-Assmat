@@ -253,7 +253,14 @@ function validerMois(){
   if(S && S.months){ const mr = S.months[r.m] = S.months[r.m] || {st:'ouvert'}; if(MONTH_ST.indexOf(mr.st) < MONTH_ST.indexOf('declare')){ mr.st='declare'; auditLog(c.id, fmtMonth(r.m)+' déclaré (mois validé)'); } }
   persistTheme('mois'); saveNow();
   CALC.mois();
-  toast('Mois de '+fmtMonth(r.m)+' enregistré pour '+(c.enfant||'l\'enfant')+'.');
+  const nomMois = fmtMonth(r.m), deMois = (/^[aeiouéè]/i.test(nomMois) ? 'd’' : 'de ')+nomMois;
+  toast('Mois '+deMois+' enregistré pour '+(c.enfant||'l\'enfant')+'.');
+  // rappel : proposer la copie de sécurité (sauf si une copie a déjà été faite aujourd'hui, ou en démonstration)
+  const deja = STATE.lastExport && iso(new Date(STATE.lastExport))===iso(today());
+  if(!deja && !isDemo()) setTimeout(()=>showConfirmDialog('Faire une copie de sécurité ?',
+    'Le mois '+deMois+' est enregistré sur ce téléphone uniquement. Une copie (Drive, mail…) vous permet de tout retrouver si le téléphone est perdu, cassé ou changé.'
+    + (STATE.lastExport ? ' Dernière copie : '+new Date(STATE.lastExport).toLocaleDateString('fr-FR')+'.' : ' Aucune copie faite pour l’instant.'),
+    ()=>syncExport(), 'Oui, faire la copie', 'Plus tard'), 600);
 }
 function supprimerMois(id, m){
   showConfirmDialog('Retirer ce mois ?', 'Le mois de '+fmtMonth(m)+' sera retiré de l\'historique (vous pourrez le valider à nouveau).', ()=>{
