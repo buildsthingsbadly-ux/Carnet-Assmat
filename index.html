@@ -266,9 +266,9 @@
       <div class="field" id="ct-maj-wrap" style="display:none"><label>Majoration des heures au-delà de 45 h par semaine (%)</label>
         <input type="number" step="1" id="ct-maj" placeholder="10"><div class="hint">10 % minimum.</div></div>
       <div class="toggle-row"><span class="q">Indemnité d'entretien (frais d'eau, chauffage, jouets…) :</span>
-        <div class="seg" id="ct-ieMode"><button class="on">Le minimum légal (automatique)</button><button>Un montant fixe par jour</button></div>
-        <div class="hint">« Automatique » : le carnet calcule toujours le minimum légal à jour, selon la durée de chaque journée.</div></div>
-      <div class="field subblock" id="ct-ieMontant-wrap" style="display:none"><label>Montant par jour d'accueil (€)</label><input type="number" step="0.01" id="ct-ieMontant" placeholder="ex. 4.00"></div>
+        <div class="seg" id="ct-ieMode"><button class="on">Le minimum légal (automatique)</button><button>Un montant fixe par jour</button><button>Un montant pour 9 h, au prorata en dessous</button></div>
+        <div class="hint">« Automatique » : le minimum légal à jour, selon la durée de chaque journée. « Montant fixe » : le même montant quelle que soit la durée. « Pour 9 h » : ce montant dès 9 h (sans augmentation au-delà), au prorata des heures pour une journée plus courte. Dans tous les cas, jamais moins que le minimum légal du jour.</div></div>
+      <div class="field subblock" id="ct-ieMontant-wrap" style="display:none"><label id="ct-ieMontant-label">Montant par jour d'accueil (€)</label><input type="number" step="0.01" id="ct-ieMontant" placeholder="ex. 4.00"></div>
       <div class="toggle-row"><span class="q">Qui fournit les repas et goûters ?</span>
         <div class="seg" id="ct-repasMode"><button class="on">Les parents</button><button>Moi (je suis payée pour)</button><button>Pas de repas</button></div></div>
       <div class="field subblock" id="ct-repasPrix-wrap" style="display:none"><label>Prix des repas et goûters par jour d'accueil (€)</label><input type="number" step="0.01" id="ct-repasPrix" placeholder="ex. 4.50"></div>
@@ -593,7 +593,7 @@
         <div class="field"><label>Heures par semaine (moyenne)</label><input type="number" step="0.25" id="cp-heures" placeholder="ex. 40"></div>
       </div>
       <div class="field"><label>Total des salaires bruts de la période de référence (1er juin – 31 mai)</label><input type="number" step="0.01" id="cp-total-salaires" placeholder="ex. 9000">
-        <div class="hint">Sans les indemnités d'entretien, repas ni km. <span id="cp-total-suggest"></span></div></div>
+        <div class="hint">Tout le brut de la période, heures en plus et congés payés versés compris (sauf les 12ᵉ versés chaque mois) ; sans les indemnités d'entretien, repas ni km. <span id="cp-total-suggest"></span></div></div>
     </div>
 
     <div class="stub">
@@ -605,7 +605,7 @@
         <div id="cp-repart"></div>
         <div class="result-line total"><span class="lbl">Total de jours disponibles</span><span class="val" id="out-cp-total">—</span></div>
         <div id="cp-valeur-results" style="display:none">
-          <div class="result-line"><span class="lbl">Méthode du maintien de salaire</span><span class="val" id="out-cp-maintien">—</span></div>
+          <div class="result-line"><span class="lbl">Méthode du maintien de salaire (jours acquis sur la période N-1)</span><span class="val" id="out-cp-maintien">—</span></div>
           <div class="result-line"><span class="lbl">Méthode du dixième (10 %)</span><span class="val" id="out-cp-dixieme">—</span></div>
           <div class="result-line total fav"><span class="lbl">Montant dû (le plus favorable)<span class="badge" id="cp-badge">—</span></span><span class="val" id="out-cp-verser">—</span></div>
           <div class="result-line"><span class="lbl">Montant net (estimation)</span><span class="val" id="out-cp-net">—</span></div>
@@ -630,6 +630,7 @@
       <div class="field"><label>Jours d'accueil dans le mois</label><input type="number" step="1" min="0" id="ie-jours-accueil" placeholder="ex. 20"><div class="hint">Jours où l'enfant est réellement venu.</div></div>
       <div class="field"><label>Durée moyenne d'une journée d'accueil (heures)</label><input type="number" step="0.25" id="ie-heures" placeholder="ex. 9"></div>
     </div>
+    <div class="hint" id="ie-methode"></div>
     <div class="toggle-row"><span class="q">Qui est l'employeur ?</span>
       <div class="seg" id="ie-employeur"><button class="on">Les parents (particulier employeur)</button><button>Une crèche familiale / personne morale</button></div></div>
     <div id="ie-contrat-wrap" class="field subblock" style="display:none"><label>Montant journalier prévu au contrat (€)</label><input type="number" step="0.01" id="ie-montant-contrat" placeholder="ex. 4.00"></div>
@@ -644,6 +645,7 @@
         <div class="result-line total"><span class="lbl">Indemnité minimale du mois</span><span class="val" id="out-ie-mois-min">—</span></div>
         <div id="ie-compare-results" style="display:none">
           <div class="result-line"><span class="lbl">Montant prévu au contrat pour le mois</span><span class="val" id="out-ie-contrat">—</span></div>
+          <div class="result-line total"><span class="lbl">À verser et à déclarer sur Pajemploi</span><span class="val" id="out-ie-verser">—</span></div>
           <div class="result-line" id="row-ie-conformite"><span class="lbl">Conformité<span class="badge" id="ie-badge">—</span></span><span class="val" id="out-ie-ecart">—</span></div>
         </div>
         <div class="legal"><strong>Règle —</strong> CCN IDCC 3239 : l'indemnité d'entretien ne peut pas être inférieure à 90 % du minimum garanti pour une journée de 9 heures ; elle est calculée au prorata de la durée réelle d'accueil, sans jamais descendre sous 2,65 € par jour d'accueil. Pour un employeur personne morale (hors convention), la référence est 85 % du MG. Elle n'est pas due si l'enfant est absent. Elle n'est pas soumise à cotisations.</div>
@@ -691,7 +693,7 @@
       <div class="hint" id="fin-salaire-hint">Si le dernier mois est incomplet, utilisez le thème « Mois incomplet ».</div></div>
     <div class="toggle-row" id="fin-entretien-row"><span class="q">Des indemnités d'entretien sont-elles dues pour ce dernier mois ?</span>
       <div class="seg" id="fin-entretien"><button class="on">Non</button><button>Oui</button></div></div>
-    <div id="fin-entretien-wrap" class="field subblock" style="display:none"><label>Montant des indemnités d'entretien (€)</label><input type="number" step="0.01" id="fin-entretien-montant" placeholder="ex. 65"></div>
+    <div id="fin-entretien-wrap" class="field subblock" style="display:none"><label>Montant des indemnités d'entretien (€)</label><input type="number" step="0.01" id="fin-entretien-montant" placeholder="ex. 65"><div class="hint">Jours de présence du dernier mois jusqu'à la date de fin, au montant du jour (jamais une moyenne mensualisée).</div></div>
 
     <div class="toggle-row" id="fin-cp-row"><span class="q">Reste-t-il des jours de congés payés non pris ou non payés ?</span>
       <div class="seg" id="fin-cp"><button>Non</button><button class="on">Oui</button></div></div>
@@ -798,7 +800,7 @@
     <div class="toggle-row"><span class="q">Nombre d'enfants accueillis dans l'année (= nombre d'employeurs)</span>
       <div class="seg" id="ab-nbenfants"><button class="on">1</button><button>2</button><button>3</button><button>4</button><button>5</button><button>6</button><button>7</button><button>8</button></div>
       <div class="hint">Un enfant parti en cours d'année compte aussi. <a href="#" onclick="abFillFromContracts();return false;">Reprendre mes enfants enregistrés</a></div></div>
-    <div class="info-box">Pour chaque mois : le <b>salaire net imposable</b> (sur le bulletin Pajemploi), les <b>indemnités</b> reçues (entretien, repas, km), la valeur des <b>repas fournis par les parents</b> s'il y en a, puis le nombre de <b>jours d'au moins 8 h</b> et le <b>total d'heures des jours de moins de 8 h</b> (converti automatiquement). Ne comptez que les jours où l'enfant était vraiment présent. Le mois de décembre de l'année précédente est proposé car il est souvent payé en janvier.</div>
+    <div class="info-box">Pour chaque mois : le <b>salaire net imposable</b> du salaire, les <b>indemnités d'entretien et de repas</b> reçues (pas les kilomètres), la valeur des <b>repas fournis par les parents</b> (forfait obligatoire par jour de présence), puis le nombre de <b>jours d'au moins 8 h</b> et le <b>total d'heures des jours de moins de 8 h</b>. ⚠️ Le net imposable de l'attestation Pajemploi contient <b>déjà</b> l'entretien et les repas : si vous l'utilisez, laissez la colonne « Indemnités » vide. Ne comptez que les jours où l'enfant était vraiment présent. Un mois compte pour l'année où il est <b>payé</b> : décembre payé en janvier va dans l'année suivante (jamais deux décembres).</div>
     <div id="ab-children"></div>
 
     <div class="stub">
@@ -814,7 +816,7 @@
         <div class="pajemploi-block">
           <div class="pajemploi-title">Sur votre déclaration de revenus</div>
           <div class="result-line"><span class="lbl">Case 1AJ (ou 1BJ pour le déclarant 2) : corriger le montant pré-rempli et mettre</span><span class="val" id="out-ab-1aj">—</span></div>
-          <div class="result-line"><span class="lbl">Case 1GA (ou 1HA) : abattement, pour information</span><span class="val" id="out-ab-1ga">—</span></div>
+          <div class="result-line"><span class="lbl">Case 1GA (ou 1HA) : total de l’abattement, à reporter obligatoirement</span><span class="val" id="out-ab-1ga">—</span></div>
           <div class="result-line"><span class="lbl">Case 1GH (ou 1HH) : heures complémentaires/majorées exonérées</span><span class="val">montant de l'attestation Pajemploi</span></div>
         </div>
         <div class="legal"><strong>Règle —</strong> régime fiscal spécial des assistants maternels (art. 80 sexies du CGI ; BOI-RSA-CHAMP-20-40-20) : on part du total des sommes perçues (salaire net imposable + indemnités d'entretien, de repas, de déplacement + avantages en nature), puis on retire, pour chaque enfant et chaque jour de présence, 3 fois le SMIC horaire en vigueur au 1er janvier de l'année (4 fois pour un enfant handicapé, malade ou inadapté). Une journée de moins de 8 h donne un abattement proportionnel (heures ÷ 8). L'abattement ne peut pas dépasser les sommes perçues. Le montant pré-rempli par l'administration ne tient pas compte de l'abattement : il faut le corriger vous-même (1AJ/1BJ) avec le montant net d'abattement ; la case 1GA/1HA est seulement informative. La déduction de 10 % pour frais professionnels s'applique ensuite automatiquement. Le régime ordinaire (salaires seuls, indemnités non imposées) est parfois plus avantageux : comparez avant de choisir. Ce calcul est indicatif ; en cas de doute, appelez votre centre des impôts.</div>
