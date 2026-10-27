@@ -127,7 +127,7 @@ function suiviMonth(c, ym){
   }
   const md = days.filter(x=>x.d.getMonth()===m);
   const T = {hPrev:0, hDed:0, hOut:0, compl:0, maj:0, R:0, jAcc:0, jPrev:0, jDed:0, cp:0, cpOuv:0, ie:0, repas:0, nbRepas:0, km:0, kmEur:0, frais:0,
-    ferieMin:0, mai1Min:0, retards:0, todo:0, j8:0, hm8:0, inC:0};
+    ferieMin:0, mai1Min:0, retards:0, todo:0, j8:0, hm8:0, inC:0, jOut:0, ferieChMin:0};
   const versions = {};
   md.forEach(x=>{
     const plFull = plannedDay(c, x.d).min;
@@ -135,7 +135,7 @@ function suiviMonth(c, ym){
     versions[vkey] = versions[vkey] || {d:x.d, hPlan:0, hDed:0};
     versions[vkey].hPlan += plFull;
     T.hPrev += plFull;
-    if(!x.inC){ T.hOut += plFull; versions[vkey].hDed += plFull; return; }
+    if(!x.inC){ T.hOut += plFull; versions[vkey].hDed += plFull; if(plFull) T.jOut++; return; }
     T.inC++;
     if(x.P) T.jPrev++;
     T.hDed += x.ded; versions[vkey].hDed += x.ded;
@@ -143,6 +143,7 @@ function suiviMonth(c, ym){
     T.compl += x.compl||0; T.maj += x.maj||0; T.R += x.R;
     if(x.acc && x.R>0 && x.st!=='avant'){ T.jAcc++; if(x.R >= 60*(R('abatHeuresJour', x.d)||8)) T.j8++; else T.hm8 += x.R/60; }
     if(x.def.cp) T.cp++;
+    if(x.st==='ferieCh') T.ferieChMin += x.P;
     T.ie += x.ie; T.repas += x.repas; T.nbRepas += x.nbRepas; T.km += x.km; T.kmEur += x.kmEur; T.frais += x.frais;
     if(x.acc && x.ferie && x.R){ if(x.ferie==='1er mai') T.mai1Min += x.R; else T.ferieMin += x.R; }
     if(x.retard) T.retards++;
@@ -157,13 +158,15 @@ function suiviMonth(c, ym){
   }
   // salaire mensualisé dû (méthode Cour de cassation, ventilé par avenant)
   const vs = Object.values(versions);
-  let due = 0, base = 0;
-  vs.forEach(v=>{ const b = derive(c, v.d).brutBase; base += T.hPrev ? b*v.hPlan/T.hPrev : b/vs.length;
+  let due = 0, base = 0, hMensuV = 0, jMensuV = 0, hMajMensuV = 0;
+  vs.forEach(v=>{ const dv = derive(c, v.d), b = dv.brutBase, k = T.hPrev ? v.hPlan/T.hPrev : 1/vs.length;
+    base += b*k; hMensuV += dv.hMensu*k; jMensuV += dv.joursMensu*k; hMajMensuV += dv.hMajMensu*k;
     if(T.hPrev) due += b*(v.hPlan - v.hDed)/T.hPrev; });
   if(!T.hPrev){ // mois sans aucun jour d'accueil prévu (vacances en année incomplète) : la mensualisation reste due
-    const dv = derive(c, last); base = dv.brutBase;
+    const dv = derive(c, last); base = dv.brutBase; hMensuV = dv.hMensu; jMensuV = dv.joursMensu; hMajMensuV = dv.hMajMensu;
     due = T.inC ? base*T.inC/nb : 0;
   }
+  due = round2(due); base = round2(base);   // salaire dû au centime, comme dans « Salaire du mois » et sur Pajemploi
   const dvEnd = derive(c, last), taux = dvEnd.tauxEff, majPct = dvEnd.majPct;
   const complPay = T.compl/60*taux, majPay = T.maj/60*taux*(1+majPct/100);
   const ferieSup = T.ferieMin/60*taux*R('majFerie', d0)/100 + T.mai1Min/60*taux*R('majPremierMai', d0)/100;
@@ -173,8 +176,10 @@ function suiviMonth(c, ym){
   const cp12 = (cc.type===1 && cc.cpMode===0) ? (due+complPay+majPay+ferieSup)*0.10 : 0;
   const brut = due + complPay + majPay + ferieSup + regBrut + cp12;
   const ratio = netRatio(d0), red = R('hsReduction', d0)||0;
-  const net = (due + ferieSup + regBrut + cp12)*ratio + (complPay+majPay)*Math.min(1, ratio+red);
-  return {c, ym, days: md, T, base, due, taux, majPct, complPay, majPay, ferieSup, regs, regBrut, cp12, brut, net, dv: dvEnd, versions: vs.length};
+  // heures majorées prévues au planning (au-delà de 45 h) : même traitement que dans « Salaire du mois »
+  const partMaj = base ? Math.min(1, hMajMensuV*taux*(1+majPct/100)/base) : 0, dueMaj = due*partMaj;
+  const net = (due - dueMaj + ferieSup + regBrut + cp12)*ratio + (complPay+majPay+dueMaj)*Math.min(1, ratio+red);
+  return {c, ym, days: md, T, base, due, hMensuV, jMensuV, hMajMensuV, partMaj, taux, majPct, complPay, majPay, ferieSup, regs, regBrut, cp12, brut, net, dv: dvEnd, versions: vs.length};
 }
 
 /* Vérifications avant clôture (non bloquantes) */
@@ -486,9 +491,9 @@ function suiviVersPaie(cid, ym){
 function suiviFillMois(c, ym){
   const cid = c.id, M = suiviMonth(c, ym), T = M.T, mr = monthRec(cid, ym);
   const ded = Math.max(0, M.base - M.due);
-  setVal('mois-base', round2(M.base));
+  setVal('mois-base', round2(M.base)); setVal('mois-heures', round2(M.hMensuV)); setVal('mois-jmensu', round2(M.jMensuV));
   setSegVal('mois-incomplet', ded>0.004 ? 1 : 0);
-  setVal('mois-deduction', round2(ded)); setVal('mois-jprev', T.jPrev); setVal('mois-jded', T.jDed); setVal('mois-hded', round2((T.hDed+T.hOut)/60));
+  setVal('mois-deduction', round2(ded)); setVal('mois-jprev', T.jPrev + T.jOut); setVal('mois-jded', T.jDed + T.jOut); setVal('mois-hded', round2((T.hDed+T.hOut)/60));
   setSegVal('mois-heuresup', (T.compl||T.maj) ? 1 : 0); setVal('mois-hcompl', round2(T.compl/60)); setVal('mois-hmaj', round2(T.maj/60)); setVal('mois-majoration', M.majPct);
   setSegVal('mois-ferie', (T.ferieMin||T.mai1Min) ? 1 : 0); setVal('mois-hferie', round2(T.ferieMin/60)); setVal('mois-h1mai', round2(T.mai1Min/60));
   setVal('mois-jcp', T.cpOuv||'');   // jours de congés pris (suivi), quel que soit le type de contrat
@@ -499,7 +504,7 @@ function suiviFillMois(c, ym){
   setVal('mois-indemj', I.fixe || '');
   setVal('mois-repas', T.jAcc ? +(T.repas/T.jAcc).toFixed(6) : '');
   setVal('mois-km', round2(T.kmEur || (parseFloat(paramsAt(c,parseD(ym)).km)||0)));
-  setVal('mois-hreel', round2(T.R/60));
+  setVal('mois-hreel', round2((T.R + T.ferieChMin)/60));   // fériés chômés payés : comptés comme effectués pour la régularisation
   setVal('mois-j8', T.j8); setVal('mois-hm8', round2(T.hm8));
   setVal('mois-regul', M.regBrut ? round2(M.regBrut) : '');
   if(mr.acompte) setVal('mois-acompte', mr.acompte);

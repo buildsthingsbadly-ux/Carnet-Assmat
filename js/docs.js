@@ -55,6 +55,13 @@ function planningTable(c){
   h += '<tr><td>'+(B?'Semaine A':'Heures')+'</td>'+A.map(x=>'<td>'+(x?fmtNum(x,2)+' h':'—')+'</td>').join('')+'</tr>';
   if(B) h += '<tr><td>Semaine B</td>'+B.map(x=>'<td>'+(x?fmtNum(x,2)+' h':'—')+'</td>').join('')+'</tr>';
   h += '<tr><td>Horaires (arrivée – départ)</td>'+A.map(x=>'<td>'+(x?'__h__ – __h__':'')+'</td>').join('')+'</tr></table>';
+  if(B){
+    const ref = +c.alterneRef || 0;
+    h += '<p>Alternance : '+(ref===1 ? 'les semaines <b>paires</b> (numéro de semaine du calendrier) suivent le planning A, les semaines impaires le planning B'
+      : ref===2 ? 'les semaines <b>impaires</b> (numéro de semaine du calendrier) suivent le planning A, les semaines paires le planning B'
+      : 'la semaine où l’alternance commence ('+(c.hist && c.hist.length ? 'date d’effet de l’avenant qui l’a mise en place, ou début du contrat' : 'début du contrat')+') suit le planning A, puis A et B alternent chaque semaine')+'.'
+      + (B.every(x=>!x) ? ' L\'enfant n\'est pas accueilli les semaines B.' : '')+'</p>';
+  }
   return h;
 }
 function docHead(title, c){

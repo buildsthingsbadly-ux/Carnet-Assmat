@@ -115,7 +115,8 @@ function abPrefillDays(i){
   for(let m=0;m<13;m++){
     if(!abSlotActive(i,m,a)) continue;
     const {y,mo} = abSlot(m,a);
-    const days = plannedDays(c, y, mo, {skipFeries:true});
+    // mêmes journées que l'onglet Mois : suivi si renseigné, sinon planning (fériés chômés, semaines sans accueil exclus)
+    const days = ieDuMois(c, y+'-'+String(mo+1).padStart(2,'0')).days.map(x=>({h: x.R/60}));
     const j8 = days.filter(x=>x.h>=seuil).length, hm8 = days.filter(x=>x.h<seuil).reduce((s,x)=>s+x.h,0);
     setVal('ab-c'+i+'-m'+m+'-j8', j8||''); setVal('ab-c'+i+'-m'+m+'-hm8', hm8?round2(hm8):'');
   }

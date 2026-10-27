@@ -249,7 +249,7 @@ function restoreContratDraft(d){
   CT_IS_NEW = d.isNew; CT = clone(d.ct); CT._orig = d.orig || (d.isNew ? null : paramsOf(getContrat(CT.id)||CT));
   setTxt('ct-title', CT_IS_NEW ? 'Nouvel enfant' : 'Modifier : '+(CT.enfant||'enfant'));
   CT_TEXT.forEach(k=>setVal('ct-'+k, CT[k]));
-  setSegVal('ct-handicap', CT.handicap); setSegVal('ct-type', CT.type); setSegVal('ct-titre', CT.titre); setSegVal('ct-alterne', CT.alterne);
+  setSegVal('ct-handicap', CT.handicap); setSegVal('ct-type', CT.type); setSegVal('ct-titre', CT.titre); setSegVal('ct-alterne', CT.alterne); setSegVal('ct-alterneRef', CT.alterneRef||0);
   setSegVal('ct-ieMode', CT.ieMode); setSegVal('ct-repasMode', CT.repasMode); setSegVal('ct-cpMode', CT.cpMode); setSegVal('ct-horaires', CT.horaires||0);
   for(let i=0;i<7;i++){ setVal('ct-wA'+i, CT.wA[i]); setVal('ct-wB'+i, CT.wB[i]); ['A','B'].forEach(w=>{ const tt=(CT['t'+w]||[])[i]||[]; setVal('ct-w'+w+i+'s', tt[0]||''); setVal('ct-w'+w+i+'e', tt[1]||''); }); }
   const rp = CT.rep||{}; REP_KEYS.forEach(k=>setVal('ct-rep-'+k, rp[k]));

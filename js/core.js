@@ -276,6 +276,9 @@ function Rnext(key, when){
 }
 function netRatio(when){ return R(STATE.settings.am ? 'netRatioAM' : 'netRatio', when) || 0.78; }
 function toNet(brut, when){ return brut * netRatio(when); }
+/* Net d'un salaire mensualisé dont une partie correspond à des heures majorées prévues au contrat (au-delà de 45 h) :
+   ces heures bénéficient de la réduction de cotisations salariales des heures supplémentaires */
+function netMensualise(brut, brutMaj, when){ const r = netRatio(when); return (brut-brutMaj)*r + brutMaj*Math.min(1, r + (R('hsReduction', when)||0)); }
 /* Indemnité d'entretien minimale pour une journée de h heures */
 function ieLegalJour(h, when, personneMorale){
   const mg = R('mg', when), ref = R('ieHeuresRef', when) || 9;

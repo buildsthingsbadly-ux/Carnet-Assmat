@@ -6,7 +6,7 @@ const MAX_ENFANTS = 4;
 
 function newContrat(){
   return { id:'c'+Date.now().toString(36), enfant:'', famille:'', naissance:'', handicap:0,
-    debut:'', fin:'', type:0, semaines:'', titre:0, alterne:0, wA:['','','','','','',''], wB:['','','','','','',''],
+    debut:'', fin:'', type:0, semaines:'', titre:0, alterne:0, alterneRef:0, wA:['','','','','','',''], wB:['','','','','','',''],
     taux:'', maj:'', ieMode:0, ieMontant:'', repasMode:0, repasPrix:'', km:'', cpMode:1,
     // coordonnées (facultatives, servent aux documents)
     enfantNom:'', parent1:'', parent2:'', adresse:'', tel:'', email:'', adaptation:'', paiementJour:'',
@@ -44,12 +44,26 @@ function journalTotals(id, fromM, toM){
   return t;
 }
 /* ---------- Avenants : chaque modification datée garde les anciennes valeurs pour les mois passés ---------- */
-const PARAM_KEYS = ['type','semaines','titre','alterne','wA','wB','tA','tB','horaires','semOff','taux','maj','ieMode','ieMontant','repasMode','repasPrix','km','kmTaux','cpMode'];
+const PARAM_KEYS = ['type','semaines','titre','alterne','alterneRef','wA','wB','tA','tB','horaires','semOff','taux','maj','ieMode','ieMontant','repasMode','repasPrix','km','kmTaux','cpMode'];
 function paramsAt(c, when){
   if(!c || !Array.isArray(c.hist) || !c.hist.length) return c;
   const k = iso(parseD(when) || today());
   const h = c.hist.slice().sort((a,b)=>a.jusqua<b.jusqua?-1:1).find(x=>k <= x.jusqua);
   return h ? Object.assign({}, c, clone(h.p)) : c;
+}
+/* Date de début de l'alternance en vigueur au jour d : début du contrat, ou date d'effet de l'avenant qui a mis
+   en place l'alternance (un avenant qui change seulement le tarif ne décale pas les semaines A et B). */
+function debutAlternance(c, d){
+  const H = Array.isArray(c.hist) ? c.hist.slice().sort((a,b)=>a.jusqua<b.jusqua?-1:1) : [];
+  if(!H.length) return parseD(c.debut);
+  const k = iso(parseD(d) || today());
+  // versions successives : [début, fin, paramètres]
+  const V = []; let from = c.debut || '';
+  H.forEach(h=>{ V.push([from, h.jusqua, h.p]); from = iso(addDays(parseD(h.jusqua), 1)); });
+  V.push([from, '9999-12-31', c]);
+  let i = V.findIndex(v=>k <= v[1]); if(i<0) i = V.length-1;
+  while(i>0 && V[i-1][2] && V[i-1][2].alterne) i--;
+  return parseD(V[i][0]) || parseD(c.debut);
 }
 function paramsOf(c){ const p={}; PARAM_KEYS.forEach(k=>p[k]=clone(c[k]===undefined?null:c[k])); return p; }
 /* Heures « HH:MM » <-> minutes */
@@ -68,7 +82,7 @@ function derive(c, when){
   const seuil = R('seuilMaj', d);
   const majA=Math.max(0,hA-seuil), majB=Math.max(0,hB-seuil);
   const semaines = c.type===1 ? (parseFloat(c.semaines)||0) : 52;
-  const moyH=(hA+hB)/2, moyJ=(jA+jB)/2, moyMaj=(majA+majB)/2, moyNorm=moyH-moyMaj;
+  const {moyH, moyJ, moyMaj} = rythmeMoyen(c.type, c.alterne, hA, hB, jA, jB, majA, majB), moyNorm = moyH-moyMaj;
   const hNormMensu = moyNorm*semaines/12, hMajMensu = moyMaj*semaines/12;
   const joursMensu = moyJ*semaines/12;
   const tauxMin = R(c.titre ? 'salMinTitre' : 'salMin', d);
@@ -79,7 +93,7 @@ function derive(c, when){
   const brutBase = hNormMensu*tauxEff + hMajMensu*tauxEff*(1+majPct/100);
   const cp12 = (c.type===1 && c.cpMode===0) ? brutBase*0.10 : 0;
   const brut = brutBase + cp12;
-  const net = toNet(brut, d);
+  const net = netMensualise(brut, hMajMensu*tauxEff*(1+majPct/100), d);
   // Indemnité d'entretien : moyenne par jour d'accueil sur le planning (A et B)
   const jours = A.filter(x=>x>0).concat(B.filter(x=>x>0));
   let ieSum=0, ieSousMin=false;
@@ -97,11 +111,24 @@ function derive(c, when){
     tauxMin,tauxSaisi,tauxEff,tauxReleve,majPct,brutBase,cp12,brut,net,ieJour,ieMois,ieSousMin,repasMois,km,
     totalNet: net+ieMois+repasMois+km, maxJour, hMaxSem: Math.max(hA,hB), hDayAvg: (moyJ? moyH/moyJ : 0) };
 }
-/* Semaine A ou B pour un contrat alterné (la semaine du début de contrat = A) */
+/* Semaine moyenne servant à la mensualisation.
+   Année complète : moyenne des semaines A et B (52 semaines du calendrier, une semaine B vide compte).
+   Année incomplète : « semaines » = semaines où l'enfant vient ; on fait donc la moyenne des seules semaines
+   d'accueil (ex. le mercredi une semaine sur deux : 8 h × semaines d'accueil ÷ 12, et non 4 h). */
+function rythmeMoyen(type, alterne, hA, hB, jA, jB, majA, majB){
+  let W = alterne ? [[hA,jA,majA],[hB,jB,majB]] : [[hA,jA,majA]];
+  if(type===1 && alterne){ const nz = W.filter(w=>w[0]>0); if(nz.length) W = nz; }
+  const avg = k=>W.reduce((s,w)=>s+w[k],0)/W.length;
+  return {moyH: avg(0), moyJ: avg(1), moyMaj: avg(2)};
+}
+/* Semaine A ou B pour un contrat alterné.
+   alterneRef : 0 = la semaine du début du contrat est A ; 1 = semaines paires (n° ISO) = A ; 2 = semaines impaires = A */
 function weekIsB(c, d){
   if(!c.alterne) return false;
-  const ref = parseD(c.debut) || new Date(2024,0,1);
-  const diff = Math.round((mondayOf(d)-mondayOf(ref))/(7*86400000));
+  const ref = +c.alterneRef || 0;
+  if(ref===1 || ref===2){ const pair = isoWeek(d)%2===0; return ref===1 ? !pair : pair; }
+  const r = debutAlternance(c, d) || parseD(c.debut) || new Date(2024,0,1);
+  const diff = Math.round((mondayOf(d)-mondayOf(r))/(7*86400000));
   return Math.abs(diff)%2===1;
 }
 /* Jours prévus par le planning dans un mois donné (dans les dates du contrat) */
@@ -415,7 +442,7 @@ function editContrat(id, force){
   setTxt('ct-title', CT_IS_NEW ? 'Nouvel enfant' : 'Modifier : '+(CT.enfant||'enfant'));
   CT_TEXT.forEach(k=>setVal('ct-'+k, CT[k]));
   setSegVal('ct-handicap', CT.handicap); setSegVal('ct-type', CT.type); setSegVal('ct-titre', CT.titre);
-  setSegVal('ct-alterne', CT.alterne); setSegVal('ct-ieMode', CT.ieMode); setSegVal('ct-repasMode', CT.repasMode); setSegVal('ct-cpMode', CT.cpMode);
+  setSegVal('ct-alterne', CT.alterne); setSegVal('ct-alterneRef', CT.alterneRef||0); setSegVal('ct-ieMode', CT.ieMode); setSegVal('ct-repasMode', CT.repasMode); setSegVal('ct-cpMode', CT.cpMode);
   for(let i=0;i<7;i++){ setVal('ct-wA'+i, CT.wA[i]); setVal('ct-wB'+i, CT.wB[i]);
     ['A','B'].forEach(w=>{ const t=(CT['t'+w]||[])[i]||[]; setVal('ct-w'+w+i+'s', t[0]||''); setVal('ct-w'+w+i+'e', t[1]||''); }); }
   setSegVal('ct-horaires', CT.horaires||0);
@@ -428,7 +455,7 @@ function editContrat(id, force){
 function ctRead(){
   if(!CT) return;
   CT_TEXT.forEach(k=>CT[k]=val('ct-'+k).trim());
-  CT.handicap=seg('ct-handicap'); CT.type=seg('ct-type'); CT.titre=seg('ct-titre'); CT.alterne=seg('ct-alterne');
+  CT.handicap=seg('ct-handicap'); CT.type=seg('ct-type'); CT.titre=seg('ct-titre'); CT.alterne=seg('ct-alterne'); CT.alterneRef=seg('ct-alterneRef');
   CT.ieMode=seg('ct-ieMode'); CT.repasMode=seg('ct-repasMode'); CT.cpMode=seg('ct-cpMode');
   CT.horaires = seg('ct-horaires');
   CT.tA = CT.tA||[]; CT.tB = CT.tB||[];
@@ -456,7 +483,18 @@ function ctRefresh(){
   setTxt('ct-type-hint', CT.type===1
     ? '« Une partie de l\'année » = l\'enfant ne vient pas certaines semaines en plus de vos congés (ex. vacances scolaires). Le salaire est calculé sur les seules semaines d\'accueil.'
     : '« Toute l\'année » = l\'enfant vient toutes les semaines, sauf pendant vos 5 semaines de congés payés (année complète, 52 semaines payées).');
-  show('ct-wB-wrap', CT.alterne===1);
+  show('ct-wB-wrap', CT.alterne===1); show('ct-alterneRef-row', CT.alterne===1, 'flex');
+  if(CT.alterne===1){
+    const t0 = today(), wk = isoWeek(t0), nxt = addDays(mondayOf(t0), 7);
+    const lab = d=>'S'+isoWeek(d)+' ('+(isoWeek(d)%2===0?'paire':'impaire')+') : semaine '+(weekIsB(CT, d)?'B':'A');
+    // avenant qui met en place l'alternance sur un contrat qui n'en avait pas : les semaines A partent de la date d'effet
+    const nouvelleAlt = !CT_IS_NEW && CT._orig && !CT._orig.alterne;
+    setHTML('ct-alterneRef-hint', ((CT.alterneRef||0)===0 && nouvelleAlt
+      ? 'L’alternance commencera à la <b>date d’effet de l’avenant</b> (demandée à l’enregistrement) : cette semaine-là sera une semaine A. '
+      : 'Cette semaine '+lab(t0)+' · la suivante '+lab(nxt)+'. ')
+      + (CT.type===1 ? 'L’enfant ne vient qu’une semaine sur deux ? Laissez la semaine B vide : seules les semaines d’accueil comptent dans le nombre de semaines par an. ' : 'Une semaine B vide est payée comme une semaine sans heures : le salaire est la moyenne des deux semaines. ')
+      + ((CT.alterneRef||0) ? 'Numéros de semaine du calendrier (ISO) : les années à 53 semaines, la S53 et la S1 ont la même parité.' : ''));
+  }
   $('ct-wA').classList.toggle('with-times', CT.horaires===1); $('ct-wB').classList.toggle('with-times', CT.horaires===1);
   for(let i=0;i<7;i++){ ['A','B'].forEach(w=>{ const inp=$('ct-w'+w+i); if(inp) inp.readOnly = CT.horaires===1; }); }
   const debD = parseD(CT.debut); show('ct-rep-wrap', !!(debD && (today()-debD)/86400000 > 20));
@@ -493,16 +531,19 @@ function ctRenderWeeks(){
   const deb = parseD(CT.debut) || today();
   let start = mondayOf(deb);
   if((today()-deb)/86400000 > 330) start = mondayOf(new Date(today().getFullYear() - (today().getMonth()<7?1:0), 8, 1));
-  let h='', off=0;
+  let h='', off=0, vides=0;
+  const A = wNums(CT.wA), B = CT.alterne ? wNums(CT.wB) : A, sA = A.reduce((s,x)=>s+x,0), sB = B.reduce((s,x)=>s+x,0);
   for(let i=0;i<52;i++){
     const w = addDays(start, 7*i), k = iso(w), isOff = CT.semOff.includes(k);
-    if(isOff) off++;
-    h += '<button type="button" class="chip'+(isOff?'':' on')+'" style="min-height:34px;padding:5px 9px;font-size:.74rem" onclick="ctToggleWeek(\''+k+'\')" title="'+(isOff?'sans accueil':'accueil')+'">S'+isoWeek(w)+' · '+w.toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit'})+'</button>';
+    const estB = weekIsB(CT, w), vide = !isOff && CT.alterne && !(estB ? sB : sA);
+    if(isOff) off++; else if(vide) vides++;
+    h += '<button type="button" class="chip'+(isOff||vide?'':' on')+'" style="min-height:34px;padding:5px 9px;font-size:.74rem'+(vide?';opacity:.6':'')+'" onclick="ctToggleWeek(\''+k+'\')" title="'+(isOff?'sans accueil':vide?'semaine '+(estB?'B':'A')+' sans heures':'accueil')+'">S'+isoWeek(w)+' · '+w.toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit'})+(CT.alterne?' · '+(estB?'B':'A'):'')+'</button>';
   }
   setHTML('ct-semoff', h);
-  const prog = 52-off;
-  setHTML('ct-semoff-info', 'En vert : semaines d\'accueil. Sur ces 52 semaines : <b>'+prog+' semaines d\'accueil</b>, '+off+' sans accueil. '
-    + (off ? '<a href="#" onclick="setVal(\'ct-semaines\','+prog+');ctRefresh();return false;">Utiliser '+prog+' comme nombre de semaines</a>. ' : '')
+  // semaines où l'enfant vient vraiment (une semaine B sans heures ne compte pas)
+  const prog = 52-off-vides;
+  setHTML('ct-semoff-info', 'En vert : semaines d\'accueil. Sur ces 52 semaines : <b>'+prog+' semaines d\'accueil</b>, '+off+' sans accueil'+(vides ? ', '+vides+' semaines sans heures au planning (semaine '+(sA?'B':'A')+')' : '')+'. '
+    + (off || vides ? '<a href="#" onclick="setVal(\'ct-semaines\','+prog+');ctRefresh();return false;">Utiliser '+prog+' comme nombre de semaines</a>. ' : '')
     + 'Ce calendrier sert à compter les vrais jours d\'accueil de chaque mois (entretien, repas, impôts, régularisation).');
 }
 function ctToggleWeek(k){
