@@ -174,7 +174,7 @@ function moisCompute(){
   // Entretien, repas, km
   // Entretien : jour par jour (même total que l'onglet Mois) tant que les cases reprises du contrat ne sont pas modifiées ;
   // sinon, saisie libre sur une durée moyenne. Montants au centime (minimum légal arrondi au centime supérieur).
-  const jours = num('mois-jours'), hj = num('mois-hjour'), ieSaisie = round2(num('mois-indemj'));
+  const jours = num('mois-jours'), hj = num('mois-hjour'), ieSaisie = num('mois-indemj');   // montant du contrat tel qu'écrit
   const ieLeg = ieLegalJour(hj || R('ieHeuresRef', d), d);
   let ieAuto = null;
   const cIE = moisContrat();
@@ -185,15 +185,17 @@ function moisCompute(){
   const iePrevu = ieSaisie && hj ? ieContratJour({ieMode: modeIE===2 ? 2 : 1, ieMontant: ieSaisie}, hj, d) : ieSaisie;
   const ieJour = ieAuto ? (ieAuto.jours ? ieAuto.total/ieAuto.jours : 0) : (ieSaisie && !hj ? ieSaisie : Math.max(iePrevu, ieLeg));
   const ie = ieAuto ? ieAuto.total : (jours ? round2(ieJour*jours) : 0);
-  const repas = round2(jours*num('mois-repas')), km = round2(num('mois-km'));
+  // repas : total exact du mois (jours de présence × prix), exprimé au centime seulement à la fin
+  const repas = ieAuto && Math.abs(num('mois-repas') - (ieAuto.M.T.jAcc ? ieAuto.M.T.repas/ieAuto.M.T.jAcc : 0)) < 1e-6
+    ? round2(ieAuto.M.T.repas) : round2(jours*num('mois-repas'));
+  const km = round2(num('mois-km'));
   // Pajemploi : heures et jours mensualisés, diminués de l'absence ; + heures de congés payés (année incomplète)
   const hMensu = num('mois-heures'), jMensu = num('mois-jmensu');
   const ratioDu = base ? Math.max(0, base-ded)/base : 1;
-  // Pajemploi n'accepte que des nombres d'heures entiers : arrondi à l'heure la plus proche (au moins 1 h s'il y en a),
-  // les montants restant calculés sur les heures exactes
-  const hEntier = h=>h>0 ? Math.max(1, Math.round(h)) : 0;
+  // Heures normales : arrondies à l'heure la plus proche (consigne Pajemploi pour les heures mensualisées).
+  // Heures complémentaires et majorées : aucun texte ne prévoit d'arrondi, le nombre exact est conservé.
   const hNormDecl = Math.round(Math.max(0, hMensu*ratioDu - hMajMensuDu) + (inc && taux ? cpTot/taux : 0));
-  const hComplDecl = hEntier(hcompl), hMajDecl = hEntier(hmaj + hMajMensuDu);
+  const hComplDecl = hcompl, hMajDecl = hmaj + hMajMensuDu;
   const jprev = num('mois-jprev'), jded = absent ? num('mois-jded') : 0;
   const jDecl = jMensu ? Math.ceil((jprev ? jMensu - jMensu/jprev*jded : jMensu*ratioDu) - 1e-9) : 0;
   // Heures réellement effectuées (pour la régularisation)
@@ -215,7 +217,7 @@ function moisCompute(){
   // sans suivi : chaque journée du planning est classée selon SA durée (pas la durée moyenne)
   const jH = ieAuto ? ieAuto.days.map(x=>x.R/60) : null;
   const j8 = val('mois-j8')!=='' ? num('mois-j8') : (jH ? jH.filter(h=>h>=H8).length : (hj >= H8 ? jours : 0));
-  const hm8 = val('mois-hm8')!=='' ? num('mois-hm8') : (jH ? round2(jH.filter(h=>h<H8).reduce((s,h)=>s+h,0)) : (hj < H8 ? jours*hj : 0));
+  const hm8 = val('mois-hm8')!=='' ? num('mois-hm8') : (jH ? jH.filter(h=>h<H8).reduce((s,h)=>s+h,0) : (hj < H8 ? jours*hj : 0));
   return {m, d, inc, taux, base, ded, hContrat, brutMensu: Math.max(0, base-ded), hcompl, hmaj, majPct, supFerie, brutCompl, brutMaj, brutNormal, cp12, cpVerse, cpTot, brut,
     net, netHs, netImp, brutMajMensu, hMajMensuDu, hComplDecl, hMajDecl, jours, hj, ieLeg, ieSaisie, ieJour, ie, ieAuto, repas, km, hNormDecl, jDecl, hReel, hReelAuto, j8, hm8,
     jcp: num('mois-jcp'), acompte: num('mois-acompte'), datepaie: val('mois-datepaie')};
@@ -257,8 +259,8 @@ CALC.mois = ()=>{
     ['Période (mois déclaré)', fmtMonth(r.m)],
     ['Nombre d\'heures normales', r.hNormDecl ? r.hNormDecl+' h' : '—'],
     ['Nombre de jours d\'activité', r.jDecl ? r.jDecl+' j' : '—'],
-    ['Heures complémentaires : nombre / montant net', r.hcompl ? r.hComplDecl+' h ('+fmtNum(r.hcompl,2)+' h faites) / '+fmtEUR(r.brutCompl*Math.min(1,netRatio(d)+(R('hsReduction',d)||0))) : '0'],
-    ['Heures majorées : nombre / montant net', (r.hmaj||r.hMajMensuDu) ? r.hMajDecl+' h ('+fmtNum(r.hmaj+r.hMajMensuDu,2)+' h'+(r.hMajMensuDu?', dont '+fmtNum(r.hMajMensuDu,2)+' h prévues au contrat':'')+') / '+fmtEUR((r.brutMaj+r.brutMajMensu)*Math.min(1,netRatio(d)+(R('hsReduction',d)||0))) : '0'],
+    ['Heures complémentaires : nombre / montant net', r.hcompl ? fmtNum(r.hComplDecl,2)+' h / '+fmtEUR(r.brutCompl*Math.min(1,netRatio(d)+(R('hsReduction',d)||0))) : '0'],
+    ['Heures majorées : nombre / montant net', (r.hmaj||r.hMajMensuDu) ? fmtNum(r.hMajDecl,2)+' h'+(r.hMajMensuDu?' (dont '+fmtNum(r.hMajMensuDu,2)+' h prévues au contrat)':'')+' / '+fmtEUR((r.brutMaj+r.brutMajMensu)*Math.min(1,netRatio(d)+(R('hsReduction',d)||0))) : '0'],
     ['Congés payés : jours / montant net', r.inc ? (r.cpTot||r.jcp ? fmtNum(r.jcp,1)+' j / '+fmtEUR(r.cpTot*netRatio(d)) : 'rien ce mois-ci') : 'ne rien remplir (année complète)'],
     ['Salaire net total', r.brut ? fmtEUR(r.net) : '—'],
     ['Indemnités d\'entretien', fmtEUR(r.ie)],
@@ -279,7 +281,7 @@ function validerMois(){
   STATE.journal = STATE.journal || {};
   STATE.journal[c.id] = STATE.journal[c.id] || {};
   STATE.journal[c.id][r.m] = { brut:round2(r.brut), net:round2(r.net), netImp:round2(r.netImp), ie:round2(r.ie), repas:round2(r.repas), km:round2(r.km),
-    hDecl:r.hNormDecl, jDecl:r.jDecl, hCompl:r.hcompl, hMaj:round2(r.hmaj + r.hMajMensuDu), hReel:round2(r.hReel), hContrat:round2(r.hContrat), brutMensu:round2(r.brutMensu), jours:r.jours, jCP:r.jcp, cpMontant:round2(r.cpTot), cp12:round2(r.cp12),
+    hDecl:r.hNormDecl, jDecl:r.jDecl, hCompl:r.hcompl, hMaj:r.hmaj + r.hMajMensuDu, hReel:round2(r.hReel), hContrat:round2(r.hContrat), brutMensu:round2(r.brutMensu), jours:r.jours, jCP:r.jcp, cpMontant:round2(r.cpTot), cp12:round2(r.cp12),
     ded:round2(r.ded), j8:r.j8, hm8:round2(r.hm8), taux:r.taux, datepaie:r.datepaie, validatedAt:new Date().toISOString() };
   // le mois correspondant du suivi passe au statut « déclaré »
   const S = (STATE.suivi||{})[c.id];
@@ -724,7 +726,7 @@ CALC.ie = ()=>{
   const m = val('ie-mois') || curMonth();
   const pm = seg('ie-employeur')===1;
   const mg = R('mg', m), h = num('ie-heures'), j = num('ie-jours-accueil');
-  const mc = seg('ie-mode')===1 ? round2(num('ie-montant-contrat')) : 0;
+  const mc = seg('ie-mode')===1 ? num('ie-montant-contrat') : 0;   // montant du contrat tel qu'écrit
   const leg = ieLegalJour(h||R('ieHeuresRef',m), m, pm);
   // jour par jour (planning ou suivi) tant que les cases reprises du contrat ne sont pas modifiées
   const c = ieContratChoisi();

@@ -94,7 +94,7 @@ function calcDay(c, d, k){
   const rep = r && r.rep ? r.rep : {};
   const nbRepas = ['pdj','dej','gou','din'].filter(x=>rep[x]).length;
   // journée pas encore renseignée : repas estimé fourni, comme dans le calcul du salaire du mois
-  const repas = (cc.repasMode===1 && acc && st!=='avant' && (nbRepas || (!r && real>0))) ? round2(parseFloat(cc.repasPrix)||0) : 0;
+  const repas = (cc.repasMode===1 && acc && st!=='avant' && (nbRepas || (!r && real>0))) ? (parseFloat(cc.repasPrix)||0) : 0;
   const km = r ? (parseFloat(r.km)||0) : 0, kmEur = km*(parseFloat(cc.kmTaux)||0);
   const frais = r && Array.isArray(r.frais) ? r.frais.reduce((s,f)=>s+(parseFloat(f.montant)||0),0) : 0;
   const ferie = ferieName(d);
@@ -505,7 +505,7 @@ function suiviFillMois(c, ym){
   setVal('mois-repas', T.jAcc ? +(T.repas/T.jAcc).toFixed(6) : '');
   setVal('mois-km', round2(T.kmEur || (parseFloat(paramsAt(c,parseD(ym)).km)||0)));
   setVal('mois-hreel', round2((T.R + T.ferieChMin)/60));   // fériés chômés payés : comptés comme effectués pour la régularisation
-  setVal('mois-j8', T.j8); setVal('mois-hm8', round2(T.hm8));
+  setVal('mois-j8', T.j8); setVal('mois-hm8', +T.hm8.toFixed(6));
   setVal('mois-regul', M.regBrut ? round2(M.regBrut) : '');
   if(mr.acompte) setVal('mois-acompte', mr.acompte);
 }

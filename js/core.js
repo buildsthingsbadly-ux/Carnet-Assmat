@@ -290,15 +290,15 @@ function ieLegalJour(h, when, personneMorale){
 }
 /* Arrondi au centime supérieur, comme le font les simulateurs officiels pour les minima */
 function ceil2(x){ return Math.ceil(x*100 - 1e-7)/100; }
-/* Montant journalier fixé au contrat (0 = minimum légal), ramené au centime comme sur Pajemploi */
+/* Montant journalier fixé au contrat (0 = minimum légal), tel qu'il est écrit au contrat (pas d'arrondi) */
 /* ieMode : 0 = minimum légal ; 1 = montant fixe par jour, quelle que soit la durée ; 2 = montant pour une journée
    de 9 h, au prorata des heures pour une journée plus courte, et le même montant dès 9 h (pas d'augmentation au-delà). */
-function ieContrat(cc){ const v = cc && (cc.ieMode===1 || cc.ieMode===2) ? parseFloat(cc.ieMontant) : 0; return v>0 ? round2(v) : 0; }
+function ieContrat(cc){ const v = cc && (cc.ieMode===1 || cc.ieMode===2) ? parseFloat(cc.ieMontant) : 0; return v>0 ? v : 0; }
 /* Montant prévu au contrat pour une journée de h heures (avant comparaison au minimum légal) */
 function ieContratJour(cc, h, when){
   const f = ieContrat(cc); if(!f) return 0;
   const ref = R('ieHeuresRef', when) || 9;
-  return cc.ieMode===2 && h < ref ? ceil2(f*h/ref) : f;
+  return cc.ieMode===2 && h < ref ? f*h/ref : f;   // prorata exact : aucun texte ne prévoit d'arrondi
 }
 /* Indemnité d'entretien d'UNE journée de h heures : le montant du contrat, jamais moins que le minimum légal du jour.
    Seule règle de calcul de l'appli : le total du mois est la somme de ces montants, jour de présence par jour de présence. */
