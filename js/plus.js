@@ -8,6 +8,7 @@
 const LEXIQUE = [
   ['mensualis', 'Mensualisation', 'Le salaire est « lissé » : le même montant chaque mois, calculé sur les heures de toute l\'année divisées par 12, même les mois de vacances.'],
   ['année complète', 'Année complète', 'L\'enfant vient toutes les semaines de l\'année, sauf pendant les 5 semaines de congés payés de l\'assistante maternelle. Le salaire est calculé sur 52 semaines, congés compris.'],
+  ['une semaine sur deux', 'Une semaine sur deux', 'L’enfant ne vient pas de la même façon chaque semaine (par exemple le mercredi une semaine sur deux). Le contrat a alors deux plannings, « semaine 1 » et « semaine 2 », qui s’alternent. Une semaine est une semaine 1 ou 2 selon le choix fait dans la fiche de l’enfant : à partir de la première semaine du contrat, ou selon le numéro de la semaine (pair ou impair) indiqué sur les calendriers.'],
   ['année incomplète', 'Année incomplète', 'L\'enfant ne vient pas certaines semaines en plus des congés (vacances scolaires…). Le salaire est calculé sur les seules semaines d\'accueil ; les congés payés sont payés en plus.'],
   ['régularisation', 'Régularisation', 'En fin de contrat (surtout en année incomplète), on compare ce qui a été payé avec les heures réellement dues : la différence est versée à l\'assistante maternelle.'],
   ['cour de cassation', 'Méthode de la Cour de cassation', 'Façon de calculer une absence imposée par les juges : salaire mensualisé × heures non travaillées ÷ heures prévues dans le mois.'],

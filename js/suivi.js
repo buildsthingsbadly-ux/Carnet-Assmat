@@ -104,7 +104,7 @@ function calcDay(c, d, k){
 }
 
 /* Le mois complet : répartition hebdomadaire des heures en plus, salaire (méthode Cour de cassation), totaux */
-function suiviMonth(c, ym){
+function suiviMonth(c, ym, opts){
   const d0 = parseD(ym), y = d0.getFullYear(), m = d0.getMonth(), nb = daysInMonth(y, m);
   const last = new Date(y, m, nb);
   // calcul sur les semaines complètes qui touchent le mois (une semaine à cheval sur deux mois est traitée en entier)
@@ -174,12 +174,13 @@ function suiviMonth(c, ym){
   const regBrut = regs.reduce((s,g)=>s+(parseFloat(g.montant)||0),0);
   const cc = paramsAt(c, last);
   const cp12 = (cc.type===1 && cc.cpMode===0) ? (due+complPay+majPay+ferieSup)*0.10 : 0;
-  const brut = due + complPay + majPay + ferieSup + regBrut + cp12;
+  const cpVerse = (opts||{}).sansCP ? 0 : round2(cpIndemniteMois(c, ym, T.cpOuv));   // montant à verser : au centime
+  const brut = due + complPay + majPay + ferieSup + regBrut + cp12 + cpVerse;
   const ratio = netRatio(d0), red = R('hsReduction', d0)||0;
   // heures majorées prévues au planning (au-delà de 45 h) : même traitement que dans « Salaire du mois »
   const partMaj = base ? Math.min(1, hMajMensuV*taux*(1+majPct/100)/base) : 0, dueMaj = due*partMaj;
-  const net = (due - dueMaj + ferieSup + regBrut + cp12)*ratio + (complPay+majPay+dueMaj)*Math.min(1, ratio+red);
-  return {c, ym, days: md, T, base, due, hMensuV, jMensuV, hMajMensuV, partMaj, taux, majPct, complPay, majPay, ferieSup, regs, regBrut, cp12, brut, net, dv: dvEnd, versions: vs.length};
+  const net = (due - dueMaj + ferieSup + regBrut + cp12 + cpVerse)*ratio + (complPay+majPay+dueMaj)*Math.min(1, ratio+red);
+  return {c, ym, days: md, T, base, due, hMensuV, jMensuV, hMajMensuV, partMaj, cpVerse, taux, majPct, complPay, majPay, ferieSup, regs, regBrut, cp12, brut, net, dv: dvEnd, versions: vs.length};
 }
 
 /* Vérifications avant clôture (non bloquantes) */
@@ -477,6 +478,49 @@ function ieDuMois(c, ym){
     releves: days.filter(x=>{ const p = paramsAt(c, x.d); return ieContrat(p)>0 && x.ie > ieContratJour(p, x.R/60, x.d)+1e-9; }).length,
     suivi: hasSuiviMonth(c.id, ym) };
 }
+/* Année incomplète, congés payés « en juin » ou « à la prise » : indemnité de la période close (1er juin – 31 mai)
+   = la plus favorable entre le maintien de salaire et 10 % des salaires bruts de la période ; versée en juin
+   (mode 1) ou au prorata des jours de congés pris dans le mois (mode 2). */
+function cpIndemniteMois(c, ym, joursPris){
+  const d0 = parseD(ym), cc = paramsAt(c, new Date(d0.getFullYear(), d0.getMonth()+1, 0));
+  if(cc.type!==1 || !(cc.cpMode===1 || cc.cpMode===2)) return 0;
+  if(cc.cpMode===1 && d0.getMonth()!==5) return 0;
+  if(cc.cpMode===2 && !joursPris) return 0;
+  // période close la plus récente : celle qui se termine le 31 mai précédant (ou égal à) ce mois
+  const y = d0.getMonth()>=5 ? d0.getFullYear() : d0.getFullYear()-1;
+  const s0 = new Date(y-1, 5, 1), e = new Date(y, 4, 31), deb = parseD(c.debut);
+  const s = deb && deb > s0 ? deb : s0; if(s > e) return 0;
+  const acquis = typeof joursAcquisCP==='function' ? joursAcquisCP(iso(s), iso(e), 0, false, c) : 0; if(!acquis) return 0;
+  const K = contratCumuls(c, isoMonth(s), isoMonth(e), true);
+  const dv = derive(c, e), vj = dv.moyH/6*dv.tauxEff;
+  const indem = Math.max(acquis*vj, (K.brut - K.cp12)*0.10);
+  return cc.cpMode===1 ? indem : indem*Math.min(1, joursPris/acquis);
+}
+/* Cumuls d'un contrat entre deux mois ('AAAA-MM' inclus) : mois validés tels qu'enregistrés, et pour les mois
+   non validés, le calcul de l'onglet Mois (suivi s'il existe, sinon planning). Les mois d'avant la reprise d'un
+   contrat en cours sont couverts par les compteurs de reprise et ne sont pas recomptés. */
+function contratCumuls(c, fromM, toM){
+  const t = {brut:0, brutMensu:0, hContrat:0, cp12:0, n:0, estimes:0};
+  const deb = suiviDebut(c) || parseD(c.debut); if(!deb) return t;
+  const fin = parseD(c.fin);
+  let d = new Date(deb.getFullYear(), deb.getMonth(), 1);
+  // jusqu'à la fin du contrat, sinon jusqu'au dernier mois demandé (ou aujourd'hui)
+  const last = fin || (toM ? new Date(+toM.slice(0,4), +toM.slice(5,7), 0) : today());
+  const J = journalOf(c.id);
+  while(d <= last){
+    const ym = isoMonth(d);
+    if((!fromM || ym >= fromM) && (!toM || ym <= toM)){
+      const r = J[ym];
+      if(r){ t.brut += +r.brut||0; t.brutMensu += +r.brutMensu||0; t.hContrat += +r.hContrat||0;
+        const cc = paramsAt(c, d); t.cp12 += r.cp12!==undefined ? (+r.cp12||0) : (cc.type===1 && cc.cpMode===0 ? (+r.cpMontant||0) : 0); }
+      else { const M = suiviMonth(c, ym, {sansCP: !!(arguments[3])}), T = M.T;
+        t.brut += M.brut; t.brutMensu += M.due; t.hContrat += Math.max(0, T.R + T.ferieChMin - T.compl - T.maj)/60; t.cp12 += M.cp12; t.estimes++; }
+      t.n++;
+    }
+    d = new Date(d.getFullYear(), d.getMonth()+1, 1);
+  }
+  return t;
+}
 function hasSuiviMonth(cid, ym){ const S=(STATE.suivi||{})[cid]; return !!(S && Object.keys(S.days||{}).some(k=>k.slice(0,7)===ym)); }
 function suiviVersPaie(cid, ym){
   const c = getContrat(cid);
@@ -496,7 +540,8 @@ function suiviFillMois(c, ym){
   setVal('mois-deduction', round2(ded)); setVal('mois-jprev', T.jPrev + T.jOut); setVal('mois-jded', T.jDed + T.jOut); setVal('mois-hded', round2((T.hDed+T.hOut)/60));
   setSegVal('mois-heuresup', (T.compl||T.maj) ? 1 : 0); setVal('mois-hcompl', round2(T.compl/60)); setVal('mois-hmaj', round2(T.maj/60)); setVal('mois-majoration', M.majPct);
   setSegVal('mois-ferie', (T.ferieMin||T.mai1Min) ? 1 : 0); setVal('mois-hferie', round2(T.ferieMin/60)); setVal('mois-h1mai', round2(T.mai1Min/60));
-  setVal('mois-jcp', T.cpOuv||'');   // jours de congés pris (suivi), quel que soit le type de contrat
+  setVal('mois-jcp', T.cpOuv||'');
+  setVal('mois-cpmontant', M.cpVerse ? round2(M.cpVerse) : '');   // jours de congés pris (suivi), quel que soit le type de contrat
   // entretien : jours et durée moyenne pour information ; le total est recalculé jour par jour (ieDuMois)
   const I = ieDuMois(c, ym);
   setVal('mois-jours', I.jours || '');

@@ -1,5 +1,5 @@
 /* =====================================================================================
-   07 · ABATTEMENT FISCAL (jusqu'à 4 enfants / employeurs)   —   08 · CMG des parents
+   07 · ABATTEMENT FISCAL (jusqu'à 8 enfants / employeurs)   —   08 · CMG des parents
    ===================================================================================== */
 'use strict';
 
@@ -168,7 +168,7 @@ CALC.abattement = ()=>{
 };
 function abUpdateStatus(){ setTxt('ab-save-status', storageOK ? 'Enregistrement automatique sur ce téléphone, au fil des mois.' : 'Enregistrement impossible (navigation privée ?) : faites une copie de sécurité.'); }
 function abResetForNewYear(){
-  showConfirmDialog('Nouvelle année', 'Toutes les saisies d\'abattement (4 enfants, tous les mois) seront effacées pour commencer une nouvelle année. Pensez à enregistrer le récapitulatif PDF de l\'année en cours avant. Continuer ?', ()=>{
+  showConfirmDialog('Nouvelle année', 'Toutes les saisies d\'abattement (tous les enfants, tous les mois) seront effacées pour commencer une nouvelle année. Pensez à enregistrer le récapitulatif PDF de l\'année en cours avant. Continuer ?', ()=>{
     if(STATE.forms.abattement) delete STATE.forms.abattement.all;
     saveState(); loadThemeForm('abattement'); toast('Nouvelle année prête.');
   }, 'Oui, effacer', 'Annuler');

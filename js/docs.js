@@ -52,15 +52,15 @@ function assmatNom(){ return v((STATE.profil||{}).nom); }
 function planningTable(c){
   const A = wNums(c.wA), B = c.alterne ? wNums(c.wB) : null;
   let h = '<table><tr><td><b>Jour</b></td>'+DOW_SHORT.map(d=>'<td><b>'+d+'</b></td>').join('')+'</tr>';
-  h += '<tr><td>'+(B?'Semaine A':'Heures')+'</td>'+A.map(x=>'<td>'+(x?fmtNum(x,2)+' h':'—')+'</td>').join('')+'</tr>';
-  if(B) h += '<tr><td>Semaine B</td>'+B.map(x=>'<td>'+(x?fmtNum(x,2)+' h':'—')+'</td>').join('')+'</tr>';
+  h += '<tr><td>'+(B?'Semaine 1':'Heures')+'</td>'+A.map(x=>'<td>'+(x?fmtNum(x,2)+' h':'—')+'</td>').join('')+'</tr>';
+  if(B) h += '<tr><td>Semaine 2</td>'+B.map(x=>'<td>'+(x?fmtNum(x,2)+' h':'—')+'</td>').join('')+'</tr>';
   h += '<tr><td>Horaires (arrivée – départ)</td>'+A.map(x=>'<td>'+(x?'__h__ – __h__':'')+'</td>').join('')+'</tr></table>';
   if(B){
     const ref = +c.alterneRef || 0;
-    h += '<p>Alternance : '+(ref===1 ? 'les semaines <b>paires</b> (numéro de semaine du calendrier) suivent le planning A, les semaines impaires le planning B'
-      : ref===2 ? 'les semaines <b>impaires</b> (numéro de semaine du calendrier) suivent le planning A, les semaines paires le planning B'
-      : 'la semaine où l’alternance commence ('+(c.hist && c.hist.length ? 'date d’effet de l’avenant qui l’a mise en place, ou début du contrat' : 'début du contrat')+') suit le planning A, puis A et B alternent chaque semaine')+'.'
-      + (B.every(x=>!x) ? ' L\'enfant n\'est pas accueilli les semaines B.' : '')+'</p>';
+    h += '<p>Planning une semaine sur deux : '+(ref===1 ? 'les semaines à numéro <b>pair</b> du calendrier suivent le planning « semaine 1 », les semaines à numéro impair le planning « semaine 2 »'
+      : ref===2 ? 'les semaines à numéro <b>impair</b> du calendrier suivent le planning « semaine 1 », les semaines à numéro pair le planning « semaine 2 »'
+      : 'la première semaine ('+(c.hist && c.hist.length ? 'celle du début du contrat ou de l’avenant qui a mis en place ce rythme' : 'celle du début du contrat')+') suit le planning « semaine 1 », la suivante le planning « semaine 2 », et ainsi de suite')+'.'
+      + (B.every(x=>!x) ? ' L’enfant n’est pas accueilli les semaines 2.' : '')+'</p>';
   }
   return h;
 }

@@ -1,8 +1,10 @@
 /* =====================================================================================
-   CONTRATS (jusqu'à 4 enfants), ACCUEIL, POINTS D'ATTENTION, NAVIGATION
+   CONTRATS (jusqu'à 8 enfants en cours), ACCUEIL, POINTS D'ATTENTION, NAVIGATION
    ===================================================================================== */
 'use strict';
-const MAX_ENFANTS = 4;
+// contrats en cours au même moment (l'agrément limite les enfants présents EN MÊME TEMPS, pas le nombre de contrats :
+// accueil périscolaire, mercredis, alternance… ; contrôle jour par jour dans les points d'attention)
+const MAX_ENFANTS = 8;
 
 function newContrat(){
   return { id:'c'+Date.now().toString(36), enfant:'', famille:'', naissance:'', handicap:0,
@@ -241,7 +243,7 @@ function renderHome(){
   });
   const max = placesMax();
   if(enCours.length < max){
-    html += '<button class="kid add" onclick="editContrat(null)"><span style="font-size:1.6rem">＋</span>Ajouter un enfant<span class="hint">'+(enCours.length? (max-enCours.length)+' place(s) disponible(s)' : 'Commencez par là')+'</span></button>';
+    html += '<button class="kid add" onclick="editContrat(null)"><span style="font-size:1.6rem">＋</span>Ajouter un enfant<span class="hint">'+(enCours.length? 'Agrément : '+(parseInt(STATE.settings.agrement)||R('agrementMax'))+' enfants en même temps' : 'Commencez par là')+'</span></button>';
   }
   wrap.innerHTML = html;
   // Contrats terminés : rangés automatiquement, données conservées
@@ -363,9 +365,13 @@ function computeAlerts(){
   });
   // Agrément : nombre d'enfants présents le même jour
   const agr = parseInt(STATE.settings.agrement)||R('agrementMax');
-  for(let i=0;i<7;i++){
-    const n = actifs.filter(c=>wNums(c.wA)[i]>0 || (c.alterne && wNums(c.wB)[i]>0)).length;
-    if(n > agr){ out.push({lvl:'err', html:'Le '+['lundi','mardi','mercredi','jeudi','vendredi','samedi','dimanche'][i]+', '+n+' enfants sont prévus alors que votre agrément en autorise '+agr+'. Vérifiez que leurs horaires ne se chevauchent pas.'}); break; }
+  // jour par jour sur les deux semaines à venir (une semaine A et une semaine B, semaines sans accueil et avenants compris)
+  const vus = {};
+  for(let k=0;k<14;k++){
+    const dd = addDays(today(), k), i = dowIdx(dd);
+    const n = STATE.contrats.filter(c=>inContract(c, dd) && plannedDay(c, dd).min>0).length;
+    if(n <= agr || vus[i]) continue; vus[i] = 1;
+    { out.push({lvl:'err', html:'Le '+dd.toLocaleDateString('fr-FR',{weekday:'long', day:'numeric', month:'long'})+', '+n+' enfants sont prévus alors que votre agrément en autorise '+agr+'. Vérifiez que leurs horaires ne se chevauchent pas.'}); break; }
   }
   // Rappels de calendrier
   if((mNow===4 || mNow===5) && actifs.length) out.push({lvl:'info', html:'Juin approche : la période de congés payés se termine le 31 mai. Comparez le maintien de salaire et les 10 % (année complète), ou faites payer les congés si votre contrat prévoit un paiement en juin (année incomplète).', act:'<button class="btn small" onclick="showTheme(\'cp\')">Congés payés</button>'});
@@ -486,20 +492,21 @@ function ctRefresh(){
   show('ct-wB-wrap', CT.alterne===1); show('ct-alterneRef-row', CT.alterne===1, 'flex');
   if(CT.alterne===1){
     const t0 = today(), wk = isoWeek(t0), nxt = addDays(mondayOf(t0), 7);
-    const lab = d=>'S'+isoWeek(d)+' ('+(isoWeek(d)%2===0?'paire':'impaire')+') : semaine '+(weekIsB(CT, d)?'B':'A');
-    // avenant qui met en place l'alternance sur un contrat qui n'en avait pas : les semaines A partent de la date d'effet
+    const lab = d=>'la semaine du lundi '+d.toLocaleDateString('fr-FR',{day:'numeric', month:'long'})+' (n° '+isoWeek(d)+') est une <b>semaine '+(weekIsB(CT, d)?'2':'1')+'</b>';
+    // avenant qui met en place l'alternance sur un contrat qui n'en avait pas : les « semaines 1 » partent de la date d'effet
     const nouvelleAlt = !CT_IS_NEW && CT._orig && !CT._orig.alterne;
     setHTML('ct-alterneRef-hint', ((CT.alterneRef||0)===0 && nouvelleAlt
-      ? 'L’alternance commencera à la <b>date d’effet de l’avenant</b> (demandée à l’enregistrement) : cette semaine-là sera une semaine A. '
-      : 'Cette semaine '+lab(t0)+' · la suivante '+lab(nxt)+'. ')
-      + (CT.type===1 ? 'L’enfant ne vient qu’une semaine sur deux ? Laissez la semaine B vide : seules les semaines d’accueil comptent dans le nombre de semaines par an. ' : 'Une semaine B vide est payée comme une semaine sans heures : le salaire est la moyenne des deux semaines. ')
-      + ((CT.alterneRef||0) ? 'Numéros de semaine du calendrier (ISO) : les années à 53 semaines, la S53 et la S1 ont la même parité.' : ''));
+      ? 'L’alternance commencera à la <b>date de l’avenant</b> (demandée à l’enregistrement) : la semaine de cette date sera une semaine 1. '
+      : 'Vérifiez avec les parents : '+lab(mondayOf(t0))+', '+lab(nxt)+'. ')
+      + ((CT.alterneRef||0) ? 'Le numéro de la semaine est indiqué sur la plupart des calendriers et agendas. ' : '')
+      + (CT.type===1 ? 'L’enfant ne vient qu’une semaine sur deux ? Remplissez la semaine 1 et laissez la semaine 2 vide : seules les semaines où l’enfant vient comptent dans le salaire. ' : 'Une semaine 2 vide compte comme une semaine sans heures : le salaire est la moyenne des deux semaines. ')
+      + ((CT.alterneRef||0) ? 'Attention : certaines années ont 53 semaines (comme 2026). La semaine 53 et la semaine 1 de l’année suivante sont alors toutes les deux impaires, donc deux semaines du même type se suivent. Si cela ne convient pas, choisissez la première réponse.' : ''));
   }
   $('ct-wA').classList.toggle('with-times', CT.horaires===1); $('ct-wB').classList.toggle('with-times', CT.horaires===1);
   for(let i=0;i<7;i++){ ['A','B'].forEach(w=>{ const inp=$('ct-w'+w+i); if(inp) inp.readOnly = CT.horaires===1; }); }
   const debD = parseD(CT.debut); show('ct-rep-wrap', !!(debD && (today()-debD)/86400000 > 20));
   show('ct-rep-regul', CT.type===1);
-  setTxt('ct-wA-label', CT.alterne ? 'Semaine A : nombre d\'heures pour chaque jour' : 'Nombre d\'heures d\'accueil pour chaque jour de la semaine');
+  setTxt('ct-wA-label', CT.alterne ? 'Semaine 1 : heures d\u2019accueil de chaque jour' : 'Nombre d\'heures d\'accueil pour chaque jour de la semaine');
   show('ct-ieMontant-wrap', CT.ieMode===1 || CT.ieMode===2);
   setTxt('ct-ieMontant-label', CT.ieMode===2 ? 'Montant pour une journée de 9 h ou plus (€)' : 'Montant par jour d\'accueil (€)');
   show('ct-repasPrix-wrap', CT.repasMode===1);
@@ -509,7 +516,7 @@ function ctRefresh(){
   const dv = derive(CT, today());
   show('ct-maj-wrap', dv.hMaxSem > R('seuilMaj'));
   setHTML('ct-planning-sum', dv.moyH
-    ? (CT.alterne ? 'Semaine A : <b>'+fmtNum(dv.hA,2)+' h</b> sur '+dv.jA+' jours · Semaine B : <b>'+fmtNum(dv.hB,2)+' h</b> sur '+dv.jB+' jours. ' : 'Total : <b>'+fmtNum(dv.hA,2)+' h par semaine</b> sur <b>'+dv.jA+' jours</b>. ')
+    ? (CT.alterne ? 'Semaine 1 : '+(dv.hA ? '<b>'+fmtNum(dv.hA,2)+' h</b> sur '+dv.jA+' jour'+(dv.jA>1?'s':'') : '<b>pas d\u2019accueil</b>')+' · Semaine 2 : '+(dv.hB ? '<b>'+fmtNum(dv.hB,2)+' h</b> sur '+dv.jB+' jour'+(dv.jB>1?'s':'') : '<b>pas d\u2019accueil</b>')+'. ' : 'Total : <b>'+fmtNum(dv.hA,2)+' h par semaine</b> sur <b>'+dv.jA+' jours</b>. ')
       + 'Durée moyenne d\'une journée : '+fmtNum(dv.hDayAvg,2)+' h.'
     : 'Indiquez les heures de chaque jour d\'accueil.');
   const warns = [];
@@ -537,12 +544,12 @@ function ctRenderWeeks(){
     const w = addDays(start, 7*i), k = iso(w), isOff = CT.semOff.includes(k);
     const estB = weekIsB(CT, w), vide = !isOff && CT.alterne && !(estB ? sB : sA);
     if(isOff) off++; else if(vide) vides++;
-    h += '<button type="button" class="chip'+(isOff||vide?'':' on')+'" style="min-height:34px;padding:5px 9px;font-size:.74rem'+(vide?';opacity:.6':'')+'" onclick="ctToggleWeek(\''+k+'\')" title="'+(isOff?'sans accueil':vide?'semaine '+(estB?'B':'A')+' sans heures':'accueil')+'">S'+isoWeek(w)+' · '+w.toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit'})+(CT.alterne?' · '+(estB?'B':'A'):'')+'</button>';
+    h += '<button type="button" class="chip'+(isOff||vide?'':' on')+'" style="min-height:34px;padding:5px 9px;font-size:.74rem'+(vide?';opacity:.6':'')+'" onclick="ctToggleWeek(\''+k+'\')" title="Semaine du lundi '+w.toLocaleDateString('fr-FR')+' (n° '+isoWeek(w)+') : '+(isOff?'pas d\u2019accueil':vide?'semaine '+(estB?'2':'1')+', pas d\u2019heures prévues':'accueil')+'">'+w.toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit'})+(CT.alterne?' · sem. '+(estB?'2':'1'):'')+'</button>';
   }
   setHTML('ct-semoff', h);
   // semaines où l'enfant vient vraiment (une semaine B sans heures ne compte pas)
   const prog = 52-off-vides;
-  setHTML('ct-semoff-info', 'En vert : semaines d\'accueil. Sur ces 52 semaines : <b>'+prog+' semaines d\'accueil</b>, '+off+' sans accueil'+(vides ? ', '+vides+' semaines sans heures au planning (semaine '+(sA?'B':'A')+')' : '')+'. '
+  setHTML('ct-semoff-info', 'Chaque case est une semaine (date du lundi)'+(CT.alterne?', avec son type (sem. 1 ou sem. 2)':'')+'. En vert : l\u2019enfant vient. Sur ces 52 semaines : <b>'+prog+' semaines où l\u2019enfant vient</b>, '+off+' sans accueil'+(vides ? ', '+vides+' semaines '+(sA?'2':'1')+' sans heures prévues (grisées)' : '')+'. '
     + (off || vides ? '<a href="#" onclick="setVal(\'ct-semaines\','+prog+');ctRefresh();return false;">Utiliser '+prog+' comme nombre de semaines</a>. ' : '')
     + 'Ce calendrier sert à compter les vrais jours d\'accueil de chaque mois (entretien, repas, impôts, régularisation).');
 }
@@ -598,9 +605,18 @@ function ctSave(){
       const def = iso(new Date(today().getFullYear(), today().getMonth()+1, 1));
       askText('Date d\'effet de l\'avenant', 'À partir de quel jour les nouvelles valeurs s\'appliquent-elles ? (AAAA-MM-JJ)', def, v=>{
         const d = parseD((v||'').trim()); if(!d){ toast('Date non reconnue.'); return; }
+        // un avenant ne peut pas prendre effet avant le début du contrat, ni avant (ou le jour d') un avenant déjà enregistré :
+        // sinon l'avenant intermédiaire serait effacé et les mois concernés recalculés avec de mauvaises valeurs
+        const dernier = (CT.hist||[]).map(x=>x.jusqua).sort().pop();
+        if(parseD(CT.debut) && d <= parseD(CT.debut)){ toast('La date d\u2019effet doit être après le début du contrat ('+fmtDate(CT.debut)+'). Pour changer le contrat dès le début, choisissez « C\u2019est une correction ».'); return; }
+        if(dernier && iso(d) <= dernier){ toast('Un avenant prend déjà effet le '+fmtDate(iso(addDays(parseD(dernier),1)))+'. La date d\u2019effet doit être postérieure.'); return; }
+        const quitteIncomplete = CT._orig && CT._orig.type===1 && (CT.type!==1 || String(CT._orig.semaines)!==String(CT.semaines) || JSON.stringify(CT._orig.wA)!==JSON.stringify(CT.wA) || JSON.stringify(CT._orig.wB)!==JSON.stringify(CT.wB));
         CT.hist = (CT.hist||[]).filter(x=>x.jusqua < iso(d));
         CT.hist.push({jusqua: iso(addDays(d,-1)), p: CT._orig, avenantDu: iso(d), saisiLe: new Date().toISOString()});
         CT._avenantDone = true; auditLog(CT.id, 'Avenant à effet du '+d.toLocaleDateString('fr-FR')); ctSave();
+        if(quitteIncomplete) setTimeout(()=>showConfirmDialog('Régularisation à faire',
+          'Le contrat était en année incomplète et son rythme change au '+d.toLocaleDateString('fr-FR')+'. Comparez les heures réellement faites et les heures payées depuis le début du contrat (ou depuis la dernière régularisation) jusqu\u2019au '+addDays(d,-1).toLocaleDateString('fr-FR')+' : s\u2019il en manque, la différence est à payer avec le salaire de ce mois-là. Le calcul est celui de « Fin de contrat ▸ Régularisation », avec la date de l\u2019avenant comme date de fin.',
+          ()=>showTheme('fin'), 'Ouvrir le calcul', 'Plus tard'), 400);
       });
     }, 'C\'est un avenant', 'C\'est une correction');
     return;

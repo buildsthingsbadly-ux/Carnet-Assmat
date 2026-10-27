@@ -55,8 +55,8 @@ VIS.mensu = ()=>{
   const alt = seg('mensu-rythme')===1;
   show('mensu-semaines-wrap', seg('mensu-type')===1);
   show('mensu-hB-wrap', alt); show('mensu-jB-wrap', alt);
-  setTxt('mensu-hA-label', alt ? 'Heures semaine A' : 'Heures par semaine');
-  setTxt('mensu-jA-label', alt ? 'Jours d\'accueil semaine A' : 'Jours d\'accueil par semaine');
+  setTxt('mensu-hA-label', alt ? 'Heures de la semaine 1' : 'Heures par semaine');
+  setTxt('mensu-jA-label', alt ? 'Jours d\'accueil de la semaine 1' : 'Jours d\'accueil par semaine');
 };
 PREFILL.mensu = c=>{
   if(!c) return;
@@ -585,15 +585,38 @@ function buildCpPeriods(){
   });
   $('cp-periods').innerHTML = h;
 }
-function joursAcquisCP(d1, d2, moisMal, enCours){
+/* Semaines d'accueil d'un contrat entre deux dates (année incomplète) : semaines du planning avec des heures,
+   hors semaines sans accueil, dans les dates du contrat, selon l'avenant en vigueur chaque semaine.
+   Sans calendrier des semaines sans accueil : nombre de semaines du contrat au prorata de la durée. */
+function semainesAccueil(c, s, e){
+  const avecCalendrier = (c.hist||[]).some(h=>h.p && (h.p.semOff||[]).length) || (c.semOff||[]).length;
+  if(!avecCalendrier){
+    const mois = (e - s)/86400000/ (365.25/12);
+    return (parseFloat(paramsAt(c, e).semaines)||0) * Math.min(12, mois) / 12;
+  }
+  let n = 0;
+  for(let w = mondayOf(s); w <= e; w = addDays(w, 7)){
+    let h = 0;
+    for(let i=0;i<7;i++){ const d = addDays(w, i); if(d < s || d > e || !inContract(c, d)) continue; h += plannedDay(c, d).min; }
+    if(h > 0) n++;
+  }
+  return n;
+}
+function joursAcquisCP(d1, d2, moisMal, enCours, c){
   const s=parseD(d1), e=parseD(d2);
   if(!s||!e||e<=s) return 0;
-  const months = monthsBetween(s,e);
-  const anchor = addMonths(s, months);
-  const lenInc = Math.round((addMonths(anchor,1)-anchor)/86400000) || 30;
-  const daysInc = Math.max(0, Math.round((e-anchor)/86400000)+1);
-  const frac = Math.min(1, daysInc/lenInc);
-  const total = months + frac;
+  let total;
+  if(c && paramsAt(c, e).type===1){
+    // année incomplète : 2,5 jours ouvrables par période de 4 semaines d'accueil (art. L3141-4 du Code du travail)
+    total = semainesAccueil(c, s, e)/4;
+  } else {
+    const months = monthsBetween(s,e);
+    const anchor = addMonths(s, months);
+    const lenInc = Math.round((addMonths(anchor,1)-anchor)/86400000) || 30;
+    const daysInc = Math.max(0, Math.round((e-anchor)/86400000)+1);
+    const frac = Math.min(1, daysInc/lenInc);
+    total = months + frac;
+  }
   const mal = Math.min(total, Math.max(0, moisMal||0));
   const parMois = R('cpParMois', e), parMal = R('cpMaladie', e)||0;
   const jMal = Math.min(mal*parMal, R('cpMaladieMax', e)||24);
@@ -605,8 +628,10 @@ VIS.cp = ()=>{
   show('cp-valeur-wrap', seg('cp-valeur')===1);
   show('cp-valeur-results', seg('cp-valeur')===1);
 };
-function cpRefPeriods(c){
-  const t = today();
+/* Périodes de référence des congés (1er juin – 31 mai) vues au jour « ref » (aujourd'hui par défaut ;
+   pour une fin de contrat, la date de fin, même si elle est à venir) */
+function cpRefPeriods(c, ref){
+  const t = ref || today();
   const startN = new Date(t.getMonth()>=5 ? t.getFullYear() : t.getFullYear()-1, 5, 1);
   const deb = c ? parseD(c.debut) : null, fin = c ? parseD(c.fin) : null;
   const P = [
@@ -647,7 +672,8 @@ CALC.cp = ()=>{
   const A = {}, S = {};
   CP_P.forEach(p=>{
     const fin = parseD(val('cp-'+p.k+'-fin')), enCours = p.k==='n' && fin && !(fin.getMonth()===4 && fin.getDate()===31);
-    A[p.k]=joursAcquisCP(val('cp-'+p.k+'-debut'), val('cp-'+p.k+'-fin'), num('cp-'+p.k+'-mal'), enCours); S[p.k]=num('cp-'+p.k+'-solde');
+    const kC = selKey('cp'), cC = kC!=='libre' && seg('cp-type')===1 ? getContrat(kC) : null;
+    A[p.k]=joursAcquisCP(val('cp-'+p.k+'-debut'), val('cp-'+p.k+'-fin'), num('cp-'+p.k+'-mal'), enCours, cC); S[p.k]=num('cp-'+p.k+'-solde');
   });
   const take=(pools, n)=>{ for(const k of Object.keys(pools)){ const u=Math.min(pools[k], n); pools[k]-=u; n-=u; } return pools; };
   let pools = take({n2:A.n2}, S.n2);
@@ -846,16 +872,18 @@ PREFILL.fin = c=>{
   // entretien du dernier mois : jours de présence réels (ou prévus) jusqu'à la date de fin, jamais une moyenne mensualisée
   const ieFin = ieDuMois(c, isoMonth(fin));
   setSegVal('fin-entretien', ieFin.total ? 1 : 0); setVal('fin-entretien-montant', ieFin.total || '');
-  // Reprise automatique de l'historique des mois validés : rien à recalculer
-  const J = journalTotals(c.id), rp = c.rep || {};
+  // Cumuls : mois validés tels qu'enregistrés ; mois non validés calculés comme dans l'onglet Mois (suivi ou planning)
+  const rp = c.rep || {};
+  const J = contratCumuls(c);
   if(J.n || rp.cumulBrut){
     // 1/80ᵉ de TOUTES les rémunérations brutes du contrat, congés payés compris (hors entretien, repas, km)
     setVal('fin-rupture-total', round2(J.brut + (parseFloat(rp.cumulBrut)||0)));
-    const Rg = journalTotals(c.id, val('fin-regul-debut').slice(0,7), val('fin-regul-fin').slice(0,7));
-    if(Rg.n || rp.regulVerse){ setVal('fin-regul-verse', round2(Rg.brutMensu + (parseFloat(rp.regulVerse)||0))); setVal('fin-regul-heures', round2(Rg.hContrat + (parseFloat(rp.regulHeures)||0))); }
     if(rp.regulVerse && parseD(rp.date)) setVal('fin-regul-debut', c.debut);
-    const N = journalTotals(c.id, isoMonth(cpRefStart(parseD(c.fin)||today())));
+    const Rg = contratCumuls(c, val('fin-regul-debut').slice(0,7), val('fin-regul-fin').slice(0,7));
+    if(Rg.n || rp.regulVerse){ setVal('fin-regul-verse', round2(Rg.brutMensu + (parseFloat(rp.regulVerse)||0))); setVal('fin-regul-heures', round2(Rg.hContrat + (parseFloat(rp.regulHeures)||0))); }
+    const N = contratCumuls(c, isoMonth(cpRefStart(parseD(c.fin)||today())));
     setVal('fin-total-salaires', round2(N.brut - N.cp12));
+    if(J.estimes) setTimeout(()=>toast(J.estimes+' mois non validés : montants calculés d\u2019après le suivi ou le planning. Vérifiez-les avec vos relevés Pajemploi.'), 300);
   }
   // Avenants enregistrés pendant la période de régularisation : une sous-période par avenant
   const rd = val('fin-regul-debut'), rf = val('fin-regul-fin');
@@ -885,21 +913,23 @@ function cpDispoFor(c){
   if(!f){
     // Sans calcul « Congés payés » enregistré : seule la période en cours est reprise (les périodes
     // précédentes sont normalement prises ou payées) ; les reliquats éventuels sont à vérifier.
-    const Pn = cpRefPeriods(Object.assign({}, c, {fin: iso(parseD(c.fin) || today())})).find(x=>x.k==='n');
+    const ref = parseD(c.fin) || today();
+    const Pn = cpRefPeriods(Object.assign({}, c, {fin: iso(ref)}), ref).find(x=>x.k==='n');
     if(!Pn || !Pn.s) return 0;
-    const acquis = joursAcquisCP(iso(Pn.s), iso(Pn.e), 0, false);
+    const acquis = joursAcquisCP(iso(Pn.s), iso(Pn.e), 0, false, c);
     const rp = c.rep || {};
     // congés notés dans le suivi au jour le jour, sinon ceux des mois validés
     const S = (STATE.suivi||{})[c.id], sCP = S ? Object.keys(S.days||{}).filter(k=>k>=iso(Pn.s) && k<=iso(Pn.e) && (ST[S.days[k].st]||{}).cp).length : 0;
     const pris = Math.max(sCP, journalTotals(c.id, isoMonth(Pn.s), isoMonth(Pn.e)).jCP) + (parseFloat(rp.cpPrisN)||0);
     return Math.max(0, acquis - pris + (parseFloat(rp.cpReliquat)||0));
   }
-  const P = cpRefPeriods(Object.assign({}, c, {fin: iso(parseD(c.fin) || today())}));
+  const refF = parseD(c.fin) || today();
+  const P = cpRefPeriods(Object.assign({}, c, {fin: iso(refF)}), refF);
   const order = ['n2','n1','n'], pools = {};
   order.forEach(k=>{
     const p = P.find(x=>x.k===k);
     const deb = f ? (f.i['cp-'+k+'-debut']||'') : (p.s ? iso(p.s) : ''), end = f ? (f.i['cp-'+k+'-fin']||'') : (p.e ? iso(p.e) : '');
-    pools[k] = joursAcquisCP(deb, end, f ? parseFloat(f.i['cp-'+k+'-mal'])||0 : 0, false);
+    pools[k] = joursAcquisCP(deb, end, f ? parseFloat(f.i['cp-'+k+'-mal'])||0 : 0, false, c);
     let pris = f ? parseFloat(f.i['cp-'+k+'-solde'])||0 : (deb && end ? journalTotals(c.id, deb.slice(0,7), end.slice(0,7)).jCP : 0);
     for(const kk of order){ if(pools[kk]===undefined) continue; const u = Math.min(pools[kk], pris); pools[kk] -= u; pris -= u; }
   });
@@ -924,17 +954,10 @@ function finAutoRupture(){
 function finEstimeTotal(){
   const k = selKey('fin'), c = k!=='libre' ? getContrat(k) : null;
   if(!c || !c.debut){ toast('Choisissez un enfant enregistré avec une date de début.'); return; }
-  const deb = parseD(c.debut), end = parseD(val('fin-notif')) || today();
-  let tot = 0, d = new Date(deb.getFullYear(), deb.getMonth(), 1);
-  while(d <= end){
-    const dv = derive(c, d);
-    const dim = daysInMonth(d.getFullYear(), d.getMonth());
-    let part = 1;
-    if(d.getFullYear()===deb.getFullYear() && d.getMonth()===deb.getMonth()) part = (dim-deb.getDate()+1)/dim;
-    if(d.getFullYear()===end.getFullYear() && d.getMonth()===end.getMonth()) part = Math.min(part, end.getDate()/dim);
-    tot += dv.brut*part;
-    d = new Date(d.getFullYear(), d.getMonth()+1, 1);
-  }
+  // même calcul que l'onglet Mois (mois validés, sinon suivi ou planning, entrée et sortie en cours de mois au prorata
+  // des heures prévues) jusqu'à la fin du contrat, préavis compris
+  const end = parseD(c.fin) || parseD(val('fin-regul-fin')) || today();
+  const tot = contratCumuls(Object.assign({}, c, {fin: iso(end)})).brut + (parseFloat((c.rep||{}).cumulBrut)||0);
   setVal('fin-rupture-total', round2(tot)); CALC.fin(); persistTheme('fin');
   toast('Estimation : '+fmtEUR(tot)+'. Vérifiez avec le cumul Pajemploi (absences, heures en plus, augmentations…).');
 }
