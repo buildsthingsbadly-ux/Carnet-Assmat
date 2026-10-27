@@ -248,15 +248,17 @@
       <div class="toggle-row"><span class="q">Indiquer les heures d'arrivée et de départ ?</span>
         <div class="seg" id="ct-horaires"><button class="on">Non, juste la durée</button><button>Oui (recommandé pour le suivi)</button></div>
         <div class="hint">Avec les horaires, le suivi au jour le jour pré-remplit l'arrivée et le départ, et repère tout seul les dépassements.</div></div>
-      <div class="toggle-row"><span class="q">Les horaires sont-ils les mêmes chaque semaine ?</span>
-        <div class="seg" id="ct-alterne"><button class="on">Oui</button><button>Non, ils changent une semaine sur deux</button></div></div>
-      <div class="toggle-row" id="ct-alterneRef-row" style="display:none"><span class="q">Quelles semaines suivent le planning A ?</span>
-        <div class="seg" id="ct-alterneRef"><button class="on">La semaine où l’alternance commence</button><button>Les semaines paires</button><button>Les semaines impaires</button></div>
+      <div class="toggle-row"><span class="q">L’enfant vient-il de la même façon toutes les semaines ?</span>
+        <div class="seg" id="ct-alterne"><button class="on">Oui, toutes les semaines pareil</button><button>Non, ça change une semaine sur deux</button></div>
+        <div class="hint">Exemples de « une semaine sur deux » : le mercredi une semaine sur deux, garde alternée des parents, horaires différents d’une semaine à l’autre. Vous remplirez alors deux plannings : « semaine 1 » et « semaine 2 ».</div></div>
+      <div class="toggle-row" id="ct-alterneRef-row" style="display:none"><span class="q">Comment savoir si une semaine est une « semaine 1 » ou une « semaine 2 » ?</span>
+        <div class="seg" id="ct-alterneRef"><button class="on">La 1re semaine du contrat est une semaine 1, puis on alterne</button><button>Semaine 1 = semaines à numéro pair</button><button>Semaine 1 = semaines à numéro impair</button></div>
         <div class="hint" id="ct-alterneRef-hint"></div></div>
       <div class="field"><label id="ct-wA-label">Nombre d'heures d'accueil pour chaque jour de la semaine</label>
         <div class="week" id="ct-wA"></div>
         <div class="hint">Laissez vide les jours où l'enfant ne vient pas. Exemple : de 8 h à 17 h 30 = 9,5.</div></div>
-      <div class="field" id="ct-wB-wrap" style="display:none"><label>Semaine B : nombre d'heures pour chaque jour</label><div class="week" id="ct-wB"></div></div>
+      <div class="field" id="ct-wB-wrap" style="display:none"><label>Semaine 2 : heures d’accueil de chaque jour</label><div class="week" id="ct-wB"></div>
+        <div class="hint">L’enfant ne vient pas du tout la semaine 2 ? Laissez toutes les cases vides.</div></div>
       <div class="info-box" id="ct-planning-sum">—</div>
       <div class="warn-box" id="ct-planning-warn" style="display:none"></div>
     </div>
@@ -313,14 +315,14 @@
       <input type="number" step="1" id="mensu-semaines" placeholder="ex. 36"><div class="hint">Sans compter vos congés payés.</div></div>
 
     <div class="toggle-row"><span class="q">Le rythme d'accueil est-il le même chaque semaine ?</span>
-      <div class="seg" id="mensu-rythme"><button class="on">Oui, fixe</button><button>Non, alterné (2 semaines)</button></div></div>
+      <div class="seg" id="mensu-rythme"><button class="on">Oui, toutes les semaines pareil</button><button>Non, ça change une semaine sur deux</button></div></div>
     <div class="grid2">
       <div class="field"><label id="mensu-hA-label">Heures par semaine</label><input type="number" step="0.25" id="mensu-hA" placeholder="ex. 40"></div>
-      <div class="field" id="mensu-hB-wrap" style="display:none"><label>Heures semaine B</label><input type="number" step="0.25" id="mensu-hB" placeholder="ex. 35"></div>
+      <div class="field" id="mensu-hB-wrap" style="display:none"><label>Heures de la semaine 2</label><input type="number" step="0.25" id="mensu-hB" placeholder="ex. 35"></div>
     </div>
     <div class="grid2">
       <div class="field"><label id="mensu-jA-label">Jours d'accueil par semaine</label><input type="number" step="0.5" id="mensu-jA" placeholder="ex. 5"></div>
-      <div class="field" id="mensu-jB-wrap" style="display:none"><label>Jours d'accueil semaine B</label><input type="number" step="0.5" id="mensu-jB" placeholder="ex. 4"></div>
+      <div class="field" id="mensu-jB-wrap" style="display:none"><label>Jours d'accueil de la semaine 2</label><input type="number" step="0.5" id="mensu-jB" placeholder="ex. 4"></div>
     </div>
     <div class="grid2">
       <div class="field"><label>Salaire horaire brut (€)</label><input type="number" step="0.01" id="mensu-taux" placeholder="ex. 4.50"></div>
