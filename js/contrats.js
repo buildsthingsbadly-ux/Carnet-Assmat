@@ -30,12 +30,16 @@ function contratActif(c, when){
 function journalOf(id){ return (STATE.journal && STATE.journal[id]) || {}; }
 /* Totaux sur une période (mois 'AAAA-MM' inclus) */
 function journalTotals(id, fromM, toM){
-  const t = {n:0, brut:0, net:0, netImp:0, ie:0, repas:0, km:0, hReel:0, hContrat:0, brutMensu:0, hDecl:0, jCP:0, cpMontant:0, j8:0, hm8:0, mois:[]};
+  const t = {n:0, brut:0, net:0, netImp:0, ie:0, repas:0, km:0, hReel:0, hContrat:0, brutMensu:0, hDecl:0, jCP:0, cpMontant:0, cp12:0, j8:0, hm8:0, mois:[]};
+  const c = typeof getContrat==='function' ? getContrat(id) : null;
   Object.entries(journalOf(id)).sort().forEach(([m, r])=>{
     if(fromM && m < fromM) return;
     if(toM && m > toM) return;
     t.n++; t.mois.push(m);
     ['brut','net','netImp','ie','repas','km','hReel','hContrat','brutMensu','hDecl','jCP','cpMontant','j8','hm8'].forEach(k=>t[k]+= +r[k]||0);
+    // congés payés par 12ᵉ (versés d'avance chaque mois) : enregistrés à part depuis la 3.7.0 ; avant, déduits du contrat
+    const cc = c ? paramsAt(c, parseD(m)) : null;
+    t.cp12 += r.cp12!==undefined ? (+r.cp12||0) : (cc && cc.type===1 && cc.cpMode===0 ? (+r.cpMontant||0) : 0);
   });
   return t;
 }
@@ -78,12 +82,11 @@ function derive(c, when){
   const net = toNet(brut, d);
   // Indemnité d'entretien : moyenne par jour d'accueil sur le planning (A et B)
   const jours = A.filter(x=>x>0).concat(B.filter(x=>x>0));
-  const ieFixe = parseFloat(c.ieMontant)||0;
   let ieSum=0, ieSousMin=false;
   jours.forEach(h=>{
-    const leg = ieLegalJour(h, d);
-    if(c.ieMode===1 && ieFixe){ if(ieFixe < leg-1e-9) ieSousMin=true; ieSum += Math.max(ieFixe, leg); }
-    else ieSum += leg;
+    const leg = ieLegalJour(h, d), prevu = ieContratJour(c, h, d);
+    if(prevu && prevu < leg-1e-9) ieSousMin = true;
+    ieSum += Math.max(prevu, leg);
   });
   const ieJour = jours.length ? ieSum/jours.length : 0;
   const ieMois = ieJour*joursMensu;
@@ -243,7 +246,7 @@ function renderHome(){
       '<div class="mt-row"><span>Mes revenus habituels d\'un mois ('+actifs.length+' enfant'+(actifs.length>1?'s':'')+')</span></div>'
       + '<div class="mt-row"><span>Salaires bruts</span><b>'+fmtEUR(brut)+'</b></div>'
       + '<div class="mt-row"><span>Salaires nets (estimation)</span><b>'+fmtEUR(net)+'</b></div>'
-      + '<div class="mt-row"><span>Indemnités d\'entretien</span><b>'+fmtEUR(ie)+'</b></div>'
+      + '<div class="mt-row"><span>Indemnités d\'entretien (mois moyen : le montant réel suit les jours de présence)</span><b>'+fmtEUR(ie)+'</b></div>'
       + (rep? '<div class="mt-row"><span>Repas</span><b>'+fmtEUR(rep)+'</b></div>' : '')
       + (km? '<div class="mt-row"><span>Frais kilométriques</span><b>'+fmtEUR(km)+'</b></div>' : '')
       + '<div class="mt-row mt-big"><span>Total perçu (net)</span><b>'+fmtEUR(net+ie+rep+km)+'</b></div>';
@@ -459,7 +462,8 @@ function ctRefresh(){
   const debD = parseD(CT.debut); show('ct-rep-wrap', !!(debD && (today()-debD)/86400000 > 20));
   show('ct-rep-regul', CT.type===1);
   setTxt('ct-wA-label', CT.alterne ? 'Semaine A : nombre d\'heures pour chaque jour' : 'Nombre d\'heures d\'accueil pour chaque jour de la semaine');
-  show('ct-ieMontant-wrap', CT.ieMode===1);
+  show('ct-ieMontant-wrap', CT.ieMode===1 || CT.ieMode===2);
+  setTxt('ct-ieMontant-label', CT.ieMode===2 ? 'Montant pour une journée de 9 h ou plus (€)' : 'Montant par jour d\'accueil (€)');
   show('ct-repasPrix-wrap', CT.repasMode===1);
   for(let i=0;i<7;i++){
     ['A','B'].forEach(w=>{ const inp=$('ct-w'+w+i); if(inp) inp.parentElement.classList.toggle('filled', parseFloat(inp.value)>0); });

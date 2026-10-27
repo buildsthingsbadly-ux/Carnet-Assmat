@@ -6,7 +6,7 @@
 /* ---------------------------------- ABATTEMENT ---------------------------------- */
 const AB_MAX = 8;   // un enfant par employeur ; sur une année, des contrats finissent et d'autres commencent
 const AB_MOIS = ['Décembre','Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
-const AB_COLS = [ {k:'sal', t:'Salaire net imposable (€)', step:'0.01'}, {k:'ind', t:'Indemnités entretien, repas, km (€)', step:'0.01'},
+const AB_COLS = [ {k:'sal', t:'Salaire net imposable (€)', step:'0.01'}, {k:'ind', t:'Indemnités entretien et repas (€)', step:'0.01'},
   {k:'av', t:'Repas fournis par les parents (€)', step:'0.01'}, {k:'j8', t:'Jours ≥ 8 h', step:'0.5'}, {k:'hm8', t:'Heures des jours < 8 h', step:'0.25'} ];
 function buildAbattement(){
   let h='';
@@ -93,11 +93,18 @@ function abFromJournal(i, silent){
   for(let m=0;m<13;m++){
     const {y,mo} = abSlot(m,a), key = y+'-'+String(mo+1).padStart(2,'0'), r = J[key];
     if(!r) continue;
+    // un mois compte pour l'année où son salaire est versé (décembre payé en janvier = année suivante) : jamais 13 mois
+    const py = r.datepaie && parseD(r.datepaie) ? parseD(r.datepaie).getFullYear() : y;
+    if(py!==a){ ['sal','ind','av','j8','hm8'].forEach(k=>setVal('ab-c'+i+'-m'+m+'-'+k, '')); continue; }
     n++;
-    setVal('ab-c'+i+'-m'+m+'-sal', round2(r.netImp||0)); setVal('ab-c'+i+'-m'+m+'-ind', round2((r.ie||0)+(r.repas||0)+(r.km||0)));
+    // net imposable du salaire seul + entretien et repas versés (les indemnités kilométriques ne s'ajoutent pas)
+    setVal('ab-c'+i+'-m'+m+'-sal', round2(r.netImp||0)); setVal('ab-c'+i+'-m'+m+'-ind', round2((r.ie||0)+(r.repas||0)));
+    // repas fournis par les parents : forfait fiscal obligatoire par jour de présence
+    const cc = paramsAt(c, parseD(key));
+    setVal('ab-c'+i+'-m'+m+'-av', cc.repasMode===0 && r.jours ? round2(r.jours*R('repasAvantage', key)) : '');
     setVal('ab-c'+i+'-m'+m+'-j8', r.j8||''); setVal('ab-c'+i+'-m'+m+'-hm8', r.hm8||'');
   }
-  if(!silent){ CALC.abattement(); persistTheme('abattement'); toast(n ? n+' mois repris. Remplacez le net imposable par celui de vos bulletins ou de l\'attestation fiscale Pajemploi s\'il diffère.' : 'Aucun mois validé pour cette année.'); }
+  if(!silent){ CALC.abattement(); persistTheme('abattement'); toast(n ? n+' mois repris. Si vous préférez le net imposable de l\'attestation Pajemploi, il contient déjà l\'entretien et les repas : videz alors la colonne « Indemnités ».' : 'Aucun mois validé pour cette année.'); }
 }
 function abPrefillDays(i){
   const a = abYear(); if(!a){ toast('Indiquez d\'abord l\'année des revenus.'); return; }
@@ -126,13 +133,14 @@ CALC.abattement = ()=>{
     const mult = base + (hand ? R('abatMultMaj')-base : 0) + (h24 ? (R('abatMult24')||4)-base : 0);
     const t = T.eff * mult / base;
     const H = R('abatHeuresJour')||8;
+    const tH = round2(t/H);   // taux horaire des journées de moins de 8 h, au centime (fiche de calcul des impôts : 35,64 ÷ 8 = 4,46 €)
     const tot = {sal:0,ind:0,av:0,j8:0,hm8:0,ab:0};
     for(let m=0;m<13;m++){
       const act = abSlotActive(i,m,annee);
       const row = $('ab-c'+i+'-m'+m+'-row'); if(row) row.classList.toggle('ab-row-inactive', !act);
       AB_COLS.forEach(c=>{ const el=$('ab-c'+i+'-m'+m+'-'+c.k); if(el) el.disabled=!act; });
       const v = {}; AB_COLS.forEach(c=>v[c.k] = act ? num('ab-c'+i+'-m'+m+'-'+c.k) : 0);
-      const ab = v.j8*t + (v.hm8/H)*t, s = v.sal+v.ind+v.av, any = s||v.j8||v.hm8;
+      const ab = round2(v.j8*t + v.hm8*tH), s = v.sal+v.ind+v.av, any = s||v.j8||v.hm8;
       setTxt('ab-c'+i+'-m'+m+'-abatt', !act ? 'Hors contrat' : any ? fmtEUR(ab) : '—');
       setTxt('ab-c'+i+'-m'+m+'-decl', !act ? '—' : any ? fmtEUR(Math.max(0,s-ab)) : '—');
       AB_COLS.forEach(c=>tot[c.k]+=v[c.k]); tot.ab+=ab;

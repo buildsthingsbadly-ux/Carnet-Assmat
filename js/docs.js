@@ -102,7 +102,7 @@ function printDoc(id){
       + row('Heures normales mensualisées (à déclarer chaque mois)', Math.round(dv.hMensu)+' h ('+fmtNum(dv.hMensu,2)+' h)')
       + row('Jours d\'activité mensualisés (à déclarer chaque mois)', Math.ceil(dv.joursMensu-1e-9)+' j ('+fmtNum(dv.joursMensu,2)+' j)')
       + row('Salaire mensuel brut / net estimé', fmtEUR(dv.brut)+' / '+fmtEUR(dv.net)+(dv.cp12?' (dont 1/12ᵉ de congés payés)':''))
-      + row('Indemnité d\'entretien par jour de présence', c.ieMode===1 ? fmtEUR(Math.max(parseFloat(c.ieMontant)||0, dv.ieJour))+' (montant fixe)' : 'minimum légal, soit '+fmtEUR(dv.ieJour)+' en moyenne')
+      + row('Indemnité d\'entretien par jour de présence', c.ieMode===1 ? fmtEUR(ieContrat(c))+' (montant fixe, jamais sous le minimum légal du jour)' : c.ieMode===2 ? fmtEUR(ieContrat(c))+' pour une journée de 9 h ou plus, au prorata en dessous (jamais sous le minimum légal)' : 'minimum légal, soit '+fmtEUR(dv.ieJour)+' en moyenne')
       + row('Repas', c.repasMode===1 ? fmtEUR(parseFloat(c.repasPrix)||0)+' par jour' : c.repasMode===0 ? 'fournis par les parents' : 'aucun')
       + row('Date de paiement du salaire', c.paiementJour ? 'le '+esc(c.paiementJour)+' du mois suivant' : BL) + '</table>'
       + '<p class="legal-p">Depuis janvier 2026, Pajemploi demande une déclaration par enfant, chaque mois entre le 25 et le 5 du mois suivant. Le thème « Salaire du mois & Pajemploi » du carnet donne chaque mois les chiffres exacts à recopier.</p>';
@@ -133,7 +133,7 @@ function printDoc(id){
       + row('Date de paiement', c.paiementJour ? 'le '+esc(c.paiementJour)+' de chaque mois, pour le mois écoulé' : BL) + row('Déclaration', 'par l\'employeur sur Pajemploi, chaque mois') + '</table>'
       + '<p>Le salaire horaire ne peut être inférieur au minimum conventionnel en vigueur ; en cas de revalorisation de ce minimum, il est relevé d\'office.</p>'
       + '<h3>Article 6 — Indemnités et frais</h3><table>'
-      + row('Indemnité d\'entretien', c.ieMode===1 ? fmtEUR(parseFloat(c.ieMontant)||0)+' par jour de présence (jamais inférieure au minimum légal)' : 'minimum légal par jour de présence, calculé selon la durée d\'accueil (90 % du minimum garanti pour 9 h, 2,65 € au moins)')
+      + row('Indemnité d\'entretien', c.ieMode===1 ? fmtEUR(ieContrat(c))+' par jour de présence, quelle que soit sa durée (jamais inférieure au minimum légal du jour)' : c.ieMode===2 ? fmtEUR(ieContrat(c))+' par journée de présence de 9 heures ou plus ; pour une journée plus courte, ce montant au prorata des heures d’accueil, arrondi au centime supérieur (jamais inférieur au minimum légal)' : 'minimum légal par jour de présence, calculé selon la durée d\'accueil (90 % du minimum garanti pour 9 h, 2,65 € au moins)')
       + row('Repas et goûters', c.repasMode===1 ? fournisPar('assmat', c) : c.repasMode===0 ? 'fournis par les parents' : 'sans objet')
       + row('Indemnités kilométriques', (parseFloat(c.km)||0) ? fmtEUR(parseFloat(c.km))+' par mois en moyenne, selon les déplacements autorisés' : 'selon les déplacements autorisés par écrit, au barème convenu : '+BL) + '</table>'
       + '<h3>Article 7 — Congés payés</h3>'
@@ -167,7 +167,7 @@ function printDoc(id){
       + '<tr><td>Semaines d\'accueil par an</td><td>'+dvNow.semaines+'</td><td>'+BL+'</td></tr>'
       + '<tr><td>Heures mensualisées</td><td>'+fmtNum(dvNow.hMensu,2)+' h</td><td>'+BL+'</td></tr>'
       + '<tr><td>Salaire mensuel brut</td><td>'+fmtEUR(dvNow.brut)+'</td><td>'+BL+'</td></tr>'
-      + '<tr><td>Indemnité d\'entretien</td><td>'+(c.ieMode===1?fmtEUR(parseFloat(c.ieMontant)||0)+'/jour':'minimum légal')+'</td><td>'+BL+'</td></tr>'
+      + '<tr><td>Indemnité d\'entretien</td><td>'+(c.ieMode===1?fmtEUR(ieContrat(c))+'/jour':c.ieMode===2?fmtEUR(ieContrat(c))+' pour 9 h (prorata en dessous)':'minimum légal')+'</td><td>'+BL+'</td></tr>'
       + '<tr><td>Planning (jours et horaires)</td><td>voir contrat</td><td>'+BL+'</td></tr></table>'
       + '<p>Les autres clauses du contrat restent inchangées. Pensez à mettre à jour l\'enfant dans le carnet (✎ Modifier) à la date d\'effet. En année incomplète, la régularisation de fin de contrat se calcule par période, avant et après chaque avenant.</p>'
       + lieuDate() + sign('L\'employeur', 'La salariée');

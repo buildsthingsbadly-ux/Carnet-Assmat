@@ -91,11 +91,15 @@ function renderMoisDash(){
   list.forEach(c=>{
     const J = journalOf(c.id)[ym], S = (STATE.suivi||{})[c.id], useSuivi = !!(S && Object.keys(S.days||{}).length);
     const mr = (S && S.months && S.months[ym]) || {st:'ouvert'};
-    let net, frais, M = null;
-    if(J){ net = J.net; frais = (J.ie||0)+(J.repas||0)+(J.km||0); }
-    else if(useSuivi){ M = suiviMonth(c, ym); net = M.net; frais = M.T.ie+M.T.repas+M.T.kmEur; estim = true; }
-    else { const dv = derive(c, d0); net = dv.net; frais = dv.ieMois+dv.repasMois+dv.km; estim = true; }
-    totNet += net; totFrais += frais;
+    let net, frais, ieM, jIE, M = null;
+    if(J){ net = J.net; ieM = J.ie||0; jIE = J.jours; frais = (J.repas||0)+(J.km||0); }
+    else {
+      // estimation jour par jour (suivi, ou planning du mois) : mêmes chiffres que « Salaire du mois »
+      M = suiviMonth(c, ym); net = M.net; estim = true;
+      const I = ieDuMois(c, ym); ieM = I.total; jIE = I.jours;
+      frais = round2(M.T.repas + (M.T.kmEur || (parseFloat(paramsAt(c, finM).km)||0)));
+    }
+    totNet += net; totFrais += ieM + frais;
     const todo = useSuivi ? (M || suiviMonth(c, ym)).T.todo : 0;
     const passe = finM < t;
     const steps = [];
@@ -107,7 +111,8 @@ function renderMoisDash(){
     h += '<div class="kid" style="margin-bottom:12px"><div class="kname">'+esc(c.enfant||'')+'</div><div class="kfam">'+esc(c.famille||'')+'</div>'
       + '<div class="stepper">'+steps.map(s=>'<div class="sp '+(s.ok?'done':s.cur?'cur':'')+'">'+(s.ok?'✔':'○')+' '+(s.a?'<a href="#" onclick="'+s.a+';return false;">'+esc(s.t)+'</a>':esc(s.t))+'</div>').join('')+'</div>'
       + '<div class="kline"><span>Salaire net'+(J?'':' (estimation)')+'</span><b>'+fmtEUR(net)+'</b></div>'
-      + '<div class="kline"><span>Entretien, repas, km</span><b>'+fmtEUR(frais)+'</b></div>'
+      + '<div class="kline"><span>Indemnités d\'entretien'+(jIE ? ' ('+jIE+' j)' : '')+'</span><b>'+fmtEUR(ieM)+'</b></div>'
+      + '<div class="kline"><span>Repas et km</span><b>'+fmtEUR(frais)+'</b></div>'
       + (next && next.a ? '<button class="btn small primary" style="margin-top:8px" onclick="'+next.a+'">'+esc(next.b)+' →</button>' : (next?'':'<div class="hint" style="margin-top:6px">✔ Mois terminé pour cet enfant.</div>'))
       + '</div>';
   });

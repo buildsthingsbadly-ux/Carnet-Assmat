@@ -68,7 +68,8 @@ function malCountBefore(c, d){
 function calcDay(c, d, k){
   const pl = plannedDay(c, d), inC = inContract(c, d), r = dayRec(c.id, k);
   const sd = suiviDebut(c);
-  let st = r ? r.st : (!inC ? 'hors' : (sd && d < sd) ? 'avant' : (pl.min ? 'todo' : 'none'));
+  // un jour férié prévu au planning et non renseigné est réputé chômé (payé, sans accueil ni indemnité d'entretien)
+  let st = r ? r.st : (!inC ? 'hors' : (sd && d < sd) ? 'avant' : (pl.min ? (ferieName(d) ? 'ferieCh' : 'todo') : 'none'));
   const def = ST[st] || {};
   const P = inC ? pl.min : 0;
   let real = 0;
@@ -89,13 +90,11 @@ function calcDay(c, d, k){
   // Indemnités du jour
   const cc = paramsAt(c, d);
   let ie = 0;
-  if(acc && real>0 && st!=='avant'){
-    const leg = ieLegalJour(real/60, d);
-    ie = (cc.ieMode===1 && parseFloat(cc.ieMontant)) ? Math.max(parseFloat(cc.ieMontant), leg) : leg;
-  }
+  if(acc && real>0 && st!=='avant') ie = ieJourMontant(cc, real/60, d);
   const rep = r && r.rep ? r.rep : {};
   const nbRepas = ['pdj','dej','gou','din'].filter(x=>rep[x]).length;
-  const repas = (cc.repasMode===1 && nbRepas && acc) ? (parseFloat(cc.repasPrix)||0) : 0;
+  // journée pas encore renseignée : repas estimé fourni, comme dans le calcul du salaire du mois
+  const repas = (cc.repasMode===1 && acc && st!=='avant' && (nbRepas || (!r && real>0))) ? round2(parseFloat(cc.repasPrix)||0) : 0;
   const km = r ? (parseFloat(r.km)||0) : 0, kmEur = km*(parseFloat(cc.kmTaux)||0);
   const frais = r && Array.isArray(r.frais) ? r.frais.reduce((s,f)=>s+(parseFloat(f.montant)||0),0) : 0;
   const ferie = ferieName(d);
@@ -457,6 +456,22 @@ function renderMoisSuivi(c){
 }
 
 /* Transfert du récapitulatif vers « Salaire du mois & Pajemploi » (rien à recalculer) */
+/* Indemnités d'entretien d'un mois, jour de présence par jour de présence (source unique pour tous les écrans).
+   Mois suivi : journées réelles ; sinon planning du contrat (fériés chômés, semaines sans accueil et dates du contrat exclus). */
+function ieDuMois(c, ym){
+  const M = suiviMonth(c, ym), d0 = parseD(ym), last = new Date(d0.getFullYear(), d0.getMonth()+1, 0);
+  const days = M.days.filter(x=>x.inC && x.acc && x.R>0 && x.st!=='avant');
+  const vals = days.map(x=>x.ie);
+  const cc = paramsAt(c, last), fixe = ieContrat(cc);
+  return { M, days, jours: days.length,
+    total: round2(vals.reduce((s,v)=>s+v,0)),
+    totalLegal: round2(days.reduce((s,x)=>s+ieLegalJour(x.R/60, x.d),0)),
+    hAvg: days.length ? days.reduce((s,x)=>s+x.R,0)/60/days.length : 0,
+    min: vals.length ? Math.min(...vals) : 0, max: vals.length ? Math.max(...vals) : 0,
+    fixe, mode: cc.ieMode||0,
+    releves: days.filter(x=>{ const p = paramsAt(c, x.d); return ieContrat(p)>0 && x.ie > ieContratJour(p, x.R/60, x.d)+1e-9; }).length,
+    suivi: hasSuiviMonth(c.id, ym) };
+}
 function hasSuiviMonth(cid, ym){ const S=(STATE.suivi||{})[cid]; return !!(S && Object.keys(S.days||{}).some(k=>k.slice(0,7)===ym)); }
 function suiviVersPaie(cid, ym){
   const c = getContrat(cid);
@@ -477,10 +492,11 @@ function suiviFillMois(c, ym){
   setSegVal('mois-heuresup', (T.compl||T.maj) ? 1 : 0); setVal('mois-hcompl', round2(T.compl/60)); setVal('mois-hmaj', round2(T.maj/60)); setVal('mois-majoration', M.majPct);
   setSegVal('mois-ferie', (T.ferieMin||T.mai1Min) ? 1 : 0); setVal('mois-hferie', round2(T.ferieMin/60)); setVal('mois-h1mai', round2(T.mai1Min/60));
   setVal('mois-jcp', T.cpOuv||'');   // jours de congés pris (suivi), quel que soit le type de contrat
-  setVal('mois-jours', T.jAcc);
-  setVal('mois-hjour', T.jAcc ? round2(T.R/60/T.jAcc) : '');
-  // moyenne non arrondie : le total du mois retombe exactement sur le total jour par jour (0 centime d'écart)
-  setVal('mois-indemj', T.jAcc ? +(T.ie/T.jAcc).toFixed(6) : '');
+  // entretien : jours et durée moyenne pour information ; le total est recalculé jour par jour (ieDuMois)
+  const I = ieDuMois(c, ym);
+  setVal('mois-jours', I.jours || '');
+  setVal('mois-hjour', I.jours ? round2(I.hAvg) : '');
+  setVal('mois-indemj', I.fixe || '');
   setVal('mois-repas', T.jAcc ? +(T.repas/T.jAcc).toFixed(6) : '');
   setVal('mois-km', round2(T.kmEur || (parseFloat(paramsAt(c,parseD(ym)).km)||0)));
   setVal('mois-hreel', round2(T.R/60));

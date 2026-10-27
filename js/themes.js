@@ -39,6 +39,7 @@ document.addEventListener('input', e=>{
   if(e.target.id==='ccass-cal-mois'){ buildCcassCalendar(); }
   if(e.target.id==='ccass-motif-sel'){ VIS.ccass(); }
   if(e.target.id==='mois-mois' && moisContrat() && e.target.value){ moisFillFromContract(moisContrat(), e.target.value); VIS.mois(); }
+  if(e.target.id==='ie-mois' && ieContratChoisi() && e.target.value){ ieFillFromContract(ieContratChoisi(), e.target.value); VIS.ie(); }
   if(e.target.id && e.target.id.indexOf('ccass-d')===0){ onCcassCalInput(); }
   recalc(t);
   clearTimeout(th._pt); th._pt = setTimeout(()=>persistTheme(t), 500);
@@ -116,11 +117,12 @@ function moisFillFromContract(c, m){
   setSegVal('mois-type', c.type);
   setVal('mois-base', round2(dv.brutBase)); setVal('mois-heures', round2(dv.hMensu)); setVal('mois-taux', round2(dv.tauxEff));
   setVal('mois-jmensu', round2(dv.joursMensu));
-  const jours = plannedDays(c, d.getFullYear(), d.getMonth(), {skipFeries:true});
-  setVal('mois-jours', jours.length || '');
-  setVal('mois-hjour', jours.length ? round2(jours.reduce((s,x)=>s+x.h,0)/jours.length) : round2(dv.hDayAvg));
-  setVal('mois-indemj', c.ieMode===1 ? c.ieMontant : '');
-  setVal('mois-repas', c.repasMode===1 ? c.repasPrix : '');
+  // jours de présence prévus : même calcul que l'onglet Mois (fériés chômés, semaines sans accueil, dates du contrat)
+  const I = ieDuMois(c, m), ccM = paramsAt(c, new Date(d.getFullYear(), d.getMonth()+1, 0));
+  setVal('mois-jours', I.jours || '');
+  setVal('mois-hjour', I.jours ? round2(I.hAvg) : round2(dv.hDayAvg));
+  setVal('mois-indemj', I.fixe || '');
+  setVal('mois-repas', ccM.repasMode===1 ? ccM.repasPrix : '');
   setVal('mois-km', c.km);
   setSegVal('mois-cp12', (c.type===1 && c.cpMode===0) ? 1 : 0);
   if(c.paiementJour){
@@ -164,10 +166,20 @@ function moisCompute(){
   const csgnd = R('csgNonDed', d)||0, assiette = R('assietteCsg', d)||0.9825;
   const netImp = (brutNormal+cpTot+regul)*(ratio + csgnd*assiette);
   // Entretien, repas, km
-  const jours = num('mois-jours'), hj = num('mois-hjour');
-  const ieLeg = ieLegalJour(hj, d), ieSaisie = num('mois-indemj');
-  const ieJour = ieSaisie ? Math.max(ieSaisie, ieLeg) : ieLeg;
-  const ie = jours ? ieJour*jours : 0, repas = jours*num('mois-repas'), km = num('mois-km');
+  // Entretien : jour par jour (même total que l'onglet Mois) tant que les cases reprises du contrat ne sont pas modifiées ;
+  // sinon, saisie libre sur une durée moyenne. Montants au centime (minimum légal arrondi au centime supérieur).
+  const jours = num('mois-jours'), hj = num('mois-hjour'), ieSaisie = round2(num('mois-indemj'));
+  const ieLeg = ieLegalJour(hj || R('ieHeuresRef', d), d);
+  let ieAuto = null;
+  const cIE = moisContrat();
+  if(cIE && jours){ const I = ieDuMois(cIE, m); if(I.jours===jours && Math.abs(round2(I.hAvg)-hj)<0.005 && Math.abs(I.fixe-ieSaisie)<0.005) ieAuto = I; }
+  // durée non indiquée : le montant convenu est retenu tel quel (le minimum ne peut pas être vérifié), sinon minimum pour 9 h
+  // contrat « montant pour 9 h » : au prorata de la durée moyenne si elle est plus courte
+  const modeIE = cIE ? (paramsAt(cIE, new Date(d.getFullYear(), d.getMonth()+1, 0)).ieMode||0) : 1;
+  const iePrevu = ieSaisie && hj ? ieContratJour({ieMode: modeIE===2 ? 2 : 1, ieMontant: ieSaisie}, hj, d) : ieSaisie;
+  const ieJour = ieAuto ? (ieAuto.jours ? ieAuto.total/ieAuto.jours : 0) : (ieSaisie && !hj ? ieSaisie : Math.max(iePrevu, ieLeg));
+  const ie = ieAuto ? ieAuto.total : (jours ? round2(ieJour*jours) : 0);
+  const repas = round2(jours*num('mois-repas')), km = round2(num('mois-km'));
   // Pajemploi : heures et jours mensualisés, diminués de l'absence ; + heures de congés payés (année incomplète)
   const hMensu = num('mois-heures'), jMensu = num('mois-jmensu');
   const ratioDu = base ? Math.max(0, base-ded)/base : 1;
@@ -190,21 +202,30 @@ function moisCompute(){
   // Abattement fiscal : jours de 8 h et plus / heures des jours plus courts
   const H8 = R('abatHeuresJour', d)||8;
   // jours exacts quand le mois vient du suivi au jour le jour, sinon estimation par la durée moyenne
-  const j8 = val('mois-j8')!=='' ? num('mois-j8') : (hj >= H8 ? jours : 0), hm8 = val('mois-hm8')!=='' ? num('mois-hm8') : (hj < H8 ? jours*hj : 0);
+  // sans suivi : chaque journée du planning est classée selon SA durée (pas la durée moyenne)
+  const jH = ieAuto ? ieAuto.days.map(x=>x.R/60) : null;
+  const j8 = val('mois-j8')!=='' ? num('mois-j8') : (jH ? jH.filter(h=>h>=H8).length : (hj >= H8 ? jours : 0));
+  const hm8 = val('mois-hm8')!=='' ? num('mois-hm8') : (jH ? round2(jH.filter(h=>h<H8).reduce((s,h)=>s+h,0)) : (hj < H8 ? jours*hj : 0));
   return {m, d, inc, taux, base, ded, hContrat, brutMensu: Math.max(0, base-ded), hcompl, hmaj, majPct, supFerie, brutCompl, brutMaj, brutNormal, cp12, cpVerse, cpTot, brut,
-    net, netHs, netImp, jours, hj, ieLeg, ieSaisie, ieJour, ie, repas, km, hNormDecl, jDecl, hReel, hReelAuto, j8, hm8,
+    net, netHs, netImp, jours, hj, ieLeg, ieSaisie, ieJour, ie, ieAuto, repas, km, hNormDecl, jDecl, hReel, hReelAuto, j8, hm8,
     jcp: num('mois-jcp'), acompte: num('mois-acompte'), datepaie: val('mois-datepaie')};
 }
 CALC.mois = ()=>{
   const r = moisCompute(), d = r.d;
   const fl = Object.entries(feries(d.getFullYear())).filter(([k])=>k.slice(0,7)===r.m.slice(0,7)).map(([k,n])=>n+' ('+fmtDate(k)+')');
   setTxt('mois-feries-liste', fl.length ? 'Jours fériés ce mois-ci : '+fl.join(', ')+'. Un jour férié chômé prévu au planning est payé normalement (dès le début du contrat, si les jours d\'accueil prévus juste avant et juste après sont travaillés ou l\'absence autorisée).' : 'Aucun jour férié ce mois-ci.');
-  setTxt('mois-ie-hint', 'Minimum légal pour une journée de '+fmtNum(r.hj||9,2)+' h : '+fmtEUR(r.ieLeg)+'. Laissez vide pour l\'appliquer.');
+  setTxt('mois-ie-hint', r.ieAuto
+    ? 'Calcul jour par jour d\'après '+(r.ieAuto.suivi ? 'le suivi des journées' : 'le planning du contrat')+' : chaque journée reçoit le montant du contrat, jamais moins que le minimum légal de sa durée (même total que l\'onglet Mois).'
+    : 'Minimum légal pour une journée de '+fmtNum(r.hj||R('ieHeuresRef', r.d)||9,2)+' h : '+fmtEUR(r.ieLeg)+'. Laissez vide pour l\'appliquer.'+(moisContrat() ? ' Cases modifiées à la main : calcul sur la durée moyenne.' : ''));
   setTxt('mois-hreel-hint', r.hReelAuto ? 'Calculé d\'après le planning : '+fmtNum(r.hReel,2)+' h. Corrigez si besoin (sert à la régularisation de fin de contrat).' : 'Gardées dans l\'historique pour la régularisation de fin de contrat.');
   const w = [];
   const tauxMin = R('salMin', d);
   if(r.taux && r.taux < tauxMin-1e-9) w.push('⛔ Salaire horaire inférieur au minimum légal de ce mois ('+fmtEUR(tauxMin)+').');
-  if(r.ieSaisie && r.ieSaisie < r.ieLeg-1e-9) w.push('⚠️ L\'indemnité d\'entretien saisie ('+fmtEUR(r.ieSaisie)+') est sous le minimum légal ('+fmtEUR(r.ieLeg)+') : le minimum est appliqué.');
+  if(r.ieAuto && r.ieAuto.releves && r.ieAuto.mode===2) w.push('⚠️ Le montant prévu au contrat pour 9 h ('+fmtEUR(r.ieAuto.fixe)+') est inférieur au minimum légal ('+fmtEUR(ieLegalJour(R('ieHeuresRef', d)||9, d))+' pour 9 h) : le minimum est appliqué '+r.ieAuto.releves+' j sur '+r.ieAuto.jours+'. Pensez à un avenant.');
+  else if(r.ieAuto && r.ieAuto.releves) w.push('⚠️ Le montant du contrat ('+fmtEUR(r.ieAuto.fixe)+' par jour) est inférieur au minimum légal pour les journées de plus de '+fmtH(Math.floor(ieSeuilHeures(r.ieAuto.fixe, d)*60))+' : le minimum est appliqué ces jours-là ('+r.ieAuto.releves+' j sur '+r.ieAuto.jours+'). Pensez à un avenant.');
+  else if(!r.ieAuto && r.ieSaisie && !r.hj) w.push('Durée des journées non indiquée : '+fmtEUR(r.ieSaisie)+' par jour est retenu sans contrôle. Il est sous le minimum légal pour les journées de plus de '+fmtH(Math.floor(ieSeuilHeures(r.ieSaisie, d)*60))+' : indiquez la durée moyenne pour le vérifier.');
+  else if(!r.ieAuto && r.ieSaisie && r.ieSaisie < r.ieLeg-1e-9) w.push('⚠️ L\'indemnité d\'entretien saisie ('+fmtEUR(r.ieSaisie)+') est sous le minimum légal pour une journée de '+fmtNum(r.hj||9,2)+' h ('+fmtEUR(r.ieLeg)+') : le minimum est appliqué.');
+  if(!r.ieAuto && r.jours && !r.hj && !r.ieSaisie) w.push('Durée des journées non indiquée : le minimum d\'entretien est calculé pour '+(R('ieHeuresRef', d)||9)+' h.');
   if(seg('mois-incomplet')===1 && !num('mois-deduction')) w.push('Indiquez le montant déduit (calcul « Mois incomplet & absences », bouton « Reporter »).');
   if(!r.inc && num('mois-cpmontant')) w.push('Année complète : pas d’indemnité de congés à ajouter, elle est déjà dans le salaire mensualisé.');
   const c = moisContrat();
@@ -212,7 +233,9 @@ CALC.mois = ()=>{
   setHTML('mois-warn', warnHTML(w));
   setTxt('out-mois-brut', r.brut ? fmtEUR(r.brut)+(r.cpTot?' (dont congés '+fmtEUR(r.cpTot)+')':'') : '—');
   setTxt('out-mois-net-sal', r.brut ? fmtEUR(r.net) : '—');
-  setTxt('out-mois-entretien', r.ie ? fmtEUR(r.ie)+' ('+r.jours+' j × '+fmtEUR(r.ieJour)+')' : '—');
+  setTxt('out-mois-entretien', !r.ie ? '—' : fmtEUR(r.ie)+' ('+(r.ieAuto && r.ieAuto.min!==r.ieAuto.max
+    ? r.jours+' j, de '+fmtEUR(r.ieAuto.min)+' à '+fmtEUR(r.ieAuto.max)+' selon la durée de la journée'
+    : r.jours+' j × '+fmtEUR(r.ieAuto ? r.ieAuto.min : r.ieJour))+')');
   setTxt('out-mois-repas-r', r.repas ? fmtEUR(r.repas) : '—');
   setTxt('out-mois-km-r', r.km ? fmtEUR(r.km) : '—');
   const total = r.net+r.ie+r.repas+r.km;
@@ -246,7 +269,7 @@ function validerMois(){
   STATE.journal = STATE.journal || {};
   STATE.journal[c.id] = STATE.journal[c.id] || {};
   STATE.journal[c.id][r.m] = { brut:round2(r.brut), net:round2(r.net), netImp:round2(r.netImp), ie:round2(r.ie), repas:round2(r.repas), km:round2(r.km),
-    hDecl:r.hNormDecl, jDecl:r.jDecl, hCompl:r.hcompl, hMaj:r.hmaj, hReel:round2(r.hReel), hContrat:round2(r.hContrat), brutMensu:round2(r.brutMensu), jours:r.jours, jCP:r.jcp, cpMontant:round2(r.cpTot),
+    hDecl:r.hNormDecl, jDecl:r.jDecl, hCompl:r.hcompl, hMaj:r.hmaj, hReel:round2(r.hReel), hContrat:round2(r.hContrat), brutMensu:round2(r.brutMensu), jours:r.jours, jCP:r.jcp, cpMontant:round2(r.cpTot), cp12:round2(r.cp12),
     ded:round2(r.ded), j8:r.j8, hm8:round2(r.hm8), taux:r.taux, datepaie:r.datepaie, validatedAt:new Date().toISOString() };
   // le mois correspondant du suivi passe au statut « déclaré »
   const S = (STATE.suivi||{})[c.id];
@@ -398,7 +421,7 @@ PREFILL.ccass = c=>{
   setVal('ccass-jours-habituel', round2(dv.joursMensu));
   setVal('ccass-hnorm-habituel', round2(dv.hNormMensu));
   setSegVal('ccass-entretien', 1);
-  setVal('ccass-ie-montant', round2(c.ieMode===1 ? Math.max(parseFloat(c.ieMontant)||0, dv.ieJour) : dv.ieJour));
+  setVal('ccass-ie-montant', round2(dv.ieJour));   // moyenne par jour de présence, montant du contrat et minimum légal compris
   const dm = malCountBefore(c, parseD(curMonth())); if(dm) setVal('ccass-mal-deja', dm);
   refreshVisibility('ccass');
   ccassPrefillCalendar(true);
@@ -639,14 +662,17 @@ CALC.cp = ()=>{
     const s=parseD(val('cp-n1-debut')), e=parseD(val('cp-n1-fin'));
     const mo = monthsBetween(s, addDays(e,1)) || 0;
     const jt = journalTotals(c.id, isoMonth(s), isoMonth(e));
-    const est = jt.n ? jt.brut - jt.cpMontant : derive(c, e).brutBase*mo;
+    // assiette du 10ᵉ : tout le brut de la période, y compris les congés payés versés (art. L3141-24),
+    // sauf les 12ᵉ versés d'avance chaque mois (ils paient déjà ces congés)
+    const est = jt.n ? jt.brut - jt.cp12 : derive(c, e).brutBase*mo;
     const src = jt.n ? 'Total de vos '+jt.n+' mois validés sur la période N-1' : 'Estimation d\'après le contrat pour la période N-1 (validez vos mois pour avoir le montant exact)';
     setHTML('cp-total-suggest', est ? src+' : <a href="#" onclick="setVal(\'cp-total-salaires\','+round2(est)+');CALC.cp();persistTheme(\'cp\');return false;">'+fmtEUR(est)+'</a> (touchez pour l\'utiliser).' : '');
   } else setHTML('cp-total-suggest','');
   if(seg('cp-valeur')!==1) return;
   const taux=num('cp-taux'), h=num('cp-heures'), tot=num('cp-total-salaires');
   const vj = (h/6)*taux;                          // valeur d'un jour ouvrable (6 jours ouvrables par semaine)
-  const maintien = dispo*vj, dixieme = tot*0.10;
+  // les deux méthodes portent sur les MÊMES jours : ceux acquis pendant la période de référence (N-1) dont le salaire est saisi
+  const maintien = A.n1*vj, dixieme = tot*0.10;
   const verser = Math.max(maintien, dixieme);
   setTxt('out-cp-maintien', fmtEUR(maintien)); setTxt('out-cp-dixieme', fmtEUR(dixieme));
   setTxt('out-cp-verser', fmtEUR(verser)); setTxt('out-cp-net', fmtEUR(toNet(verser)));
@@ -671,32 +697,52 @@ CALC.cp = ()=>{
    05 · INDEMNITÉS D'ENTRETIEN
    ===================================================================================== */
 VIS.ie = ()=>{ show('ie-contrat-wrap', seg('ie-mode')===1); show('ie-compare-results', seg('ie-mode')===1); };
+function ieContratChoisi(){ const k = selKey('ie'); return k!=='libre' ? getContrat(k) : null; }
+function ieFillFromContract(c, m){
+  const I = ieDuMois(c, m);
+  setVal('ie-jours-accueil', I.jours || '');
+  setVal('ie-heures', I.jours ? round2(I.hAvg) : round2(derive(c, parseD(m)).hDayAvg));
+  setSegVal('ie-employeur', 0);
+  if(I.fixe){ setSegVal('ie-mode',1); setVal('ie-montant-contrat', I.fixe); } else setVal('ie-montant-contrat', '');
+}
 PREFILL.ie = c=>{
   setVal('ie-mois', curMonth());
   if(!c) return;
-  const d = parseD(curMonth());
-  const days = plannedDays(c, d.getFullYear(), d.getMonth(), {skipFeries:true});
-  setVal('ie-jours-accueil', days.length||'');
-  setVal('ie-heures', days.length ? round2(days.reduce((s,x)=>s+x.h,0)/days.length) : round2(derive(c).hDayAvg));
-  if(c.ieMode===1){ setSegVal('ie-mode',1); setVal('ie-montant-contrat', c.ieMontant); }
+  ieFillFromContract(c, curMonth());
 };
 CALC.ie = ()=>{
   const m = val('ie-mois') || curMonth();
   const pm = seg('ie-employeur')===1;
   const mg = R('mg', m), h = num('ie-heures'), j = num('ie-jours-accueil');
+  const mc = seg('ie-mode')===1 ? round2(num('ie-montant-contrat')) : 0;
   const leg = ieLegalJour(h||R('ieHeuresRef',m), m, pm);
+  // jour par jour (planning ou suivi) tant que les cases reprises du contrat ne sont pas modifiées
+  const c = ieContratChoisi();
+  let I = null;
+  if(c && j && !pm){ const x = ieDuMois(c, m); if(x.jours===j && Math.abs(round2(x.hAvg)-h)<0.005 && (seg('ie-mode')===0 || Math.abs(x.fixe-mc)<0.005)) I = x; }
   setTxt('out-ie-mg', fmtEUR(mg)+' (depuis le '+fmtDate(Rdu('mg',m))+')');
-  setTxt('out-ie-9h', fmtEUR(ceil2(ieLegalJour(R('ieHeuresRef',m), m, pm))));
-  setTxt('out-ie-taux', fmtEUR(ceil2(leg))+' / jour'+(h?' ('+fmtNum(h,2)+' h)':''));
-  setTxt('out-ie-jours', j ? j+' j' : '—');
-  setTxt('out-ie-mois-min', j ? fmtEUR(ceil2(leg)*j) : '—');
+  setTxt('out-ie-9h', fmtEUR(ieLegalJour(R('ieHeuresRef',m), m, pm)));
+  setTxt('out-ie-taux', fmtEUR(leg)+' / jour'+(h?' ('+fmtNum(h,2)+' h'+(I?' en moyenne':'')+')':' (9 h)'));
+  setTxt('out-ie-jours', j ? j+' j'+(I ? (I.suivi ? ' (suivi des journées)' : ' (planning du contrat)') : '') : '—');
+  const minMois = I ? I.totalLegal : (j ? round2(leg*j) : 0);
+  setTxt('out-ie-mois-min', j ? fmtEUR(minMois)+(I ? ' (calculé jour par jour)' : '') : '—');
+  setTxt('ie-methode', I ? 'Calcul jour par jour d\'après '+(I.suivi ? 'les journées notées dans le suivi' : 'le planning du contrat (fériés chômés et semaines sans accueil exclus)')+' : même résultat que l\'onglet Mois et que « Salaire du mois ».'
+    : (c ? 'Cases modifiées à la main : calcul sur la durée moyenne indiquée.' : 'Indiquez les jours de présence et leur durée moyenne. Pour un calcul exact jour par jour, choisissez l\'enfant ci-dessus.'));
   if(seg('ie-mode')===1){
-    const mc = num('ie-montant-contrat');
-    setTxt('out-ie-contrat', mc&&j ? fmtEUR(mc*j) : '—');
+    // montant prévu chaque jour : fixe, ou « pour 9 h » au prorata en dessous (mode du contrat choisi)
+    const modeC = c ? (paramsAt(c, parseD(m)).ieMode===2 ? 2 : 1) : 1, prevu = h2=>ieContratJour({ieMode:modeC, ieMontant:mc}, h2, m);
+    const verser = I ? (I.fixe===mc ? I.total : round2(I.days.reduce((s,x)=>s+Math.max(prevu(x.R/60), ieLegalJour(x.R/60, x.d)),0))) : (j ? round2(Math.max(h ? prevu(h) : mc, leg)*j) : 0);
+    const releves = I ? I.days.filter(x=>ieLegalJour(x.R/60, x.d) > prevu(x.R/60)+1e-9).length : (leg > (h ? prevu(h) : mc)+1e-9 ? j : 0);
+    const totPrevu = I ? round2(I.days.reduce((s,x)=>s+prevu(x.R/60),0)) : round2((h ? prevu(h) : mc)*j);
+    setTxt('out-ie-contrat', !(mc&&j) ? '—' : modeC===2 ? fmtEUR(totPrevu)+' ('+fmtEUR(mc)+' pour 9 h, au prorata en dessous)' : fmtEUR(mc)+' × '+j+' j = '+fmtEUR(totPrevu));
+    setTxt('out-ie-verser', mc&&j ? fmtEUR(verser)+(releves ? ' (minimum légal appliqué '+releves+' j)' : '') : '—');
     const b=$('ie-badge'), row=$('row-ie-conformite');
     row.classList.remove('warn');
-    if(mc && mc+1e-9 >= ceil2(leg)){ b.textContent='Conforme'; b.className='badge ok'; setTxt('out-ie-ecart','Marge : '+fmtEUR(mc-ceil2(leg))+'/jour'); }
-    else { b.textContent='Insuffisant'; b.className='badge warn'; row.classList.add('warn'); setTxt('out-ie-ecart', mc ? 'Manque : '+fmtEUR(ceil2(leg)-mc)+'/jour' : '—'); }
+    if(!I && !h && mc){ setTxt('out-ie-verser', j ? fmtEUR(round2(mc*j))+' (durée non indiquée)' : '—'); b.textContent='À vérifier'; b.className='badge warn';
+      setTxt('out-ie-ecart', 'Conforme seulement pour des journées de '+fmtH(Math.floor(ieSeuilHeures(mc, m)*60))+' au plus : indiquez la durée moyenne'); }
+    else if(mc && !releves){ b.textContent='Conforme'; b.className='badge ok'; setTxt('out-ie-ecart', I && I.max>0 ? 'Au-dessus du minimum chaque jour' : 'Marge : '+fmtEUR(mc-leg)+'/jour'); }
+    else { b.textContent='Insuffisant'; b.className='badge warn'; row.classList.add('warn');
+      setTxt('out-ie-ecart', mc ? (modeC===2 ? 'Montant pour 9 h sous le minimum légal ('+fmtEUR(ieLegalJour(R('ieHeuresRef',m)||9, m))+')' : 'Sous le minimum pour les journées de plus de '+fmtH(Math.floor(ieSeuilHeures(mc, m)*60)))+' : '+fmtEUR(round2(verser-totPrevu))+' à ajouter ce mois-ci' : '—'); }
   }
 };
 
@@ -785,16 +831,19 @@ PREFILL.fin = c=>{
   setVal('fin-regul-debut', iso(deb && deb>d12 ? deb : addDays(d12,1)));
   if(!c.fin) setVal('fin-regul-fin', iso(fin));
   setSegVal('fin-regul', c.type===1 ? 1 : 0);
-  if(c.ieMode===0 || c.ieMode===1){ setSegVal('fin-entretien', 1); setVal('fin-entretien-montant', round2(dv.ieMois)); }
+  // entretien du dernier mois : jours de présence réels (ou prévus) jusqu'à la date de fin, jamais une moyenne mensualisée
+  const ieFin = ieDuMois(c, isoMonth(fin));
+  setSegVal('fin-entretien', ieFin.total ? 1 : 0); setVal('fin-entretien-montant', ieFin.total || '');
   // Reprise automatique de l'historique des mois validés : rien à recalculer
   const J = journalTotals(c.id), rp = c.rep || {};
   if(J.n || rp.cumulBrut){
-    setVal('fin-rupture-total', round2(J.brut - J.cpMontant + (parseFloat(rp.cumulBrut)||0)));
+    // 1/80ᵉ de TOUTES les rémunérations brutes du contrat, congés payés compris (hors entretien, repas, km)
+    setVal('fin-rupture-total', round2(J.brut + (parseFloat(rp.cumulBrut)||0)));
     const Rg = journalTotals(c.id, val('fin-regul-debut').slice(0,7), val('fin-regul-fin').slice(0,7));
     if(Rg.n || rp.regulVerse){ setVal('fin-regul-verse', round2(Rg.brutMensu + (parseFloat(rp.regulVerse)||0))); setVal('fin-regul-heures', round2(Rg.hContrat + (parseFloat(rp.regulHeures)||0))); }
     if(rp.regulVerse && parseD(rp.date)) setVal('fin-regul-debut', c.debut);
     const N = journalTotals(c.id, isoMonth(cpRefStart(parseD(c.fin)||today())));
-    setVal('fin-total-salaires', round2(N.brut - N.cpMontant));
+    setVal('fin-total-salaires', round2(N.brut - N.cp12));
   }
   // Avenants enregistrés pendant la période de régularisation : une sous-période par avenant
   const rd = val('fin-regul-debut'), rf = val('fin-regul-fin');
