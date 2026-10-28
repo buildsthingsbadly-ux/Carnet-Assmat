@@ -164,6 +164,18 @@ CALC.abattement = ()=>{
   setTxt('out-ab-gain', gSal ? fmtEUR(Math.abs(gCommun-gDecl))+' de moins à déclarer' : '—');
   setTxt('out-ab-1aj', gSal ? fmtEUR(Math.round(spec?gDecl:gCommun)) : '—');
   setTxt('out-ab-1ga', gSal ? (spec?fmtEUR(Math.round(gAb)):'ne rien mettre') : '—');
+  // Heures complémentaires et majorées : exonérées d'impôt dans la limite de 7 500 € nets par an (tous employeurs) ;
+  // au-delà, l'excédent est imposable. Montant d'après les mois validés de l'année (année de paiement).
+  let hsNet = 0, hsMois = 0;
+  for(let i=1;i<=nb;i++){
+    const c = getContrat(val('ab-c'+i+'-cid')); if(!c || !annee) continue;
+    Object.entries(journalOf(c.id)).forEach(([m, r])=>{
+      const py = r.datepaie && parseD(r.datepaie) ? parseD(r.datepaie).getFullYear() : +m.slice(0,4);
+      if(py===annee && r.netHs){ hsNet += +r.netHs; hsMois++; }
+    });
+  }
+  const plafHs = R('hsExoPlafond', annee ? annee+'-12-31' : undefined) || 7500;
+  setTxt('out-ab-1gh', hsMois ? fmtEUR(Math.round(Math.min(hsNet, plafHs)))+(hsNet > plafHs ? ' (plafond atteint : '+fmtEUR(Math.round(hsNet-plafHs))+' imposables, à ajouter à la case 1AJ)' : '')+' — à comparer avec l\u2019attestation Pajemploi' : 'montant de l\u2019attestation Pajemploi');
   abUpdateStatus();
 };
 function abUpdateStatus(){ setTxt('ab-save-status', storageOK ? 'Enregistrement automatique sur ce téléphone, au fil des mois.' : 'Enregistrement impossible (navigation privée ?) : faites une copie de sécurité.'); }

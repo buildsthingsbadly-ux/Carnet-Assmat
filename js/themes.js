@@ -165,11 +165,11 @@ function moisCompute(){
   const ratioDu0 = base ? Math.max(0, base-ded)/base : 1;
   const brutMajMensu = Math.max(0, base-ded)*partMaj, hMajMensuDu = Mmaj ? Mmaj.hMajMensuV*ratioDu0 : 0;
   // Net : cotisations réduites sur les heures complémentaires et majorées
-  const ratio = netRatio(d), red = R('hsReduction', d) || 0;
+  const ratio = netRatio(d), red = hsReduction(d);
   const netHs = (brutCompl+brutMaj+brutMajMensu)*Math.min(1, ratio+red);
   const net = (brutNormal-brutMajMensu+cpTot+regul)*ratio + netHs;
   // Net imposable : + CSG non déductible et CRDS ; les heures en plus sont exonérées d'impôt
-  const csgnd = R('csgNonDed', d)||0, assiette = R('assietteCsg', d)||0.9825;
+  const Lc = cotisLignes(d), csgnd = Lc ? Lc.filter(x=>x.imp).reduce((s,x)=>s+x.t,0) : (R('csgNonDed', d)||0), assiette = R('assietteCsg', d)||0.9825;
   const netImp = (brutNormal-brutMajMensu+cpTot+regul)*(ratio + csgnd*assiette);
   // Entretien, repas, km
   // Entretien : jour par jour (même total que l'onglet Mois) tant que les cases reprises du contrat ne sont pas modifiées ;
@@ -254,13 +254,18 @@ CALC.mois = ()=>{
   setTxt('out-mois-net', (r.brut||r.ie) ? fmtEUR(total) : '—');
   show('row-mois-reste', r.acompte>0, 'flex'); setTxt('out-mois-reste', fmtEUR(total - r.acompte));
   setTxt('out-mois-netimp', r.brut ? fmtEUR(r.netImp) : '—');
+  const D = r.brut ? cotisDetail(r.brutNormal - r.brutMajMensu + r.cpTot + num('mois-regul'), r.brutCompl + r.brutMaj + r.brutMajMensu, d) : null;
+  setHTML('mois-cotis-detail', !D ? '' : '<table class="ab-table" style="min-width:0"><tr><th>Cotisation salariale</th><th>Taux</th><th>Montant</th></tr>'
+    + D.map(x=>'<tr><td>'+esc(x.l)+'</td><td>'+fmtNum(x.taux*100,2)+' %'+(x.base<1?' × '+fmtNum(x.base*100,2)+' %':'')+'</td><td class="ab-out">'+fmtEUR(x.montant)+'</td></tr>').join('')
+    + '<tr><td><b>Total</b></td><td>'+fmtNum((1-netRatio(d))*100,2)+' %</td><td class="ab-out"><b>'+fmtEUR(D.reduce((s,x)=>s+x.montant,0))+'</b></td></tr></table>'
+    + '<p class="hint">Brut '+fmtEUR(r.brut)+' − cotisations = net '+fmtEUR(r.net)+'. Heures complémentaires et majorées : pas de cotisations retraite (réduction de '+fmtNum(hsReduction(d)*100,2)+' %), CSG, CRDS et prévoyance restent dues. Pajemploi calcule le montant définitif à partir du net déclaré.</p>');
   // Lignes Pajemploi, dans l'ordre du formulaire en ligne
   const L = [
     ['Période (mois déclaré)', fmtMonth(r.m)],
     ['Nombre d\'heures normales', r.hNormDecl ? r.hNormDecl+' h' : '—'],
     ['Nombre de jours d\'activité', r.jDecl ? r.jDecl+' j' : '—'],
-    ['Heures complémentaires : nombre / montant net', r.hcompl ? fmtNum(r.hComplDecl,2)+' h / '+fmtEUR(r.brutCompl*Math.min(1,netRatio(d)+(R('hsReduction',d)||0))) : '0'],
-    ['Heures majorées : nombre / montant net', (r.hmaj||r.hMajMensuDu) ? fmtNum(r.hMajDecl,2)+' h'+(r.hMajMensuDu?' (dont '+fmtNum(r.hMajMensuDu,2)+' h prévues au contrat)':'')+' / '+fmtEUR((r.brutMaj+r.brutMajMensu)*Math.min(1,netRatio(d)+(R('hsReduction',d)||0))) : '0'],
+    ['Heures complémentaires : nombre / montant net', r.hcompl ? fmtNum(r.hComplDecl,2)+' h / '+fmtEUR(r.brutCompl*Math.min(1,netRatio(d)+hsReduction(d))) : '0'],
+    ['Heures majorées : nombre / montant net', (r.hmaj||r.hMajMensuDu) ? fmtNum(r.hMajDecl,2)+' h'+(r.hMajMensuDu?' (dont '+fmtNum(r.hMajMensuDu,2)+' h prévues au contrat)':'')+' / '+fmtEUR((r.brutMaj+r.brutMajMensu)*Math.min(1,netRatio(d)+hsReduction(d))) : '0'],
     ['Congés payés : jours / montant net', r.inc ? (r.cpTot||r.jcp ? fmtNum(r.jcp,1)+' j / '+fmtEUR(r.cpTot*netRatio(d)) : 'rien ce mois-ci') : 'ne rien remplir (année complète)'],
     ['Salaire net total', r.brut ? fmtEUR(r.net) : '—'],
     ['Indemnités d\'entretien', fmtEUR(r.ie)],
@@ -280,7 +285,7 @@ function validerMois(){
   if(!r.brut){ toast('Le salaire du mois est vide.'); return; }
   STATE.journal = STATE.journal || {};
   STATE.journal[c.id] = STATE.journal[c.id] || {};
-  STATE.journal[c.id][r.m] = { brut:round2(r.brut), net:round2(r.net), netImp:round2(r.netImp), ie:round2(r.ie), repas:round2(r.repas), km:round2(r.km),
+  STATE.journal[c.id][r.m] = { brut:round2(r.brut), net:round2(r.net), netImp:round2(r.netImp), netHs:round2(r.netHs), ie:round2(r.ie), repas:round2(r.repas), km:round2(r.km),
     hDecl:r.hNormDecl, jDecl:r.jDecl, hCompl:r.hcompl, hMaj:r.hmaj + r.hMajMensuDu, hReel:round2(r.hReel), hContrat:round2(r.hContrat), brutMensu:round2(r.brutMensu), jours:r.jours, jCP:r.jcp, cpMontant:round2(r.cpTot), cp12:round2(r.cp12),
     ded:round2(r.ded), j8:r.j8, hm8:round2(r.hm8), taux:r.taux, datepaie:r.datepaie, validatedAt:new Date().toISOString() };
   // le mois correspondant du suivi passe au statut « déclaré »

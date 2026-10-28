@@ -176,7 +176,7 @@ function suiviMonth(c, ym, opts){
   const cp12 = (cc.type===1 && cc.cpMode===0) ? (due+complPay+majPay+ferieSup)*0.10 : 0;
   const cpVerse = (opts||{}).sansCP ? 0 : round2(cpIndemniteMois(c, ym, T.cpOuv));   // montant à verser : au centime
   const brut = due + complPay + majPay + ferieSup + regBrut + cp12 + cpVerse;
-  const ratio = netRatio(d0), red = R('hsReduction', d0)||0;
+  const ratio = netRatio(d0), red = hsReduction(d0);
   // heures majorées prévues au planning (au-delà de 45 h) : même traitement que dans « Salaire du mois »
   const partMaj = base ? Math.min(1, hMajMensuV*taux*(1+majPct/100)/base) : 0, dueMaj = due*partMaj;
   const net = (due - dueMaj + ferieSup + regBrut + cp12 + cpVerse)*ratio + (complPay+majPay+dueMaj)*Math.min(1, ratio+red);

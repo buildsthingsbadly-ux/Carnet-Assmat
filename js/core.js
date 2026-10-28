@@ -274,11 +274,45 @@ function Rnext(key, when){
   const d = when ? iso(parseD(when)) : iso(today());
   return p.values.find(x=>x.du > d) || null;
 }
-function netRatio(when){ return R(STATE.settings.am ? 'netRatioAM' : 'netRatio', when) || 0.78; }
+/* Cotisations salariales en vigueur à une date. Le rapport net / brut et la réduction des heures en plus en découlent. */
+function cotisLignes(when){
+  const g = k=>R(k, when);
+  if(g('cotVieillessePlaf')===undefined || g('cotVieillessePlaf')===null) return null;
+  const ass = g('assietteCsg') || 0.9825, am = STATE.settings && STATE.settings.am;
+  return [
+    {k:'vp',  l:'Assurance vieillesse plafonnée', t:g('cotVieillessePlaf'), base:1, hs:true},
+    {k:'vd',  l:'Assurance vieillesse déplafonnée', t:g('cotVieillesseDeplaf'), base:1, hs:true},
+    {k:'rc',  l:'Retraite complémentaire IRCEM', t:g('cotRetraiteT1'), base:1, hs:true},
+    {k:'ceg', l:'Contribution d\u2019équilibre général', t:g('cotCEG'), base:1, hs:true},
+    {k:'pr',  l:'Prévoyance IRCEM', t:g('cotPrevoyance'), base:1},
+    ...(am ? [{k:'am', l:'Régime local Alsace-Moselle', t:g('cotAlsaceMoselle'), base:1}] : []),
+    {k:'csgd', l:'CSG déductible', t:g('cotCsgDed'), base:ass},
+    {k:'csgn', l:'CSG non déductible', t:g('cotCsgNonDed'), base:ass, imp:true},
+    {k:'crds', l:'CRDS', t:g('cotCrds'), base:ass, imp:true},
+  ].filter(x=>x.t);
+}
+function netRatio(when){
+  const L = cotisLignes(when), ctrl = R(STATE.settings.am ? 'netRatioAM' : 'netRatio', when);
+  const calc = L ? 1 - L.reduce((s,x)=>s + x.t*x.base, 0) : null;
+  // si la mise à jour de la réglementation n'a changé que le taux global, c'est lui qui fait foi
+  if(calc!==null && (!ctrl || Math.abs(calc - ctrl) < 0.0005)) return calc;
+  return ctrl || calc || 0.78;
+}
+/* Réduction de cotisations salariales sur les heures complémentaires et majorées : les cotisations retraite
+   (vieillesse de base et complémentaire, CEG) ne sont pas prélevées sur ces heures (loi du 24 décembre 2018) */
+function hsReduction(when){
+  const L = cotisLignes(when);
+  return L ? L.filter(x=>x.hs).reduce((s,x)=>s + x.t*x.base, 0) : (R('hsReduction', when)||0);
+}
+/* Détail des cotisations d'un mois : brut soumis (hors heures en plus) et brut des heures en plus */
+function cotisDetail(brutNormal, brutHs, when){
+  const L = cotisLignes(when); if(!L) return null;
+  return L.map(x=>({l:x.l, taux:x.t, base:x.base, montant: brutNormal*x.t*x.base + (x.hs ? 0 : brutHs*x.t*x.base)}));
+}
 function toNet(brut, when){ return brut * netRatio(when); }
 /* Net d'un salaire mensualisé dont une partie correspond à des heures majorées prévues au contrat (au-delà de 45 h) :
    ces heures bénéficient de la réduction de cotisations salariales des heures supplémentaires */
-function netMensualise(brut, brutMaj, when){ const r = netRatio(when); return (brut-brutMaj)*r + brutMaj*Math.min(1, r + (R('hsReduction', when)||0)); }
+function netMensualise(brut, brutMaj, when){ const r = netRatio(when); return (brut-brutMaj)*r + brutMaj*Math.min(1, r + hsReduction(when)); }
 /* Indemnité d'entretien minimale pour une journée de h heures */
 function ieLegalJour(h, when, personneMorale){
   const mg = R('mg', when), ref = R('ieHeuresRef', when) || 9;
