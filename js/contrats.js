@@ -171,7 +171,7 @@ function finEssai(c){
 }
 
 /* ---------- Navigation (avec le bouton « retour » d'Android) ---------- */
-const THEME_TITLES = { contrat:'Enfant & contrat', mensu:'Salaire mensualisé', mois:'Salaire du mois', ccass:'Mois incomplet',
+const THEME_TITLES = { parents:'Pour les parents', contrat:'Enfant & contrat', mensu:'Salaire mensualisé', mois:'Salaire du mois', ccass:'Mois incomplet',
   cp:'Congés payés', ie:'Indemnités d\'entretien', fin:'Fin de contrat', abattement:'Impôts', cmg:'Aide CMG', reglages:'Réglages', aide:'Aide', docs:'Documents', suivi:'Suivi & paie' };
 let CURRENT = 'home';
 function showTheme(id, opts){
@@ -603,7 +603,7 @@ function ctSave(){
     showConfirmDialog('Avenant ou correction ?', 'Vous avez changé le planning, le salaire ou les indemnités. Est-ce un AVENANT (changement à partir d\'une date : les mois d\'avant gardent les anciennes valeurs) ou la CORRECTION d\'une erreur de saisie (tout est recalculé avec les nouvelles valeurs) ?', ()=>{
       _confirmNoCb = null;
       const def = iso(new Date(today().getFullYear(), today().getMonth()+1, 1));
-      askText('Date d\'effet de l\'avenant', 'À partir de quel jour les nouvelles valeurs s\'appliquent-elles ? (AAAA-MM-JJ)', def, v=>{
+      askText('Date d\'effet de l\'avenant', 'À partir de quel jour les nouvelles valeurs s\'appliquent-elles ? Choisissez la date dans le calendrier.', def, v=>{
         const d = parseD((v||'').trim()); if(!d){ toast('Date non reconnue.'); return; }
         // un avenant ne peut pas prendre effet avant le début du contrat, ni avant (ou le jour d') un avenant déjà enregistré :
         // sinon l'avenant intermédiaire serait effacé et les mois concernés recalculés avec de mauvaises valeurs
@@ -617,7 +617,7 @@ function ctSave(){
         if(quitteIncomplete) setTimeout(()=>showConfirmDialog('Régularisation à faire',
           'Le contrat était en année incomplète et son rythme change au '+d.toLocaleDateString('fr-FR')+'. Comparez les heures réellement faites et les heures payées depuis le début du contrat (ou depuis la dernière régularisation) jusqu\u2019au '+addDays(d,-1).toLocaleDateString('fr-FR')+' : s\u2019il en manque, la différence est à payer avec le salaire de ce mois-là. Le calcul est celui de « Fin de contrat ▸ Régularisation », avec la date de l\u2019avenant comme date de fin.',
           ()=>showTheme('fin'), 'Ouvrir le calcul', 'Plus tard'), 400);
-      });
+      }, {type:'date'});
     }, 'C\'est un avenant', 'C\'est une correction');
     return;
   }
@@ -636,7 +636,7 @@ function ctSave(){
 /* =====================================================================================
    SÉLECTEUR D'ENFANT DANS CHAQUE CALCUL + MÉMOIRE DES SAISIES
    ===================================================================================== */
-const PICKER_THEMES = ['mensu','mois','ccass','cp','ie','fin'];
+const PICKER_THEMES = ['mensu','mois','ccass','cp','ie','fin','parents'];
 function selKey(theme){ const k = STATE.sel[theme]; return (k && (k==='libre' || getContrat(k))) ? k : (STATE.contrats[0] ? STATE.contrats[0].id : 'libre'); }
 function renderPicker(theme){
   const el = document.querySelector('.kid-picker[data-for="'+theme+'"]'); if(!el) return;
@@ -646,7 +646,7 @@ function renderPicker(theme){
   h += '<button type="button" class="chip'+(k==='libre'?' on':'')+'" onclick="pickKid(\''+theme+'\',\'libre\')">Saisie libre</button></div>';
   h += '<div class="kp-hint">'+(k==='libre'
       ? 'Calcul ponctuel : remplissez les cases vous-même. Vos saisies restent mémorisées.'
-      : 'Cases remplies d\'après le contrat de '+esc(getContrat(k).enfant)+'. Vous pouvez les modifier : vos changements sont mémorisés. <a href="#" onclick="refillFromContract(\''+theme+'\');return false;">↺ Revenir aux valeurs du contrat</a>')+'</div>';
+      : 'Cases remplies d\'après le contrat de '+esc(getContrat(k).enfant)+'. Vous pouvez les modifier : vos changements sont mémorisés. <br><button type="button" class="btn small" style="margin-top:6px" onclick="refillFromContract(\''+theme+'\')">↺ Revenir aux valeurs du contrat</button>')+'</div>';
   el.innerHTML = h;
 }
 function pickKid(theme, key){

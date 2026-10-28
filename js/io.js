@@ -2,7 +2,7 @@
    IMPRESSION / PDF · SAUVEGARDE · RÉGLAGES · MISES À JOUR RÉGLEMENTAIRES · AIDE · DÉMARRAGE
    ===================================================================================== */
 'use strict';
-const APP_VERSION = '3.9.1';
+const APP_VERSION = '3.10.0';
 
 /* ---------------------------------- Impression / PDF ---------------------------------- */
 let _pc = null;

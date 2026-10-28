@@ -8,7 +8,15 @@ if(TEST_MODE){ const _set = Storage.prototype.setItem; Storage.prototype.setItem
 
 /* ---------- Outils ---------- */
 const $ = id => document.getElementById(id);
-function num(id){ const el=$(id); if(!el) return 0; const v=parseFloat(String(el.value).replace(',','.')); return isNaN(v)?0:v; }
+// les heures, jours, taux et montants ne sont jamais négatifs : une valeur négative compte pour 0
+function num(id){ const el=$(id); if(!el) return 0; const v=parseFloat(String(el.value).replace(',','.')); return isNaN(v) || v<0 ? 0 : v; }
+document.addEventListener('change', e=>{
+  const el = e.target;
+  if(el && el.type==='number' && parseFloat(String(el.value).replace(',','.')) < 0){
+    el.value = ''; el.dispatchEvent(new Event('input', {bubbles:true}));
+    if(typeof toast==='function') toast('Les nombres négatifs ne sont pas acceptés : la case a été vidée.');
+  }
+});
 function val(id){ const el=$(id); return el ? el.value : ''; }
 function setVal(id, v){ const el=$(id); if(el) el.value = (v===undefined||v===null||(typeof v==='number'&&isNaN(v))) ? '' : v; }
 function setTxt(id, t){ const el=$(id); if(el) el.textContent = t; }
@@ -356,9 +364,10 @@ function auditLog(cid, txt){
   if(STATE.audit.length > 5000) STATE.audit.splice(0, STATE.audit.length-5000);
 }
 let _promptCb = null;
-function askText(title, message, def, cb){
+function askText(title, message, def, cb, opts){
+  const i0 = $('prompt-input'); if(i0) i0.type = (opts && opts.type) || 'text';
   setTxt('prompt-title', title); setTxt('prompt-message', message); setVal('prompt-input', def||'');
-  _promptCb = cb; openOverlay('prompt-overlay'); setTimeout(()=>{ const i=$('prompt-input'); if(i){ i.focus(); i.select(); } }, 50);
+  _promptCb = cb; openOverlay('prompt-overlay'); setTimeout(()=>{ const i=$('prompt-input'); if(i){ i.focus(); if(i.type==='text') i.select(); } }, 50);
 }
 function promptOk(){ const v=val('prompt-input'); closeOverlay('prompt-overlay'); const cb=_promptCb; _promptCb=null; if(cb) cb(v); }
 function promptCancel(){ closeOverlay('prompt-overlay'); _promptCb=null; }

@@ -575,7 +575,7 @@ function ccassSendToMois(){
 /* =====================================================================================
    04 · CONGÉS PAYÉS (périodes N-2, N-1, N)
    ===================================================================================== */
-const CP_P = [ {k:'n2', t:'Période N-2'}, {k:'n1', t:'Période N-1'}, {k:'n', t:'Période N (en cours)'} ];
+const CP_P = [ {k:'n2', t:'Période d\u2019il y a deux ans (1er juin – 31 mai)'}, {k:'n1', t:'Période terminée le 31 mai dernier'}, {k:'n', t:'Période en cours (depuis le 1er juin)'} ];
 function buildCpPeriods(){
   let h='';
   CP_P.forEach((p,i)=>{
@@ -583,10 +583,10 @@ function buildCpPeriods(){
       + '<div class="grid2"><div class="field"><label>Date de début</label><input type="date" id="cp-'+p.k+'-debut"></div>'
       + '<div class="field"><label>Date de fin'+(p.k==='n'?' (ou aujourd\'hui)':'')+'</label><input type="date" id="cp-'+p.k+'-fin"></div></div>'
       + '<div class="field"><label>Mois d\'arrêt maladie (non professionnelle) sur la période</label><input type="number" step="0.5" min="0" id="cp-'+p.k+'-mal" placeholder="0"><div class="hint">Ces mois donnent 2 jours au lieu de 2,5 (accident du travail : laissez 0).</div></div>'
-      + (i>0 ? '<div class="result-line" id="row-cp-'+p.k+'-report" style="display:none"><span class="lbl">↳ reliquat reporté de la période précédente</span><span class="val" id="out-cp-'+p.k+'-report">—</span></div>' : '')
+      + (i>0 ? '<div class="result-line" id="row-cp-'+p.k+'-report" style="display:none"><span class="lbl">↳ jours restants reportés de la période d\u2019avant</span><span class="val" id="out-cp-'+p.k+'-report">—</span></div>' : '')
       + '<div class="result-line cp-sub"><span class="lbl">Jours acquis sur cette période</span><span class="val" id="out-cp-'+p.k+'-acquis">—</span></div>'
       + '<div class="field"><label>Jours de congés pris sur cette période</label><input type="number" step="0.5" min="0" id="cp-'+p.k+'-solde" placeholder="0"></div>'
-      + '<div class="result-line cp-rel"><span class="lbl">Reliquat en fin de période</span><span class="val" id="out-cp-'+p.k+'-reliquat">—</span></div></div>';
+      + '<div class="result-line cp-rel"><span class="lbl">Jours restants à la fin de la période</span><span class="val" id="out-cp-'+p.k+'-reliquat">—</span></div></div>';
   });
   $('cp-periods').innerHTML = h;
 }
@@ -694,8 +694,8 @@ CALC.cp = ()=>{
   setTxt('out-cp-pris', fmtNum(S.n2+S.n1+S.n,2)+' j'); setTxt('out-cp-total', fmtNum(dispo,2)+' j');
   let rep='';
   if(pools.n2>0||pools.n1>0){
-    if(pools.n2>0) rep+='<div class="result-line"><span class="lbl">↳ dont reliquat N-2 (à prendre en premier)</span><span class="val">'+fmtNum(pools.n2,2)+' j</span></div>';
-    if(pools.n1>0) rep+='<div class="result-line"><span class="lbl">↳ dont reliquat N-1</span><span class="val">'+fmtNum(pools.n1,2)+' j</span></div>';
+    if(pools.n2>0) rep+='<div class="result-line"><span class="lbl">↳ dont jours restants d\u2019il y a deux ans (à prendre en premier)</span><span class="val">'+fmtNum(pools.n2,2)+' j</span></div>';
+    if(pools.n1>0) rep+='<div class="result-line"><span class="lbl">↳ dont jours restants de la période terminée le 31 mai</span><span class="val">'+fmtNum(pools.n1,2)+' j</span></div>';
     rep+='<div class="result-line"><span class="lbl">↳ dont période N</span><span class="val">'+fmtNum(pools.n,2)+' j</span></div>';
   }
   setHTML('cp-repart', rep);
@@ -1038,3 +1038,88 @@ CALC.fin = ()=>{
   if(typeof finNavUpdate==='function') finNavUpdate();
   setTxt('out-fin-net', any ? fmtEUR(toNet(cot)+nonCot) : '—');
 };
+
+
+/* =====================================================================================
+   POUR LES PARENTS : récapitulatif du mois et de l'année (avec ou sans suivi au jour le jour)
+   ===================================================================================== */
+/* Chiffres d'un mois pour un contrat : mois validé tel qu'enregistré, sinon le calcul de « Salaire du mois »
+   (suivi s'il existe, sinon planning). Les cases de « Salaire du mois » ne sont pas modifiées. */
+function moisPourContrat(c, ym){
+  const J = journalOf(c.id)[ym];
+  if(J) return {valide:true, brut:J.brut, net:J.net, netImp:J.netImp||0, ie:J.ie||0, repas:J.repas||0, km:J.km||0, hDecl:J.hDecl, jDecl:J.jDecl, hCompl:J.hCompl||0, hMaj:J.hMaj||0, jCP:J.jCP||0, cp:J.cpMontant||0, acompte:0, jours:J.jours||0, j8:J.j8||0, hm8:J.hm8||0};
+  const th = $('theme-mois'); if(!th) return null;
+  const champs = [...th.querySelectorAll('input,select,textarea')].map(el=>[el, el.value]);
+  const segs = [...th.querySelectorAll('.seg[id]')].map(g=>[g.id, seg(g.id)]);
+  const selAvant = STATE.sel.mois;
+  STATE.sel.mois = c.id;
+  let r = null;
+  try{ setVal('mois-mois', ym); moisFillFromContract(c, ym); r = moisCompute(); }
+  finally{ champs.forEach(([el,v])=>{ el.value = v; }); segs.forEach(([id,v])=>setSegVal(id, v)); STATE.sel.mois = selAvant; }
+  return r && {valide:false, brut:r.brut, net:r.net, netImp:r.netImp, ie:r.ie, repas:r.repas, km:r.km, hDecl:r.hNormDecl, jDecl:r.jDecl, hCompl:r.hComplDecl, hMaj:r.hMajDecl, jCP:r.jcp, cp:r.cpTot, acompte:r.acompte||0, jours:r.jours||0, j8:r.j8||0, hm8:r.hm8||0};
+}
+function parentsContrat(){ const k = selKey('parents'); return k!=='libre' ? getContrat(k) : null; }
+PREFILL.parents = ()=>{ setVal('par-mois', curMonth()); setVal('par-annee', today().getFullYear()); };
+let PARENTS_TXT = '';
+CALC.parents = ()=>{
+  const c = parentsContrat(), ym = val('par-mois') || curMonth(), an = parseInt(val('par-annee')) || today().getFullYear();
+  if(!c){ setHTML('par-mois-out', '<p class="hint">Choisissez un enfant enregistré : le récapitulatif part de son contrat.</p>'); setHTML('par-annee-out',''); PARENTS_TXT=''; return; }
+  const deb = parseD(c.debut), fin = parseD(c.fin), d0 = parseD(ym), last = new Date(d0.getFullYear(), d0.getMonth()+1, 0);
+  const actif = !(deb && deb > last) && !(fin && fin < d0);
+  const line = (l, v)=>'<div class="result-line"><span class="lbl">'+l+'</span><span class="val">'+v+'</span></div>';
+  let h = '', t = [];
+  if(!actif){ h = '<p class="hint">Pas de contrat en cours ce mois-là.</p>'; }
+  else {
+    const m = moisPourContrat(c, ym);
+    const total = m.net + m.ie + m.repas + m.km;
+    h += '<p class="hint">'+(m.valide ? '✔ Mois validé : chiffres enregistrés.' : 'Estimation d’après '+(hasSuiviMonth(c.id, ym) ? 'le suivi des journées' : 'le planning du contrat')+'. Validez le mois dans « Salaire du mois » pour figer les chiffres.')+'</p>'
+      + '<div class="pajemploi-block"><div class="pajemploi-title">À déclarer sur Pajemploi — '+esc(fmtMonth(ym))+'</div>'
+      + line('Heures normales', (m.hDecl||0)+' h') + line('Jours d’activité', (m.jDecl||0)+' j')
+      + (m.hCompl ? line('Heures complémentaires', fmtNum(m.hCompl,2)+' h') : '') + (m.hMaj ? line('Heures majorées', fmtNum(m.hMaj,2)+' h') : '')
+      + line('Salaire net', fmtEUR(m.net)) + line('Indemnités d’entretien', fmtEUR(m.ie)) + line('Repas', fmtEUR(m.repas)) + line('Kilomètres', fmtEUR(m.km)) + '</div>'
+      + '<div class="result-line total"><span class="lbl">Total à verser à l’assistante maternelle</span><span class="val">'+fmtEUR(total)+'</span></div>'
+      + (m.acompte ? line('Acompte déjà versé', fmtEUR(m.acompte)) + line('Reste à verser', fmtEUR(total - m.acompte)) : '')
+      + '<p class="hint">Aide de la CAF (CMG) : versée directement aux parents ; estimation dans « Aide CMG des parents ».</p>';
+    t.push('Récapitulatif '+fmtMonth(ym)+' — '+(c.enfant||''), 'À déclarer sur Pajemploi : '+(m.hDecl||0)+' h normales, '+(m.jDecl||0)+' jours d’activité'+(m.hCompl?', '+fmtNum(m.hCompl,2)+' h complémentaires':'')+(m.hMaj?', '+fmtNum(m.hMaj,2)+' h majorées':''),
+      'Salaire net : '+fmtEUR(m.net), 'Entretien : '+fmtEUR(m.ie)+' · Repas : '+fmtEUR(m.repas)+' · Km : '+fmtEUR(m.km), 'Total à verser : '+fmtEUR(total)+(m.valide?'':' (estimation)'));
+  }
+  setHTML('par-mois-out', h);
+  // Année : sommes versées (salaire net + entretien), pour le crédit d'impôt « frais de garde » des parents
+  let net = 0, ie = 0, repas = 0, n = 0, est = 0;
+  for(let mo=0; mo<12; mo++){
+    const dm = new Date(an, mo, 1), lm = new Date(an, mo+1, 0);
+    if((deb && deb > lm) || (fin && fin < dm)) continue;
+    const ymm = isoMonth(dm), x = moisPourContrat(c, ymm); if(!x) continue;
+    net += x.net; ie += x.ie; repas += x.repas; n++; if(!x.valide) est++;
+  }
+  const nais = parseD(c.naissance), moins6 = nais ? (new Date(an, 0, 1) - nais) < 6*365.25*86400000 : null;
+  const garde = net + ie, plafond = 3500;
+  setHTML('par-annee-out', !n ? '<p class="hint">Pas de mois de contrat cette année.</p>' :
+      line('Mois pris en compte', n+(est ? ' (dont '+est+' estimés)' : ''))
+    + line('Salaires nets versés', fmtEUR(net)) + line('Indemnités d’entretien', fmtEUR(ie)) + line('Repas (non retenus pour le crédit d’impôt)', fmtEUR(repas))
+    + '<div class="result-line total"><span class="lbl">Frais de garde de l’année (salaire net + entretien)</span><span class="val">'+fmtEUR(garde)+'</span></div>'
+    + '<p class="hint">'+(moins6===false ? 'L’enfant avait 6 ans ou plus au 1er janvier '+an+' : pas de crédit d’impôt pour frais de garde.' :
+        'À déclarer par les parents (cases 7GA à 7GC), après avoir retiré l’aide CMG reçue dans l’année : crédit d’impôt de 50 %, dans la limite de '+fmtEUR(plafond)+' de frais par enfant.'+(moins6===null ? ' (Date de naissance non renseignée : vérifiez que l’enfant avait moins de 6 ans au 1er janvier.)' : ''))+'</p>');
+  if(n) t.push('', 'Année '+an+' : salaires nets '+fmtEUR(net)+', entretien '+fmtEUR(ie)+' → frais de garde '+fmtEUR(garde)+' (avant déduction de l’aide CMG).');
+  t.push('', 'Calculé avec Carnet Assmat. Les montants exacts sont ceux de Pajemploi et de la CAF.');
+  PARENTS_TXT = t.join('\n');
+};
+function parentsPartager(){
+  if(!PARENTS_TXT){ toast('Choisissez d’abord un enfant enregistré.'); return; }
+  if(navigator.share){ navigator.share({title:'Récapitulatif assistante maternelle', text:PARENTS_TXT}).catch(()=>{}); return; }
+  if(navigator.clipboard){ navigator.clipboard.writeText(PARENTS_TXT).then(()=>toast('Récapitulatif copié : collez-le dans un SMS ou un mail.'), ()=>toast('Copie impossible.')); return; }
+  toast('Partage non disponible sur cet appareil.');
+}
+/* Écrans longs : bouton « Voir le résultat » en haut, qui descend directement au résultat */
+function ajouterBoutonsResultat(){
+  document.querySelectorAll('.theme').forEach(th=>{
+    if(th.id==='theme-contrat') return;
+    const stub = th.querySelector('.stub'); if(!stub || th.querySelector('.go-result')) return;
+    if(th.querySelectorAll('input, select, textarea').length < 10) return;
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'btn small go-result'; b.textContent = '⬇ Voir le résultat';
+    b.onclick = ()=>{ stub.scrollIntoView({behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block:'start'}); };
+    const ref = th.querySelector('.kid-picker') || th.querySelector('.sub'); if(ref) ref.after(b); else th.prepend(b);
+  });
+}
+document.addEventListener('DOMContentLoaded', ajouterBoutonsResultat);
+if(document.readyState !== 'loading') setTimeout(ajouterBoutonsResultat, 0);

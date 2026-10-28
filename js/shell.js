@@ -313,6 +313,12 @@ function copyErrorReport(){
   try{ navigator.clipboard.writeText(txt); toast('Rapport copié (il ne contient aucune donnée personnelle).'); }catch(e){ toast('Copie impossible ici.'); }
 }
 function applyFontSize(){ document.documentElement.style.fontSize = ['100%','112%','125%'][STATE.settings.font||0]; }
+/* Bouton « Aa » de la barre du haut : texte normal → grand → très grand */
+function cycleFont(){
+  STATE.settings.font = ((STATE.settings.font||0)+1) % 3; applyFontSize(); saveState();
+  if($('set-font')) setSegVal('set-font', STATE.settings.font);
+  toast('Taille du texte : '+['normale','grande','très grande'][STATE.settings.font]+'.');
+}
 
 /* =====================================================================================
    ACCESSIBILITÉ (lecteurs d'écran, clavier) : appliquée automatiquement à tout l'écran,
@@ -362,6 +368,10 @@ function a11yPass(root){
     d.setAttribute('role','dialog'); d.setAttribute('aria-modal','true');
     const h = d.querySelector('h3'); if(h){ if(!h.id) h.id = 'a11y-h-'+(++_a11yN); d.setAttribute('aria-labelledby', h.id); }
   });
+  // intitulés de partie annoncés comme des titres (navigation par titres des lecteurs d'écran)
+  root.querySelectorAll('.section-label, .h-sec, .stub-head, .pajemploi-title').forEach(h=>{ if(!h.getAttribute('role')){ h.setAttribute('role','heading'); h.setAttribute('aria-level','3'); } });
+  // clavier numérique sans signe moins
+  root.querySelectorAll('input[type=number]:not([min])').forEach(i=>i.setAttribute('min','0'));
   root.querySelectorAll('.cal-day.sv').forEach(b=>{ if(!b.getAttribute('aria-label') && b.dataset.lbl) b.setAttribute('aria-label', b.dataset.lbl); });
 }
 let _a11yT = null;

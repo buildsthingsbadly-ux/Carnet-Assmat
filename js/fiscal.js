@@ -27,7 +27,7 @@ function buildAbattement(){
       + '<div class="field"><label>Fin du contrat</label><input type="date" id="ab-c'+i+'-fin"></div></div>'
       + '<div class="toggle-row"><span class="q">Enfant handicapé, malade ou inadapté (abattement majoré) ?</span><div class="seg" id="ab-c'+i+'-hand"><button class="on">Non</button><button>Oui</button></div></div>'
       + '<div class="toggle-row"><span class="q">Accueil continu de 24 heures (jour et nuit) ?</span><div class="seg" id="ab-c'+i+'-h24"><button class="on">Non</button><button>Oui</button></div><div class="hint">Abattement de 4 SMIC par jour (5 si l\'enfant est aussi handicapé, malade ou inadapté).</div></div>'
-      + '<div class="btn-row" style="margin:-6px 0 10px"><button type="button" class="btn small" onclick="abFromJournal('+i+')">🗂️ Remplir avec les mois validés</button><button type="button" class="btn small" onclick="abPrefillDays('+i+')">📅 Jours d\'après le planning</button></div>'
+      + '<div class="btn-row" style="margin:-6px 0 10px"><button type="button" class="btn small" onclick="abFromJournal('+i+')">🗂️ Remplir avec mes mois (validés ou estimés)</button><button type="button" class="btn small" onclick="abPrefillDays('+i+')">📅 Jours d\'après le planning</button></div>'
       + '<div class="ab-table-wrap"><table class="ab-table"><thead><tr><th>Mois</th>'+AB_COLS.map(c=>'<th>'+c.t+'</th>').join('')+'<th>Abatte­ment</th><th>Imposable</th></tr></thead><tbody>'+rows+'</tbody></table></div>'
       + '<div class="result-line"><span class="lbl">Sommes perçues</span><span class="val" id="out-ab-c'+i+'-sal">—</span></div>'
       + '<div class="result-line"><span class="lbl">Abattement</span><span class="val" id="out-ab-c'+i+'-abatt">—</span></div>'
@@ -89,10 +89,21 @@ function abFromJournal(i, silent){
   const nom = val('ab-c'+i+'-nom');
   const c = getContrat(val('ab-c'+i+'-cid')) || STATE.contrats.find(x=>x.enfant && x.enfant===nom);
   if(!c){ if(!silent) toast('Cet enfant ne correspond à aucun contrat enregistré.'); return; }
-  const J = journalOf(c.id); let n = 0;
+  const J = journalOf(c.id); let n = 0, est = 0;
+  const deb = parseD(c.debut), fin = parseD(c.fin);
   for(let m=0;m<13;m++){
-    const {y,mo} = abSlot(m,a), key = y+'-'+String(mo+1).padStart(2,'0'), r = J[key];
-    if(!r) continue;
+    const {y,mo} = abSlot(m,a), key = y+'-'+String(mo+1).padStart(2,'0');
+    let r = J[key];
+    // mois non validé (sans suivi au jour le jour ou pas encore validé) : estimation d'après le planning ou le suivi,
+    // pour les mois du contrat déjà écoulés (décembre de l'année précédente : seulement s'il est payé en janvier)
+    if(!r){
+      const dm = new Date(y, mo, 1), lm = new Date(y, mo+1, 0);
+      const dansContrat = !(deb && deb > lm) && !(fin && fin < dm);
+      if(!dansContrat || key > curMonth() || (m===0 && !c.paiementJour) || (m===12 && c.paiementJour)) continue;
+      const x = typeof moisPourContrat==='function' ? moisPourContrat(c, key) : null; if(!x) continue;
+      r = {netImp:x.netImp, ie:x.ie, repas:x.repas, jours:x.jours, j8:x.j8, hm8:x.hm8, datepaie: c.paiementJour ? iso(new Date(y, mo+1, Math.min(parseInt(c.paiementJour)||1, 28))) : ''};
+      est++;
+    }
     // un mois compte pour l'année où son salaire est versé (décembre payé en janvier = année suivante) : jamais 13 mois
     const py = r.datepaie && parseD(r.datepaie) ? parseD(r.datepaie).getFullYear() : y;
     if(py!==a){ ['sal','ind','av','j8','hm8'].forEach(k=>setVal('ab-c'+i+'-m'+m+'-'+k, '')); continue; }
@@ -104,7 +115,7 @@ function abFromJournal(i, silent){
     setVal('ab-c'+i+'-m'+m+'-av', cc.repasMode===0 && r.jours ? round2(r.jours*R('repasAvantage', key)) : '');
     setVal('ab-c'+i+'-m'+m+'-j8', r.j8||''); setVal('ab-c'+i+'-m'+m+'-hm8', r.hm8||'');
   }
-  if(!silent){ CALC.abattement(); persistTheme('abattement'); toast(n ? n+' mois repris. Si vous préférez le net imposable de l\'attestation Pajemploi, il contient déjà l\'entretien et les repas : videz alors la colonne « Indemnités ».' : 'Aucun mois validé pour cette année.'); }
+  if(!silent){ CALC.abattement(); persistTheme('abattement'); toast(n ? n+' mois repris'+(est ? ' (dont '+est+' estimés d\u2019après le planning ou le suivi : validez vos mois pour des chiffres définitifs)' : '')+'. Si vous préférez le net imposable de l\'attestation Pajemploi, il contient déjà l\'entretien et les repas : videz alors la colonne « Indemnités ».' : 'Aucun mois validé pour cette année.'); }
 }
 function abPrefillDays(i){
   const a = abYear(); if(!a){ toast('Indiquez d\'abord l\'année des revenus.'); return; }
