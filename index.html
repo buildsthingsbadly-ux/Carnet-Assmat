@@ -75,12 +75,13 @@
     <button class="btn primary block" onclick="closeOverlay('term-overlay')">J'ai compris</button>
     <p class="hint" style="text-align:center"><a href="#" onclick="closeOverlay('term-overlay');showTheme('aide');return false;">Voir tout le lexique</a></p></div>
 </div>
-<div class="toast" id="toast"></div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <div class="app">
   <div class="topbar">
     <button class="icon-btn" id="btn-back" onclick="goBack()" aria-label="Retour">←</button>
     <h1 id="topbar-title"><span class="tag">Assistante maternelle</span>Carnet de calcul</h1>
+    <button class="icon-btn" onclick="cycleFont()" aria-label="Taille du texte" title="Taille du texte">Aa</button>
     <button class="icon-btn" onclick="showTheme('aide')" aria-label="Aide">?</button>
     <button class="icon-btn" onclick="showTheme('reglages')" aria-label="Réglages">⚙︎</button>
   </div>
@@ -124,23 +125,25 @@
     <!-- ============ OUTILS (calculs ponctuels, réglages, données) ============ -->
     <section class="tab-panel" id="tab-outils" style="display:none">
       <div class="h-sec">Chaque mois</div>
+      <p class="hint" style="margin:-4px 0 10px">Le suivi au jour le jour est facultatif : tous les calculs ci-dessous marchent aussi sans lui. Ils partent alors du planning du contrat, et vous pouvez corriger chaque case.</p>
       <div class="index">
         <button class="card" onclick="openSuivi('jour')"><span class="num">SUIVI</span><h2>Suivi &amp; paie</h2><p>Journées, calendrier, récapitulatif et clôture du mois.</p></button>
         <button class="card" onclick="showTheme('mois')"><span class="num">PAJEMPLOI</span><h2>Salaire du mois</h2><p>Total à payer et chiffres à déclarer sur Pajemploi.</p></button>
-        <button class="card" onclick="showTheme('ccass')"><span class="num">ABSENCES</span><h2>Mois incomplet</h2><p>Ce qui se déduit ou non, méthode de la Cour de cassation.</p></button>
+        <button class="card" onclick="showTheme('ccass')"><span class="num">ABSENCES</span><h2>Mois incomplet</h2><p>Absences, entrée ou sortie en cours de mois : ce qui se déduit ou non.</p></button>
         <button class="card" onclick="showTheme('ie')"><span class="num">FRAIS</span><h2>Indemnités d'entretien</h2><p>Minimum légal selon la durée d'accueil.</p></button>
+        <button class="card" onclick="showTheme('parents')"><span class="num">PARENTS</span><h2>Pour les parents</h2><p>Récapitulatif à leur envoyer : à déclarer, à payer, année.</p></button>
       </div>
-      <div class="h-sec">Contrat, congés, fin</div>
+      <div class="h-sec">Une fois par an</div>
       <div class="index">
-        <button class="card" onclick="showTheme('mensu')"><span class="num">CONTRAT</span><h2>Salaire mensualisé</h2><p>Le salaire de base à partir des heures prévues.</p></button>
-        <button class="card" onclick="showTheme('cp')"><span class="num">CONGÉS</span><h2>Congés payés</h2><p>Jours acquis, reliquats, valeur et paiement.</p></button>
-        <button class="card" onclick="showTheme('fin')"><span class="num">FIN</span><h2>Fin de contrat</h2><p>Préavis, congés, régularisation, rupture.</p></button>
-        <button class="card" onclick="openDocs()"><span class="num">DOCUMENTS</span><h2>Documents</h2><p>Contrat, avenant, lettres, certificat, solde.</p></button>
-      </div>
-      <div class="h-sec">Impôts et aides</div>
-      <div class="index">
+        <button class="card" onclick="showTheme('cp')"><span class="num">CONGÉS</span><h2>Congés payés</h2><p>Jours acquis, jours restants, montant et paiement.</p></button>
         <button class="card" onclick="showTheme('abattement')"><span class="num">IMPÔTS</span><h2>Abattement fiscal</h2><p>Montant à déclarer, enfant par enfant.</p></button>
         <button class="card" onclick="showTheme('cmg')"><span class="num">CAF</span><h2>Aide CMG des parents</h2><p>Aide versée aux parents et reste à payer.</p></button>
+      </div>
+      <div class="h-sec">Le contrat et sa fin</div>
+      <div class="index">
+        <button class="card" onclick="showTheme('mensu')"><span class="num">CONTRAT</span><h2>Salaire mensualisé</h2><p>Le salaire de base à partir des heures prévues.</p></button>
+        <button class="card" onclick="showTheme('fin')"><span class="num">FIN</span><h2>Fin de contrat</h2><p>Préavis, congés, régularisation, rupture.</p></button>
+        <button class="card" onclick="openDocs()"><span class="num">DOCUMENTS</span><h2>Documents</h2><p>Contrat, avenant, lettres, certificat, solde.</p></button>
       </div>
 
       <div class="h-sec">📢 Réglementation</div>
@@ -465,7 +468,7 @@
   <!-- ===================================================== 03 MOIS INCOMPLET ===================================================== -->
   <div class="theme" id="theme-ccass" data-persist="1">
     <h2>Mois incomplet &amp; absences</h2>
-    <p class="sub">Début ou fin de contrat en cours de mois, absence, maladie, congé sans solde : méthode de la Cour de cassation, et les chiffres pour Pajemploi.</p>
+    <p class="sub">Début ou fin de contrat en cours de mois, absence, maladie, congé sans solde : ce qui se déduit, avec le calcul officiel (salaire × heures dues ÷ heures prévues du mois), et les chiffres pour Pajemploi.</p>
     <div class="kid-picker" data-for="ccass"></div>
 
     <div class="field"><label>Pourquoi le salaire de ce mois ne serait-il pas complet ?</label>
@@ -583,7 +586,7 @@
   <!-- ===================================================== 04 CONGÉS PAYÉS ===================================================== -->
   <div class="theme" id="theme-cp" data-persist="1">
     <h2>Congés payés</h2>
-    <p class="sub">Suivi sur 3 périodes de référence (du 1er juin au 31 mai) avec report des reliquats, valeur en euros et paiement.</p>
+    <p class="sub">Suivi sur 3 périodes de référence (du 1er juin au 31 mai) avec report des jours restants, montant en euros et paiement.</p>
     <div class="kid-picker" data-for="cp"></div>
     <div class="btn-row" style="margin:-6px 0 14px"><button class="btn small" onclick="cpAutoDates()">📅 Remplir les dates automatiquement</button></div>
 
@@ -605,13 +608,13 @@
     <div class="stub">
       <div class="stub-head">Résultat</div>
       <div class="stub-body">
-        <div class="result-line"><span class="lbl">Congés acquis (N-2 + N-1)</span><span class="val" id="out-cp-acquis">—</span></div>
+        <div class="result-line"><span class="lbl">Congés acquis sur les périodes terminées</span><span class="val" id="out-cp-acquis">—</span></div>
         <div class="result-line"><span class="lbl">Congés en cours d'acquisition (N)</span><span class="val" id="out-cp-encours">—</span></div>
         <div class="result-line"><span class="lbl">Congés pris (3 périodes)</span><span class="val" id="out-cp-pris">—</span></div>
         <div id="cp-repart"></div>
         <div class="result-line total"><span class="lbl">Total de jours disponibles</span><span class="val" id="out-cp-total">—</span></div>
         <div id="cp-valeur-results" style="display:none">
-          <div class="result-line"><span class="lbl">Méthode du maintien de salaire (jours acquis sur la période N-1)</span><span class="val" id="out-cp-maintien">—</span></div>
+          <div class="result-line"><span class="lbl">Méthode du maintien de salaire (jours acquis sur la période terminée le 31 mai)</span><span class="val" id="out-cp-maintien">—</span></div>
           <div class="result-line"><span class="lbl">Méthode du dixième (10 %)</span><span class="val" id="out-cp-dixieme">—</span></div>
           <div class="result-line total fav"><span class="lbl">Montant dû (le plus favorable)<span class="badge" id="cp-badge">—</span></span><span class="val" id="out-cp-verser">—</span></div>
           <div class="result-line"><span class="lbl">Montant net (estimation)</span><span class="val" id="out-cp-net">—</span></div>
@@ -624,6 +627,18 @@
   </div>
 
   <!-- ===================================================== 05 INDEMNITÉS D'ENTRETIEN ===================================================== -->
+  <div class="theme" id="theme-parents" data-persist="1">
+    <h2>Pour les parents</h2>
+    <p class="sub">Le récapitulatif à envoyer aux parents : ce qu'ils déclarent sur Pajemploi, ce qu'ils vous versent, et le total de l'année pour leurs impôts. Il marche avec ou sans suivi au jour le jour.</p>
+    <div class="kid-picker" data-for="parents"></div>
+    <div class="field"><label>Mois</label><input type="month" id="par-mois"></div>
+    <div class="stub"><div class="stub-head">Ce mois-ci</div><div class="stub-body" id="par-mois-out"><p class="hint">Choisissez un enfant enregistré.</p></div></div>
+    <div class="field"><label>Année (pour les impôts des parents)</label><input type="number" step="1" id="par-annee" placeholder="ex. 2026"></div>
+    <div class="stub"><div class="stub-head">Sur l'année</div><div class="stub-body" id="par-annee-out"></div></div>
+    <div class="btn-row"><button class="btn primary" onclick="parentsPartager()">📤 Envoyer le récapitulatif aux parents</button></div>
+    <div class="legal"><strong>Pour les parents —</strong> crédit d'impôt pour frais de garde d'un enfant de moins de 6 ans au 1er janvier : 50 % des sommes versées (salaire net et indemnités d'entretien, sans les repas), diminuées de l'aide CMG reçue, dans la limite de 3 500 € par enfant et par an (cases 7GA à 7GC). Les montants affichés sont des estimations : l'attestation Pajemploi et celle de la CAF font foi.</div>
+  </div>
+
   <div class="theme" id="theme-ie" data-persist="1">
     <h2>Indemnités d'entretien</h2>
     <p class="sub">Elles couvrent vos frais (eau, électricité, chauffage, jeux, produits d'hygiène…). Elles sont dues pour chaque jour où l'enfant est présent.</p>
@@ -805,7 +820,7 @@
     </div>
     <div class="toggle-row"><span class="q">Nombre d'enfants accueillis dans l'année (= nombre d'employeurs)</span>
       <div class="seg" id="ab-nbenfants"><button class="on">1</button><button>2</button><button>3</button><button>4</button><button>5</button><button>6</button><button>7</button><button>8</button></div>
-      <div class="hint">Un enfant parti en cours d'année compte aussi. <a href="#" onclick="abFillFromContracts();return false;">Reprendre mes enfants enregistrés</a></div></div>
+      <div class="hint">Un enfant parti en cours d'année compte aussi. </div><button type="button" class="btn small" onclick="abFillFromContracts()" style="margin-top:6px">👶 Reprendre mes enfants enregistrés</button></div>
     <div class="info-box">Pour chaque mois : le <b>salaire net imposable</b> du salaire, les <b>indemnités d'entretien et de repas</b> reçues (pas les kilomètres), la valeur des <b>repas fournis par les parents</b> (forfait obligatoire par jour de présence), puis le nombre de <b>jours d'au moins 8 h</b> et le <b>total d'heures des jours de moins de 8 h</b>. ⚠️ Le net imposable de l'attestation Pajemploi contient <b>déjà</b> l'entretien et les repas : si vous l'utilisez, laissez la colonne « Indemnités » vide. Ne comptez que les jours où l'enfant était vraiment présent. Un mois compte pour l'année où il est <b>payé</b> : décembre payé en janvier va dans l'année suivante (jamais deux décembres).</div>
     <div id="ab-children"></div>
 

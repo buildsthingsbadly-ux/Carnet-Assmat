@@ -363,3 +363,16 @@ body:has(.demo-bar) .app{padding-top:40px;}
   #print-recap table.sig td{border:none;width:50%;vertical-align:top;font-size:.8rem;}
   #print-recap .legal-p{font-size:.7rem;color:#5B6D68;margin-top:14px;line-height:1.4;}
 }
+
+/* ---------- Accessibilité 3.9.2 : contraste du mode sombre, textes d'aide plus grands, zones à toucher ---------- */
+:root{--on-teal:#FFFFFF;}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){ --on-teal:#0B1716; } }
+:root[data-theme="dark"]{ --on-teal:#0B1716; }
+.seg button.on, .chip.on{color:var(--on-teal);}
+.month-total{color:var(--paper);}
+.pajemploi-block .result-line .lbl, .box.amber .hint, .box.amber .lbl, .pajemploi-block .hint{color:var(--ink);}
+.field .hint, .hint, .kid-picker .kp-hint{font-size:.82rem;}
+.topbar .tag{font-size:.72rem;}
+.demo-bar .btn{min-height:44px;}
+.btn.small{min-height:44px;}
+.go-result{margin:0 0 14px;}
