@@ -440,6 +440,7 @@
         <div id="mois-warn"></div>
         <div class="result-line"><span class="lbl">Salaire brut du mois</span><span class="val" id="out-mois-brut">—</span></div>
         <div class="result-line"><span class="lbl">Salaire net du mois (estimation)</span><span class="val" id="out-mois-net-sal">—</span></div>
+        <details class="help"><summary>Du brut au net : détail des cotisations salariales</summary><div id="mois-cotis-detail"></div></details>
         <div class="result-line"><span class="lbl">Indemnités d'entretien</span><span class="val" id="out-mois-entretien">—</span></div>
         <div class="result-line"><span class="lbl">Repas et goûters</span><span class="val" id="out-mois-repas-r">—</span></div>
         <div class="result-line"><span class="lbl">Frais kilométriques</span><span class="val" id="out-mois-km-r">—</span></div>
@@ -822,7 +823,7 @@
           <div class="pajemploi-title">Sur votre déclaration de revenus</div>
           <div class="result-line"><span class="lbl">Case 1AJ (ou 1BJ pour le déclarant 2) : corriger le montant pré-rempli et mettre</span><span class="val" id="out-ab-1aj">—</span></div>
           <div class="result-line"><span class="lbl">Case 1GA (ou 1HA) : total de l’abattement, à reporter obligatoirement</span><span class="val" id="out-ab-1ga">—</span></div>
-          <div class="result-line"><span class="lbl">Case 1GH (ou 1HH) : heures complémentaires/majorées exonérées</span><span class="val">montant de l'attestation Pajemploi</span></div>
+          <div class="result-line"><span class="lbl">Case 1GH (ou 1HH) : heures complémentaires/majorées exonérées</span><span class="val" id="out-ab-1gh">montant de l'attestation Pajemploi</span></div>
         </div>
         <div class="legal"><strong>Règle —</strong> régime fiscal spécial des assistants maternels (art. 80 sexies du CGI ; BOI-RSA-CHAMP-20-40-20) : on part du total des sommes perçues (salaire net imposable + indemnités d'entretien, de repas, de déplacement + avantages en nature), puis on retire, pour chaque enfant et chaque jour de présence, 3 fois le SMIC horaire en vigueur au 1er janvier de l'année (4 fois pour un enfant handicapé, malade ou inadapté). Une journée de moins de 8 h donne un abattement proportionnel (heures ÷ 8). L'abattement ne peut pas dépasser les sommes perçues. Le montant pré-rempli par l'administration ne tient pas compte de l'abattement : il faut le corriger vous-même (1AJ/1BJ) avec le montant net d'abattement ; la case 1GA/1HA est seulement informative. La déduction de 10 % pour frais professionnels s'applique ensuite automatiquement. Le régime ordinaire (salaires seuls, indemnités non imposées) est parfois plus avantageux : comparez avant de choisir. Ce calcul est indicatif ; en cas de doute, appelez votre centre des impôts.</div>
         <button class="btn primary block" onclick="askPrintChoice('abattement','Abattement fiscal — Récapitulatif')">📄 Récapitulatif PDF (enregistrer ou imprimer)</button>
