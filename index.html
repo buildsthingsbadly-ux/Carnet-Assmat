@@ -227,13 +227,16 @@
       <div class="toggle-row"><span class="q">L'enfant vient-il chez vous toute l'année ?</span>
         <div class="seg" id="ct-type"><button class="on">Oui, toute l'année</button><button>Non, une partie de l'année</button></div>
         <div class="hint" id="ct-type-hint">« Toute l'année » = l'enfant vient toutes les semaines, sauf pendant vos 5 semaines de congés payés (année complète, 52 semaines payées).</div></div>
-      <div class="field" id="ct-semoff-wrap" style="display:none"><label>Touchez les semaines où l'enfant ne vient pas (vacances scolaires, vos congés…)</label>
-        <div class="chips" id="ct-semoff" style="max-height:260px;overflow:auto;padding:6px;border:1px solid var(--line);border-radius:8px"></div>
-        <div class="hint" id="ct-semoff-info">—</div>
-        <button type="button" class="btn small" onclick="ctCocherVacances()" style="margin-top:6px">🏖️ Cocher les vacances scolaires de ma zone</button></div>
       <div class="field" id="ct-semaines-wrap" style="display:none"><label>Combien de semaines par an l'enfant vient-il ?</label>
         <input type="number" step="1" min="1" max="46" id="ct-semaines" placeholder="ex. 36">
         <div class="hint">Comptez seulement les semaines où l'enfant est accueilli (ex. période scolaire : 36 semaines). Ne comptez pas vos congés payés.</div></div>
+      <div class="toggle-row" id="ct-semConnues-row" style="display:none"><span class="q">Connaissez-vous déjà les dates des semaines sans accueil ?</span>
+        <div class="seg" id="ct-semConnues"><button class="on">Oui, je les coche</button><button>Pas encore : les parents les donneront plus tard</button></div>
+        <div class="hint" id="ct-semConnues-hint">Le salaire mensualisé ne dépend que du nombre de semaines : il est juste dès maintenant. Les dates servent à l'entretien et aux repas de chaque mois, aux congés et à la régularisation.</div></div>
+      <div class="field" id="ct-semoff-wrap" style="display:none"><label id="ct-semoff-label">Touchez les semaines où l'enfant ne vient pas (vacances scolaires, vos congés…)</label>
+        <div class="chips" id="ct-semoff" style="max-height:260px;overflow:auto;padding:6px;border:1px solid var(--line);border-radius:8px"></div>
+        <div class="hint" id="ct-semoff-info">—</div>
+        <button type="button" class="btn small" onclick="ctCocherVacances()" style="margin-top:6px">🏖️ Cocher les vacances scolaires de ma zone</button></div>
       <div class="toggle-row"><span class="q">Avez-vous le titre professionnel d'assistant maternel / garde d'enfants (AM-AP) ?</span>
         <div class="seg" id="ct-titre"><button class="on">Non</button><button>Oui</button></div>
         <div class="hint">Avec ce titre, le salaire horaire minimum est plus élevé.</div></div>
@@ -272,6 +275,12 @@
       <div class="field" id="ct-wB-wrap" style="display:none"><label>Semaine 2 : heures d’accueil de chaque jour</label><div class="week" id="ct-wB"></div>
         <div class="hint">L’enfant ne vient pas du tout la semaine 2 ? Laissez toutes les cases vides.</div>
         <div class="hint" id="ct-wB-conv" aria-live="polite"></div></div>
+      <details class="fold" id="ct-irreg-wrap"><summary>Planning irrégulier (rythme sur plusieurs semaines, horaires différents pendant les vacances…)</summary>
+        <p class="hint">Si les heures changent selon un rythme qui n'est ni « toutes les semaines pareil » ni « une semaine sur deux », indiquez le total prévu sur l'année (d'après le planning signé avec les parents). Le salaire mensualisé est alors ce total ÷ 12 : c'est le même principe que la moyenne des semaines, adapté à tous les rythmes. Gardez dans la grille une semaine type : elle sert à estimer les journées (entretien, repas).</p>
+        <div class="grid2">
+          <div class="field"><label for="ct-hAn">Total d'heures d'accueil prévues sur l'année</label><input type="number" step="0.25" min="0" id="ct-hAn" placeholder="laisser vide si planning régulier"></div>
+          <div class="field"><label for="ct-jAn">Total de jours d'accueil prévus sur l'année</label><input type="number" step="1" min="0" id="ct-jAn" placeholder="facultatif"></div>
+        </div></details>
       <div class="info-box" id="ct-planning-sum">—</div>
       <div class="warn-box" id="ct-planning-warn" style="display:none"></div>
     </div>
@@ -774,7 +783,7 @@
         <div class="section-label" id="fin-regul-base-label" style="margin-top:6px;padding-top:0;border-top:none">Sur toute la période</div>
         <div class="field"><label id="fin-regul-verse-label">Total des salaires mensualisés versés sur la période (€)</label><input type="number" step="0.01" id="fin-regul-verse" placeholder="ex. 9200"></div>
         <div class="grid2">
-          <div class="field"><label id="fin-regul-heures-label">Total des heures réellement effectuées sur la période</label><input type="number" step="0.25" id="fin-regul-heures" placeholder="ex. 1520"></div>
+          <div class="field"><label id="fin-regul-heures-label">Total des heures réellement effectuées sur la période</label><input type="number" step="0.25" id="fin-regul-heures" placeholder="ex. 1520"><div id="fin-regul-semaines"></div></div>
           <div class="field"><label>Salaire horaire (€)</label><input type="number" step="0.01" id="fin-regul-taux" placeholder="ex. 4.50"></div>
         </div>
         <div id="fin-regul-avs"></div>
