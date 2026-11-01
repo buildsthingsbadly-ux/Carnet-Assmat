@@ -376,3 +376,15 @@ body:has(.demo-bar) .app{padding-top:40px;}
 .demo-bar .btn{min-height:44px;}
 .btn.small{min-height:44px;}
 .go-result{margin:0 0 14px;}
+
+/* ---------- 3.11.0 : bandeau de démonstration d'une ligne, blocs repliables, bouton principal des fenêtres ---------- */
+.demo-bar{flex-wrap:nowrap;min-height:44px;padding:4px 10px;white-space:nowrap;}
+.demo-bar span{overflow:hidden;text-overflow:ellipsis;}
+.demo-bar .btn{min-height:36px;flex:none;}
+body:has(.demo-bar) .topbar{top:44px;}
+body:has(.demo-bar) .app{padding-top:46px;}
+details.fold{background:var(--paper);border:1px solid var(--line);border-radius:8px;padding:0 12px;margin:10px 0;}
+details.fold>summary{cursor:pointer;padding:12px 0;font-weight:600;font-size:.92rem;min-height:44px;box-sizing:border-box;}
+details.fold[open]>summary{border-bottom:1px solid var(--line);margin-bottom:10px;}
+.dlg-choice.yes{background:var(--teal);border-color:var(--teal);color:var(--on-teal);}
+.dlg-choice.yes .t{color:var(--on-teal);}

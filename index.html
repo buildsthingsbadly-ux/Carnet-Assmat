@@ -34,7 +34,7 @@
   <div class="dlg">
     <h3 id="confirm-title">Confirmation</h3>
     <p id="confirm-message"></p>
-    <button class="dlg-choice" onclick="confirmYes()"><div class="t" id="confirm-yes-label">Oui</div></button>
+    <button class="dlg-choice yes" onclick="confirmYes()"><div class="t" id="confirm-yes-label">Oui</div></button>
     <button class="dlg-choice" onclick="confirmNo()"><div class="t" id="confirm-no-label">Non</div></button>
   </div>
 </div>
@@ -43,7 +43,7 @@
   <div class="dlg">
     <h3 id="prompt-title">Saisie</h3>
     <p id="prompt-message"></p>
-    <div class="field"><input type="text" id="prompt-input"></div>
+    <div class="field"><input type="text" id="prompt-input" aria-labelledby="prompt-title"></div>
     <div class="btn-row"><button class="btn primary" onclick="promptOk()">Valider</button><button class="btn" onclick="promptCancel()">Annuler</button></div>
   </div>
 </div>
@@ -64,7 +64,7 @@
   <div class="dlg" style="text-align:center">
     <h3>🔒 Carnet Assmat</h3>
     <p>Entrez votre code pour ouvrir le carnet.</p>
-    <div class="field"><input type="password" inputmode="numeric" id="lock-input" autocomplete="off" style="text-align:center;font-size:22px;letter-spacing:.3em" onkeydown="if(event.key==='Enter')unlock()"></div>
+    <div class="field"><input type="password" inputmode="numeric" id="lock-input" aria-label="Code de verrouillage" autocomplete="off" style="text-align:center;font-size:22px;letter-spacing:.3em" onkeydown="if(event.key==='Enter')unlock()"></div>
     <button class="btn primary block" onclick="unlock()">Ouvrir</button>
     <p class="hint" id="lock-msg" style="margin-top:10px"></p>
   </div>
@@ -125,7 +125,7 @@
     <!-- ============ OUTILS (calculs ponctuels, réglages, données) ============ -->
     <section class="tab-panel" id="tab-outils" style="display:none">
       <div class="h-sec">Chaque mois</div>
-      <p class="hint" style="margin:-4px 0 10px">Le suivi au jour le jour est facultatif : tous les calculs ci-dessous marchent aussi sans lui. Ils partent alors du planning du contrat, et vous pouvez corriger chaque case.</p>
+      <p class="hint" style="margin:-4px 0 10px">Le suivi au jour le jour est facultatif : tous les calculs ci-dessous marchent aussi sans lui. Ils partent alors du planning du contrat (pensez à noter vos semaines de congés dans <a href="#" onclick="showTheme('reglages');setTimeout(()=>{const e=$('conges-wrap');if(e)e.scrollIntoView();},80);return false;">Réglages</a>), et vous pouvez corriger chaque case.</p>
       <div class="index">
         <button class="card" onclick="openSuivi('jour')"><span class="num">SUIVI</span><h2>Suivi &amp; paie</h2><p>Journées, calendrier, récapitulatif et clôture du mois.</p></button>
         <button class="card" onclick="showTheme('mois')"><span class="num">PAJEMPLOI</span><h2>Salaire du mois</h2><p>Total à payer et chiffres à déclarer sur Pajemploi.</p></button>
@@ -259,9 +259,11 @@
         <div class="hint" id="ct-alterneRef-hint"></div></div>
       <div class="field"><label id="ct-wA-label">Nombre d'heures d'accueil pour chaque jour de la semaine</label>
         <div class="week" id="ct-wA"></div>
-        <div class="hint">Laissez vide les jours où l'enfant ne vient pas. Exemple : de 8 h à 17 h 30 = 9,5.</div></div>
+        <div class="hint">Laissez vide les jours où l'enfant ne vient pas. En heures décimales : 8 h 30 = 8,5 · 8 h 15 = 8,25 · 8 h 45 = 8,75 · 8 h 20 = 8,33. Plus simple : répondez « Oui » aux horaires d'arrivée et de départ, le calcul se fait tout seul.</div>
+        <div class="hint" id="ct-wA-conv" aria-live="polite"></div></div>
       <div class="field" id="ct-wB-wrap" style="display:none"><label>Semaine 2 : heures d’accueil de chaque jour</label><div class="week" id="ct-wB"></div>
-        <div class="hint">L’enfant ne vient pas du tout la semaine 2 ? Laissez toutes les cases vides.</div></div>
+        <div class="hint">L’enfant ne vient pas du tout la semaine 2 ? Laissez toutes les cases vides.</div>
+        <div class="hint" id="ct-wB-conv" aria-live="polite"></div></div>
       <div class="info-box" id="ct-planning-sum">—</div>
       <div class="warn-box" id="ct-planning-warn" style="display:none"></div>
     </div>
@@ -356,27 +358,42 @@
   <!-- ===================================================== 02 SALAIRE DU MOIS ===================================================== -->
   <div class="theme" id="theme-mois" data-persist="1">
     <h2>Salaire du mois &amp; Pajemploi</h2>
-    <p class="sub">Ce que la famille vous doit pour un mois, et <b>exactement</b> ce qu'il faut recopier sur Pajemploi (une déclaration par enfant depuis janvier 2026). Validez ensuite le mois : il est gardé dans l'historique et sert aux congés, à la fin de contrat et aux impôts.</p>
+    <p class="sub">Ce que la famille vous doit pour le mois, et <b>exactement</b> les chiffres que les parents recopient sur Pajemploi (une déclaration par enfant). Vérifiez, validez le mois (il sert ensuite aux congés, à la fin de contrat et aux impôts), puis envoyez le récapitulatif aux parents.</p>
     <div class="kid-picker" data-for="mois"></div>
 
     <div class="field"><label>Mois concerné</label><input type="month" id="mois-mois"></div>
-    <div class="toggle-row"><span class="q">Le contrat est-il en année complète ?</span>
-      <div class="seg" id="mois-type"><button class="on">Oui (année complète)</button><button>Non (année incomplète)</button></div></div>
-    <div class="grid2">
-      <div class="field"><label>Salaire mensualisé brut (€)</label><input type="number" step="0.01" id="mois-base" placeholder="ex. 780.00">
-        <div class="hint">Le salaire de base habituel, sans les congés payés.</div></div>
-      <div class="field"><label>Salaire horaire brut (€)</label><input type="number" step="0.01" id="mois-taux" placeholder="ex. 4.50"></div>
-    </div>
-    <div class="grid2">
-      <div class="field"><label>Heures mensualisées</label><input type="number" step="0.01" id="mois-heures" placeholder="ex. 173.33"></div>
-      <div class="field"><label>Jours d'activité mensualisés</label><input type="number" step="0.01" id="mois-jmensu" placeholder="ex. 21.67"><div class="hint">Jours par semaine × semaines ÷ 12.</div></div>
+    <div class="stub">
+      <div class="stub-head">Résultat</div>
+      <div class="stub-body">
+        <div id="mois-warn"></div>
+        <div class="result-line"><span class="lbl">Salaire brut du mois</span><span class="val" id="out-mois-brut">—</span></div>
+        <div class="result-line"><span class="lbl">Salaire net du mois (estimation)</span><span class="val" id="out-mois-net-sal">—</span></div>
+        <details class="help"><summary>Du brut au net : détail des cotisations salariales</summary><div id="mois-cotis-detail"></div></details>
+        <div class="result-line"><span class="lbl">Indemnités d'entretien</span><span class="val" id="out-mois-entretien">—</span></div>
+        <div class="result-line"><span class="lbl">Repas et goûters</span><span class="val" id="out-mois-repas-r">—</span></div>
+        <div class="result-line"><span class="lbl">Frais kilométriques</span><span class="val" id="out-mois-km-r">—</span></div>
+        <div class="result-line total"><span class="lbl">Total à verser par la famille</span><span class="val" id="out-mois-net">—</span></div>
+        <div class="result-line" id="row-mois-reste" style="display:none"><span class="lbl">Reste à verser après l'acompte</span><span class="val" id="out-mois-reste">—</span></div>
+        <div class="result-line"><span class="lbl">Salaire net imposable (estimation, pour vos impôts)</span><span class="val" id="out-mois-netimp">—</span></div>
+        <div class="net-hint">Le net exact est celui du bulletin Pajemploi. Les heures complémentaires et majorées ont des cotisations réduites et sont exonérées d'impôt (dans la limite annuelle) : c'est pris en compte dans l'estimation.</div>
+        <div class="pajemploi-block">
+          <div class="pajemploi-title">Ce que les parents recopient sur Pajemploi (déclaration de cet enfant)</div>
+          <div id="pj-lines"></div>
+        </div>
+        <button class="btn primary block" onclick="validerMois()">✔ Valider ce mois (l'enregistrer dans l'historique)</button>
+        <button class="btn block" onclick="moisVersParents()">📤 Envoyer le récapitulatif aux parents</button>
+        <div class="legal"><strong>Règle —</strong> Pajemploi (2026) : une déclaration par enfant, du 25 du mois au 5 du mois suivant. Heures normales = heures mensualisées (arrondies à l'entier le plus proche), diminuées des heures d'absence déduites, augmentées en année incomplète des heures correspondant aux congés payés versés (montant ÷ salaire horaire). Jours d'activité = jours mensualisés, arrondis à l'entier supérieur. Année complète : jamais de case « congés payés ». Les heures complémentaires (taux normal jusqu'à 45 h par semaine) et majorées (au-delà, +10 % minimum) se déclarent à part avec leur montant net. Jour férié ordinaire travaillé : +10 % ; 1er mai : +100 %. Entretien, repas et km ne sont pas du salaire. Une déclaration se corrige en ligne pendant 2 mois.</div>
+        <button class="btn block" onclick="askPrintChoice('mois','Salaire du mois — Récapitulatif')">📄 Récapitulatif PDF (enregistrer ou imprimer)</button>
+      </div>
     </div>
 
+    <div class="h-sec">Corriger ou compléter ce mois</div>
+    <p class="hint" style="margin-top:-4px">Les cases sont déjà remplies d'après le contrat et, s'il existe, le suivi des journées. Ne changez que ce qui est différent ce mois-ci : le résultat ci-dessus se met à jour tout seul.</p>
     <div class="toggle-row"><span class="q">Une absence à déduire ce mois-ci (début ou fin de contrat, adaptation, maladie…) ?</span>
       <div class="seg" id="mois-incomplet"><button class="on">Non</button><button>Oui</button></div></div>
     <div class="subblock" id="mois-incomplet-wrap" style="display:none">
       <div class="info-box">Faites d'abord le calcul dans « Mois incomplet &amp; absences » (il dit aussi si l'absence se déduit), puis touchez « Reporter ». <a href="#" onclick="showTheme('ccass');return false;">Ouvrir ce calcul</a></div>
-      <div class="field"><label>Montant brut déduit (€)</label><input type="number" step="0.01" id="mois-deduction" placeholder="0"></div>
+      <div class="field"><label>Montant brut déduit (€)</label><input type="number" step="0.01" id="mois-deduction" placeholder="0"><input type="hidden" id="mois-ded-maj"></div>
       <div class="grid2">
         <div class="field"><label>Jours d'accueil prévus ce mois-ci</label><input type="number" step="1" id="mois-jprev" placeholder="ex. 22"></div>
         <div class="field"><label>Jours non travaillés déduits</label><input type="number" step="1" id="mois-jded" placeholder="0"></div>
@@ -415,6 +432,7 @@
       <div class="field"><label>Indemnité de congés payés versée ce mois-ci (€ brut)</label><input type="number" step="0.01" id="mois-cpmontant" placeholder="0"><div class="hint">Paiement en juin ou à la prise des congés : voir « Congés payés ». Ce montant et les jours pris se déclarent sur Pajemploi.</div></div>
     </div>
 
+    <details class="fold" id="mois-fold-frais"><summary>Entretien, repas, kilomètres et paiement</summary>
     <div class="section-label">Frais remboursés (pas du salaire)</div>
     <div class="grid2">
       <div class="field"><label>Jours de présence réelle de l'enfant</label><input type="number" step="1" id="mois-jours" placeholder="ex. 20"><div class="hint">Pour l'entretien et les repas (jours où l'enfant est venu).</div></div>
@@ -426,7 +444,7 @@
     </div>
     <div class="field"><label>Frais kilométriques du mois (€)</label><input type="number" step="0.01" id="mois-km" placeholder="0"></div>
     <div class="field"><label>Régularisation d'un mois précédent (€ brut, + ou −)</label><input type="number" step="0.01" id="mois-regul" placeholder="0">
-      <div class="hint">Ex. heures oubliées un mois déjà déclaré. Un trop-perçu ne se retient qu'avec l'accord écrit de la salariée.</div></div>
+      <div class="hint">Ex. heures oubliées un mois déjà déclaré. Somme versée en trop : elle se récupère par petites retenues, dans la limite de la part saisissable du salaire, après en avoir informé la salariée par écrit ; un accord écrit sur l'échéancier évite les litiges.</div></div>
     <input type="hidden" id="mois-j8"><input type="hidden" id="mois-hm8">
 
     <div class="section-label">Paiement</div>
@@ -437,29 +455,23 @@
     <div class="field"><label>Heures réellement effectuées ce mois-ci</label><input type="number" step="0.25" id="mois-hreel" placeholder="auto">
       <div class="hint" id="mois-hreel-hint">Gardées dans l'historique pour la régularisation de fin de contrat (année incomplète). Laissez vide : calculé d'après le planning.</div></div>
 
-    <div class="stub">
-      <div class="stub-head">Résultat</div>
-      <div class="stub-body">
-        <div id="mois-warn"></div>
-        <div class="result-line"><span class="lbl">Salaire brut du mois</span><span class="val" id="out-mois-brut">—</span></div>
-        <div class="result-line"><span class="lbl">Salaire net du mois (estimation)</span><span class="val" id="out-mois-net-sal">—</span></div>
-        <details class="help"><summary>Du brut au net : détail des cotisations salariales</summary><div id="mois-cotis-detail"></div></details>
-        <div class="result-line"><span class="lbl">Indemnités d'entretien</span><span class="val" id="out-mois-entretien">—</span></div>
-        <div class="result-line"><span class="lbl">Repas et goûters</span><span class="val" id="out-mois-repas-r">—</span></div>
-        <div class="result-line"><span class="lbl">Frais kilométriques</span><span class="val" id="out-mois-km-r">—</span></div>
-        <div class="result-line total"><span class="lbl">Total à verser par la famille</span><span class="val" id="out-mois-net">—</span></div>
-        <div class="result-line" id="row-mois-reste" style="display:none"><span class="lbl">Reste à verser après l'acompte</span><span class="val" id="out-mois-reste">—</span></div>
-        <div class="result-line"><span class="lbl">Salaire net imposable (estimation, pour vos impôts)</span><span class="val" id="out-mois-netimp">—</span></div>
-        <div class="net-hint">Le net exact est celui du bulletin Pajemploi. Les heures complémentaires et majorées ont des cotisations réduites et sont exonérées d'impôt (dans la limite annuelle) : c'est pris en compte dans l'estimation.</div>
-        <div class="pajemploi-block">
-          <div class="pajemploi-title">À recopier sur Pajemploi (déclaration de cet enfant)</div>
-          <div id="pj-lines"></div>
-        </div>
-        <button class="btn primary block" onclick="validerMois()">✔ Valider ce mois (l'enregistrer dans l'historique)</button>
-        <div class="legal"><strong>Règle —</strong> Pajemploi (2026) : une déclaration par enfant, du 25 du mois au 5 du mois suivant. Heures normales = heures mensualisées (arrondies à l'entier le plus proche), diminuées des heures d'absence déduites, augmentées en année incomplète des heures correspondant aux congés payés versés (montant ÷ salaire horaire). Jours d'activité = jours mensualisés, arrondis à l'entier supérieur. Année complète : jamais de case « congés payés ». Les heures complémentaires (taux normal jusqu'à 45 h par semaine) et majorées (au-delà, +10 % minimum) se déclarent à part avec leur montant net. Jour férié ordinaire travaillé : +10 % ; 1er mai : +100 %. Entretien, repas et km ne sont pas du salaire. Une déclaration se corrige en ligne pendant 2 mois.</div>
-        <button class="btn block" onclick="askPrintChoice('mois','Salaire du mois — Récapitulatif')">📄 Récapitulatif PDF (enregistrer ou imprimer)</button>
-      </div>
+    </details>
+    <details class="fold" id="mois-fold-contrat"><summary>Valeurs du contrat (salaire mensualisé, heures, jours)</summary>
+    <p class="hint">Reprises de la fiche de l'enfant. Pour un changement qui dure (nouveau planning, nouveau tarif), modifiez la fiche : le carnet vous proposera un avenant.</p>
+    <div class="toggle-row"><span class="q">Le contrat est-il en année complète ?</span>
+      <div class="seg" id="mois-type"><button class="on">Oui (année complète)</button><button>Non (année incomplète)</button></div></div>
+    <div class="grid2">
+      <div class="field"><label>Salaire mensualisé brut (€)</label><input type="number" step="0.01" id="mois-base" placeholder="ex. 780.00">
+        <div class="hint">Le salaire de base habituel, sans les congés payés.</div></div>
+      <div class="field"><label>Salaire horaire brut (€)</label><input type="number" step="0.01" id="mois-taux" placeholder="ex. 4.50"></div>
     </div>
+    <div class="grid2">
+      <div class="field"><label>Heures mensualisées</label><input type="number" step="0.01" id="mois-heures" placeholder="ex. 173.33"></div>
+      <div class="field"><label>Jours d'activité mensualisés</label><input type="number" step="0.01" id="mois-jmensu" placeholder="ex. 21.67"><div class="hint">Jours par semaine × semaines ÷ 12.</div></div>
+    </div>
+
+    </details>
+    <button type="button" class="btn small" style="margin:8px 0 14px" onclick="document.querySelector('#theme-mois .stub').scrollIntoView({block:'start'})">⬆ Revoir le résultat</button>
 
     <div class="h-sec">🗂️ Historique des mois validés</div>
     <div id="mois-journal"></div>
@@ -567,8 +579,9 @@
         <div class="result-line" id="row-ccass-deduct-sup" style="display:none"><span class="lbl">Montant déduit, heures majorées</span><span class="val" id="out-ccass-deduct-sup">—</span></div>
         <div class="result-line"><span class="lbl">Salaire du mois recalculé (brut)</span><span class="val" id="out-ccass-salaire">—</span></div>
         <div class="result-line" id="row-ccass-entretien" style="display:none"><span class="lbl">Indemnités d'entretien</span><span class="val" id="out-ccass-entretien">—</span></div>
-        <div class="result-line total"><span class="lbl">Total à verser (brut)</span><span class="val" id="out-ccass-total">—</span></div>
-        <div class="result-line"><span class="lbl">Total net (estimation)</span><span class="val" id="out-ccass-net">—</span></div>
+        <div class="result-line"><span class="lbl">Salaire brut + indemnités d'entretien</span><span class="val" id="out-ccass-total">—</span></div>
+        <div class="result-line total"><span class="lbl">À verser au total (salaire net estimé + entretien)</span><span class="val" id="out-ccass-net">—</span></div>
+        <div class="net-hint">L'entretien n'est pas du salaire : il n'a ni brut ni net. Le net exact est celui du bulletin Pajemploi.</div>
         <div class="pajemploi-block">
           <div class="pajemploi-title">À reporter sur Pajemploi</div>
           <div class="result-line"><span class="lbl">Nombre de jours d'activité</span><span class="val" id="out-ccass-jours-declar">—</span></div>
@@ -577,7 +590,7 @@
           <div class="result-line"><span class="lbl">Total des heures</span><span class="val" id="out-ccass-h-total-declar">—</span></div>
         </div>
         <button class="btn block" onclick="ccassSendToMois()">➡️ Reporter la déduction dans « Salaire du mois »</button>
-        <div class="legal"><strong>Règle —</strong> pour un mois incomplet, la Cour de cassation impose de rapporter le salaire mensualisé aux heures réellement prévues au planning de ce mois (et non à un prorata de jours calendaires) : montant déduit = salaire mensualisé × heures non travaillées ÷ heures prévues dans le mois. Les jours et heures à déclarer s'obtiennent avec la même proportion appliquée aux valeurs habituelles, arrondies à l'entier supérieur. La méthode s'applique à toute absence <u>non rémunérée</u> : arrivée ou départ en cours de mois, premier mois avec période d'adaptation (obligatoire depuis la CCN de 2022), arrêt maladie, accident du travail, maternité ou paternité de l'assistante maternelle (le particulier employeur ne maintient pas le salaire : indemnités CPAM et IRCEM Prévoyance), congé sans solde ou congés payés non acquis, enfant de l'assmat malade, événement familial au-delà des jours prévus par la loi, enfant accueilli malade avec certificat médical (5 jours par période de 12 mois à partir de la date du contrat ; hospitalisation ou maladie d'au moins 14 jours consécutifs non rémunérées). Elle ne s'applique pas aux absences rémunérées ou déjà exclues : enfant absent pour convenance des parents ou fermeture imposée par eux, enfant malade sans certificat ou au-delà des 5 jours, congés payés en année complète, semaines non prévues en année incomplète, jours fériés chômés, événements familiaux dans la limite légale. Indemnités d'entretien et de repas : jamais dues les jours où l'enfant n'est pas accueilli.</div>
+        <div class="legal"><strong>Règle —</strong> pour un mois incomplet, la Cour de cassation impose de rapporter le salaire mensualisé aux heures réellement prévues au planning de ce mois (et non à un prorata de jours calendaires) : montant déduit = salaire mensualisé × heures non travaillées ÷ heures prévues dans le mois. Les jours et heures à déclarer s'obtiennent avec la même proportion appliquée aux valeurs habituelles : jours arrondis à l'entier supérieur, heures normales à l'heure la plus proche (comme dans « Salaire du mois »), heures majorées au nombre exact. La méthode s'applique à toute absence <u>non rémunérée</u> : arrivée ou départ en cours de mois, premier mois avec période d'adaptation (obligatoire depuis la CCN de 2022), arrêt maladie, accident du travail, maternité ou paternité de l'assistante maternelle (le particulier employeur ne maintient pas le salaire : indemnités CPAM et IRCEM Prévoyance), congé sans solde ou congés payés non acquis, enfant de l'assmat malade, événement familial au-delà des jours prévus par la loi, enfant accueilli malade avec certificat médical (5 jours par période de 12 mois à partir de la date du contrat ; hospitalisation ou maladie d'au moins 14 jours consécutifs non rémunérées). Elle ne s'applique pas aux absences rémunérées ou déjà exclues : enfant absent pour convenance des parents ou fermeture imposée par eux, enfant malade sans certificat ou au-delà des 5 jours, congés payés en année complète, semaines non prévues en année incomplète, jours fériés chômés, événements familiaux dans la limite légale. Indemnités d'entretien et de repas : jamais dues les jours où l'enfant n'est pas accueilli.</div>
         <button class="btn primary block" onclick="askPrintChoice('ccass','Mois incomplet — Récapitulatif')">📄 Récapitulatif PDF (enregistrer ou imprimer)</button>
       </div>
     </div>
@@ -601,7 +614,7 @@
         <div class="field"><label>Salaire horaire brut (€)</label><input type="number" step="0.01" id="cp-taux" placeholder="ex. 4.50"></div>
         <div class="field"><label>Heures par semaine (moyenne)</label><input type="number" step="0.25" id="cp-heures" placeholder="ex. 40"></div>
       </div>
-      <div class="field"><label>Total des salaires bruts de la période de référence (1er juin – 31 mai)</label><input type="number" step="0.01" id="cp-total-salaires" placeholder="ex. 9000">
+      <div class="field"><label>Total des salaires bruts de la période terminée le 31 mai (1er juin – 31 mai)</label><input type="number" step="0.01" id="cp-total-salaires" placeholder="ex. 9000">
         <div class="hint">Tout le brut de la période, heures en plus et congés payés versés compris (sauf les 12ᵉ versés chaque mois) ; sans les indemnités d'entretien, repas ni km. <span id="cp-total-suggest"></span></div></div>
     </div>
 
@@ -609,7 +622,7 @@
       <div class="stub-head">Résultat</div>
       <div class="stub-body">
         <div class="result-line"><span class="lbl">Congés acquis sur les périodes terminées</span><span class="val" id="out-cp-acquis">—</span></div>
-        <div class="result-line"><span class="lbl">Congés en cours d'acquisition (N)</span><span class="val" id="out-cp-encours">—</span></div>
+        <div class="result-line"><span class="lbl">Congés de la période en cours (depuis le 1er juin)</span><span class="val" id="out-cp-encours">—</span></div>
         <div class="result-line"><span class="lbl">Congés pris (3 périodes)</span><span class="val" id="out-cp-pris">—</span></div>
         <div id="cp-repart"></div>
         <div class="result-line total"><span class="lbl">Total de jours disponibles</span><span class="val" id="out-cp-total">—</span></div>
@@ -632,11 +645,12 @@
     <p class="sub">Le récapitulatif à envoyer aux parents : ce qu'ils déclarent sur Pajemploi, ce qu'ils vous versent, et le total de l'année pour leurs impôts. Il marche avec ou sans suivi au jour le jour.</p>
     <div class="kid-picker" data-for="parents"></div>
     <div class="field"><label>Mois</label><input type="month" id="par-mois"></div>
+    <div class="toggle-row" id="par-fratrie-row" style="display:none"><label class="q" style="display:flex;gap:10px;align-items:center;min-height:44px"><input type="checkbox" id="par-fratrie" checked onchange="CALC.parents()"> Inclure les frères et sœurs de la même famille dans le message</label></div>
     <div class="stub"><div class="stub-head">Ce mois-ci</div><div class="stub-body" id="par-mois-out"><p class="hint">Choisissez un enfant enregistré.</p></div></div>
     <div class="field"><label>Année (pour les impôts des parents)</label><input type="number" step="1" id="par-annee" placeholder="ex. 2026"></div>
     <div class="stub"><div class="stub-head">Sur l'année</div><div class="stub-body" id="par-annee-out"></div></div>
     <div class="btn-row"><button class="btn primary" onclick="parentsPartager()">📤 Envoyer le récapitulatif aux parents</button></div>
-    <div class="legal"><strong>Pour les parents —</strong> crédit d'impôt pour frais de garde d'un enfant de moins de 6 ans au 1er janvier : 50 % des sommes versées (salaire net et indemnités d'entretien, sans les repas), diminuées de l'aide CMG reçue, dans la limite de 3 500 € par enfant et par an (cases 7GA à 7GC). Les montants affichés sont des estimations : l'attestation Pajemploi et celle de la CAF font foi.</div>
+    <div class="legal"><strong>Pour les parents —</strong> crédit d'impôt pour frais de garde d'un enfant de moins de 6 ans au 1er janvier : 50 % des sommes versées (salaire net et indemnités d'entretien, sans les repas), diminuées de l'aide CMG reçue, dans la limite de 3 500 € par enfant et par an (cases 7GA à 7GC ; en résidence alternée, cases 7GE à 7GG avec un plafond divisé par deux). Les sommes comptent l'année où elles sont payées. Les montants affichés sont des estimations : l'attestation Pajemploi et celle de la CAF font foi.</div>
   </div>
 
   <div class="theme" id="theme-ie" data-persist="1">
@@ -724,7 +738,8 @@
         <div class="field"><label>Salaire horaire (€)</label><input type="number" step="0.01" id="fin-taux" placeholder="ex. 4.50"></div>
         <div class="field"><label>Heures par semaine (moyenne)</label><input type="number" step="0.25" id="fin-heures" placeholder="ex. 40"></div>
       </div>
-      <div class="field"><label>Total des salaires de la période de référence pas encore « couverts » par des congés payés (€)</label><input type="number" step="0.01" id="fin-total-salaires" placeholder="ex. 6000"></div>
+      <div class="field"><label>Salaires bruts qui ont donné droit aux jours de congés restants (€)</label><input type="number" step="0.01" id="fin-total-salaires" placeholder="ex. 6000">
+        <div class="hint">Rempli tout seul : pour chaque période (1er juin – 31 mai), les salaires bruts × jours restants ÷ jours acquis. Sert à la méthode du dixième (10 %).</div></div>
     </div>
 
     <div class="toggle-row" id="fin-regul-row"><span class="q" id="fin-regul-question">Faut-il calculer une régularisation ?</span>
@@ -779,17 +794,17 @@
           <div class="result-line fav"><span class="lbl">Indemnité de congés payés (la plus favorable)<span class="badge" id="fin-badge">—</span></span><span class="val" id="out-fin-cp">—</span></div>
         </div>
         <div id="fin-regul-results" style="display:none">
-          <div class="result-line"><span class="lbl">Régul. : période</span><span class="val" id="out-fin-periode">—</span></div>
+          <div class="result-line"><span class="lbl">Régularisation : période</span><span class="val" id="out-fin-periode">—</span></div>
           <div id="fin-regul-detail"></div>
-          <div class="result-line"><span class="lbl" id="out-fin-regul-du-label">Régul. : salaire réellement dû</span><span class="val" id="out-fin-regul-du">—</span></div>
-          <div class="result-line"><span class="lbl" id="out-fin-regul-verse-label">Régul. : déjà versé</span><span class="val" id="out-fin-regul-verse-r">—</span></div>
+          <div class="result-line"><span class="lbl" id="out-fin-regul-du-label">Régularisation : salaire réellement dû</span><span class="val" id="out-fin-regul-du">—</span></div>
+          <div class="result-line"><span class="lbl" id="out-fin-regul-verse-label">Régularisation : déjà versé</span><span class="val" id="out-fin-regul-verse-r">—</span></div>
           <div class="result-line" id="row-fin-regul-ecart"><span class="lbl">Écart de régularisation<span class="badge" id="fin-regul-badge">—</span></span><span class="val" id="out-fin-regul-ecart">—</span></div>
         </div>
         <div id="fin-rupture-results" style="display:none">
           <div class="result-line"><span class="lbl">Indemnité de rupture (1/80ᵉ des salaires bruts)</span><span class="val" id="out-fin-rupture">—</span></div>
         </div>
-        <div class="result-line total"><span class="lbl">Total dû (brut)</span><span class="val" id="out-fin-total">—</span></div>
-        <div class="result-line"><span class="lbl">Total net (estimation)</span><span class="val" id="out-fin-net">—</span></div>
+        <div class="result-line"><span class="lbl">Total des sommes dues (salaire en brut, indemnités telles quelles)</span><span class="val" id="out-fin-total">—</span></div>
+        <div class="result-line total"><span class="lbl">À verser au total (estimation en net)</span><span class="val" id="out-fin-net">—</span></div>
         <div class="net-hint">Net estimé sur la part soumise à cotisations (salaire, préavis, congés, régularisation) ; entretien et indemnité de rupture ajoutés tels quels.</div>
         <div class="pajemploi-block">
           <div class="pajemploi-title">Documents à remettre à la fin du contrat</div>
@@ -798,7 +813,7 @@
           <div class="result-line"><span class="lbl">Reçu pour solde de tout compte</span><span class="val">conseillé</span></div>
           <div class="result-line"><span class="lbl">Dernier bulletin Pajemploi (avec indemnités)</span><span class="val">obligatoire</span></div>
         </div>
-        <div class="legal"><strong>Règle —</strong> Préavis (CCN IDCC 3239) : 8 jours calendaires si moins de 3 mois d'ancienneté, 15 jours de 3 mois à moins d'un an, 1 mois au-delà ; pas de préavis pendant la période d'essai, ni en cas de faute grave ou lourde, ni en cas de retrait d'agrément. Si les parents dispensent de préavis, ils le paient (indemnité compensatrice). Congés non pris : indemnité au montant le plus favorable (art. L3141-24 du Code du travail). <u>Année incomplète</u> : la régularisation (salaire mensualisé versé comparé aux heures réellement effectuées) est obligatoire en fin de contrat ; s'il y a eu des avenants, chaque sous-période est calculée avec ses propres heures et son propre taux. <u>Année complète</u> : pas de régularisation de principe, sauf cas particuliers (rythmes variables, avenant appliqué en retard). Un trop-perçu ne se récupère qu'avec l'accord de la salariée ou une décision de justice. Indemnité de rupture : 1/80ᵉ du total des salaires bruts du contrat (hors entretien, repas, km), due par l'employeur qui retire l'enfant après 9 mois d'ancienneté, sauf faute grave ou lourde ; elle n'est pas soumise à cotisations ni à l'impôt dans les limites légales.</div>
+        <div class="legal"><strong>Règle —</strong> Préavis (CCN IDCC 3239) : 8 jours calendaires si moins de 3 mois d'ancienneté, 15 jours de 3 mois à moins d'un an, 1 mois au-delà ; pas de préavis pendant la période d'essai, ni en cas de faute grave ou lourde, ni en cas de retrait d'agrément. Si les parents dispensent de préavis, ils le paient (indemnité compensatrice). Congés non pris : indemnité au montant le plus favorable (art. L3141-24 du Code du travail). <u>Année incomplète</u> : la régularisation (salaire mensualisé versé comparé aux heures réellement effectuées) est obligatoire en fin de contrat ; s'il y a eu des avenants, chaque sous-période est calculée avec ses propres heures et son propre taux. <u>Année complète</u> : pas de régularisation de principe, sauf cas particuliers (rythmes variables, avenant appliqué en retard). Une somme versée en trop se récupère par petites retenues, dans la limite de la part saisissable du salaire, après information écrite de la salariée ; un accord écrit sur l'échéancier évite les litiges. Indemnité de rupture : 1/80ᵉ du total des salaires bruts du contrat (hors entretien, repas, km), due par l'employeur qui retire l'enfant après 9 mois d'ancienneté, sauf faute grave ou lourde ; elle n'est pas soumise à cotisations ni à l'impôt dans les limites légales.</div>
         <button class="btn primary block" onclick="askPrintChoice('fin','Fin de contrat — Récapitulatif')">📄 Récapitulatif PDF (enregistrer ou imprimer)</button>
       </div>
     </div>
@@ -935,6 +950,23 @@
     <div class="hint" style="margin:-6px 0 14px">Restent sur ce téléphone. Votre numéro de sécurité sociale n'est jamais enregistré : il s'écrit à la main sur les documents.</div>
 
     <div class="section-label">Mon activité</div>
+    <div class="field" id="conges-wrap"><label>Mes congés payés (périodes où je ne travaille pas)</label>
+      <div id="conges-list"></div>
+      <div class="grid2">
+        <div class="field"><label for="conges-du">Premier jour</label><input type="date" id="conges-du"></div>
+        <div class="field"><label for="conges-au">Dernier jour (inclus)</label><input type="date" id="conges-au"></div>
+      </div>
+      <button type="button" class="btn small" onclick="congesAdd()">＋ Ajouter cette période</button>
+      <div class="hint">Pour tous vos enfants : les jours prévus au planning pendant ces dates comptent comme vos congés payés (pas d'entretien ni de repas, et ils sont décomptés de vos congés). Indispensable si vous ne notez pas vos journées une par une ; dans le suivi au jour le jour, ces jours apparaissent déjà comme « Mes congés payés ».</div></div>
+    <div class="field" id="absenf-wrap"><label>Absences prévues d'un enfant (vacances de sa famille, en plus de vos congés)</label>
+      <div id="absenf-list"></div>
+      <div class="field"><label for="absenf-cid">Enfant</label><select id="absenf-cid"></select></div>
+      <div class="grid2">
+        <div class="field"><label for="absenf-du">Premier jour</label><input type="date" id="absenf-du"></div>
+        <div class="field"><label for="absenf-au">Dernier jour (inclus)</label><input type="date" id="absenf-au"></div>
+      </div>
+      <button type="button" class="btn small" onclick="absEnfAdd()">＋ Ajouter cette absence</button>
+      <div class="hint">Année complète : quand les parents gardent l'enfant en dehors de vos congés, le salaire reste dû mais l'entretien et les repas ne le sont pas. En année incomplète, ces semaines sont normalement déjà prévues au contrat (semaines sans accueil).</div></div>
     <div class="toggle-row"><span class="q">Travaillez-vous en Alsace-Moselle (Bas-Rhin, Haut-Rhin, Moselle) ?</span>
       <div class="seg" id="set-am"><button class="on">Non</button><button>Oui</button></div>
       <div class="hint">Les cotisations y sont un peu plus élevées : le net estimé en tient compte.</div></div>
