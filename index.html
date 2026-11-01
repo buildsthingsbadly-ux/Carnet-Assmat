@@ -18,6 +18,13 @@
 </head>
 <body>
 <div id="print-recap"></div>
+<!-- Fenêtre : fiche explicative d'un résultat (lecture à l'écran, impression ou PDF) -->
+<div class="overlay" id="fiche-overlay">
+  <div class="dlg fiche-dlg" role="dialog" aria-modal="true" aria-labelledby="fiche-titre">
+    <div id="fiche-body"></div>
+    <div class="btn-row fiche-actions"><button class="btn primary" onclick="ficheImprimer()">🖨️ Imprimer ou enregistrer en PDF</button><button class="btn" onclick="closeOverlay('fiche-overlay')">Fermer</button></div>
+  </div>
+</div>
 
 <!-- Fenêtre : imprimer / PDF -->
 <div class="overlay" id="pc-overlay">
@@ -1042,6 +1049,7 @@
 <script src="js/docs.js"></script>
 <script src="js/io.js"></script>
 <script src="js/plus.js"></script>
+<script src="js/fiche.js"></script>
 <script src="js/shell.js"></script>
 </body>
 </html>

@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "version": "2026-10-01",
+  "version": "2026-11-01",
   "categories": {
     "salaire": "Salaire et heures",
     "cotisations": "Cotisations (brut → net)",
@@ -745,6 +745,13 @@
     }
   },
   "changelog": [
+    {
+      "date": "2026-11-01",
+      "cats": [
+        "cmg"
+      ],
+      "text": "CMG : plancher de ressources corrigé à 814,02 € par mois (valeur publiée par l'Urssaf, mise à jour du 24/04/2026) ; plafond de 8 500 €, le même pour un parent seul."
+    },
     {
       "date": "2026-06-01",
       "cats": [

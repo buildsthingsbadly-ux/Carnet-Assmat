@@ -12,7 +12,7 @@
    ===================================================================================== */
 const REG_DEFAULT = {
   schema: 1,
-  version: '2026-10-01',
+  version: '2026-11-01',
   categories: {
     salaire:     'Salaire et heures',
     cotisations: 'Cotisations (brut → net)',
@@ -177,6 +177,7 @@ const REG_DEFAULT = {
       values:[ {du:'2025-09-01', v:12} ] }
   },
   changelog: [
+    { date:'2026-11-01', cats:['cmg'], text:'CMG : plancher de ressources corrigé à 814,02 € par mois (valeur publiée par l\'Urssaf, mise à jour du 24/04/2026) ; plafond de 8 500 €, le même pour un parent seul.' },
     { date:'2026-06-01', cats:['salaire','entretien','fiscal'], text:'SMIC 12,31 €/h ; minimum garanti 4,35 € (indemnité d\'entretien de 9 h : 3,92 €) ; salaire minimum assistant maternel 4,20 € brut/h (4,37 € avec titre AM-AP).' },
     { date:'2026-04-01', cats:['cmg'], text:'CMG : coût horaire de référence 4,91 €, plafond horaire 8,09 €.' },
     { date:'2026-01-01', cats:['salaire','entretien','cotisations','fiscal'], text:'SMIC 12,02 €/h ; MG 4,25 € ; salaire minimum 3,64 € brut/h ; abattement fiscal des revenus 2026 = 3 × 12,02 € = 36,06 €/jour.' },
