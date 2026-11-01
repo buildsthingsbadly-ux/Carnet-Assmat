@@ -341,8 +341,8 @@ function computeAlerts(){
     const mDecl = jour >= 25 ? isoMonth(now) : isoMonth(new Date(now.getFullYear(), now.getMonth()-1, 1));
     STATE.contrats.filter(c=>{ const deb=parseD(c.debut), fin=parseD(c.fin); return (!deb || isoMonth(deb) <= mDecl) && (!fin || isoMonth(fin) >= mDecl); })
       .filter(c=>!journalOf(c.id)[mDecl]).forEach(c=>{
-        out.push({lvl:'warn', html:'Déclaration Pajemploi de '+fmtMonth(mDecl)+' pour <b>'+esc(c.enfant||'Enfant')+'</b> (entre le 25 et le 5) : préparez les chiffres puis validez le mois.',
-          act:'<button class="btn small" onclick="preparerDeclaration(\''+c.id+'\',\''+mDecl+'\')">Préparer la déclaration</button>'});
+        out.push({lvl:'warn', html:'Mois '+deMoisTxt(mDecl)+' pour <b>'+esc(c.enfant||'Enfant')+'</b> : les parents le déclarent sur Pajemploi entre le 25 et le 5. Vérifiez et validez les chiffres, puis envoyez-les aux parents.',
+          act:'<button class="btn small" onclick="preparerDeclaration(\''+c.id+'\',\''+mDecl+'\')">Vérifier les chiffres</button>'});
       });
   }
   // Contrats terminés depuis moins de 2 mois : documents de fin
@@ -513,6 +513,12 @@ function ctRefresh(){
   for(let i=0;i<7;i++){
     ['A','B'].forEach(w=>{ const inp=$('ct-w'+w+i); if(inp) inp.parentElement.classList.toggle('filled', parseFloat(inp.value)>0); });
   }
+  ['A','B'].forEach(w=>{
+    const hm = x=>{ const m = Math.round(x*60), h = Math.floor(m/60), r = m%60; return h+' h'+(r ? ' '+String(r).padStart(2,'0') : ''); };
+    const J = ['Lun','Mar','Mer','Jeu','Ven','Sam','Dim'], parts = [];
+    for(let i=0;i<7;i++){ const v = parseFloat(String(val('ct-w'+w+i)).replace(',','.')); if(v>0) parts.push(J[i]+' '+hm(v)); }
+    setTxt('ct-w'+w+'-conv', parts.length ? 'Soit : '+parts.join(' · ') : '');
+  });
   const dv = derive(CT, today());
   show('ct-maj-wrap', dv.hMaxSem > R('seuilMaj'));
   setHTML('ct-planning-sum', dv.moyH
@@ -575,7 +581,8 @@ function ctRecap(dv){
   h+='<div class="result-line total"><span class="lbl">Salaire mensuel brut</span><span class="val">'+fmtEUR(dv.brut)+'</span></div>';
   h+='<div class="result-line"><span class="lbl">Salaire mensuel net (estimation)</span><span class="val">'+fmtEUR(dv.net)+'</span></div>';
   h+='<div class="result-line"><span class="lbl">Indemnité d\'entretien moyenne par jour</span><span class="val">'+fmtEUR(dv.ieJour)+'</span></div>';
-  h+='<div class="result-line"><span class="lbl">Indemnités d\'entretien (moyenne par mois)</span><span class="val">'+fmtEUR(dv.ieMois)+'</span></div>';
+  h+='<div class="result-line"><span class="lbl">Indemnités d\'entretien (moyenne par mois)</span><span class="val">'+fmtEUR(dv.ieMois)+'</span></div>'
+    + '<div class="hint">Moyenne pour se faire une idée : l\u2019entretien est payé pour chaque jour où l\u2019enfant vient, donc le montant réel change d\u2019un mois à l\u2019autre (onglet Mois).</div>';
   if(dv.repasMois) h+='<div class="result-line"><span class="lbl">Repas (moyenne par mois)</span><span class="val">'+fmtEUR(dv.repasMois)+'</span></div>';
   if(dv.km) h+='<div class="result-line"><span class="lbl">Frais kilométriques</span><span class="val">'+fmtEUR(dv.km)+'</span></div>';
   h+='<div class="result-line total"><span class="lbl">Total perçu par mois (net)</span><span class="val">'+fmtEUR(dv.totalNet)+'</span></div>';
@@ -587,16 +594,29 @@ function ctStep(dir){
   ctRead();
   if(dir>0){
     if(CT_STEP===0 && !CT.enfant){ toast('Indiquez au moins le prénom de l\'enfant.'); $('ct-enfant').focus(); return; }
+    if(CT_STEP===1 && !parseD(CT.debut)){ toast('Indiquez la date de début du contrat : elle sert à tous les calculs.'); $('ct-debut').focus(); return; }
+    if(CT_STEP===1 && parseD(CT.fin) && parseD(CT.fin) < parseD(CT.debut)){ toast('La date de fin est avant la date de début.'); $('ct-fin').focus(); return; }
     if(CT_STEP===1 && CT.type===1 && !(parseFloat(CT.semaines)>0)){ toast('Indiquez le nombre de semaines d\'accueil par an.'); $('ct-semaines').focus(); return; }
+    if(CT_STEP===3 && !(parseFloat(CT.taux)>0)){ ctTauxManquant(()=>{ CT_STEP = 4; ctRefresh(); window.scrollTo(0,0); }); return; }
     if(CT_STEP===2 && !derive(CT).moyH){ toast('Indiquez les heures d\'au moins un jour.'); return; }
     if(CT_STEP===4){ ctSave(); return; }
   }
   CT_STEP = Math.max(0, Math.min(4, CT_STEP+dir));
   ctRefresh(); window.scrollTo(0,0);
 }
+/* Salaire horaire vide : proposer le minimum légal plutôt qu'un contrat à 0 € */
+function ctTauxManquant(suite){
+  const mn = derive(CT, today()).tauxMin;
+  showConfirmDialog('Salaire horaire', 'Aucun salaire horaire n\u2019est indiqué. Mettre le minimum légal ('+fmtEUR(mn)+' brut de l\u2019heure) ? Vous pourrez le changer plus tard.', ()=>{
+    setVal('ct-taux', mn); ctRead(); if(suite) suite();
+  }, 'Oui, mettre '+fmtEUR(mn), 'Je l\u2019indique moi-même');
+  _confirmNoCb = ()=>{ setTimeout(()=>{ const t=$('ct-taux'); if(t) t.focus(); }, 50); };
+}
 function ctSave(){
   ctRead();
   if(!CT.enfant){ toast('Indiquez au moins le prénom de l\'enfant.'); CT_STEP=0; ctRefresh(); return; }
+  if(!parseD(CT.debut)){ toast('Indiquez la date de début du contrat.'); CT_STEP=1; ctRefresh(); return; }
+  if(!(parseFloat(CT.taux)>0)){ CT_STEP=3; ctRefresh(); ctTauxManquant(()=>ctSave()); return; }
   const exist = STATE.contrats.find(c=>c.id===CT.id);
   if(exist && CT._orig && JSON.stringify(paramsOf(CT)) !== JSON.stringify(CT._orig) && !CT._avenantDone){
     _confirmNoCb = ()=>{ CT._avenantDone = true; auditLog(CT.id, 'Correction du contrat (sans date d\'effet)'); ctSave(); };

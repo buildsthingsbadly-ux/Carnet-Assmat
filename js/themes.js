@@ -100,6 +100,7 @@ CALC.mensu = ()=>{
    ===================================================================================== */
 VIS.mois = ()=>{
   const inc = seg('mois-type')===1;
+  if(selKey('mois')==='libre'){ ['mois-fold-contrat','mois-fold-frais'].forEach(id=>{ const d=$(id); if(d) d.open = true; }); }
   show('mois-incomplet-wrap', seg('mois-incomplet')===1);
   show('mois-heuresup-wrap', seg('mois-heuresup')===1);
   show('mois-ferie-wrap', seg('mois-ferie')===1);
@@ -113,6 +114,7 @@ PREFILL.mois = c=>{
 };
 function moisFillFromContract(c, m){
   const d = parseD(m);
+  setVal('mois-ded-maj', '');
   const dv = derive(c, d);
   setSegVal('mois-type', c.type);
   setVal('mois-base', round2(dv.brutBase)); setVal('mois-heures', round2(dv.hMensu)); setVal('mois-taux', round2(dv.tauxEff));
@@ -163,7 +165,13 @@ function moisCompute(){
   const cMaj = moisContrat(), Mmaj = cMaj ? suiviMonth(cMaj, m) : null;
   const partMaj = Mmaj ? Mmaj.partMaj : 0;
   const ratioDu0 = base ? Math.max(0, base-ded)/base : 1;
-  const brutMajMensu = Math.max(0, base-ded)*partMaj, hMajMensuDu = Mmaj ? Mmaj.hMajMensuV*ratioDu0 : 0;
+  // part de la déduction qui porte sur les heures majorées prévues : précisée par « Mois incomplet » (heures
+  // majorées non travaillées), sinon répartie au prorata (même méthode que le suivi au jour le jour)
+  const baseMaj = base*partMaj, dedMajSaisi = val('mois-ded-maj');
+  const dedMaj = !absent ? 0 : (dedMajSaisi!=='' ? Math.min(num('mois-ded-maj'), baseMaj, ded) : ded*partMaj);
+  const ratioMaj = baseMaj ? Math.max(0, baseMaj-dedMaj)/baseMaj : ratioDu0;
+  const baseNorm = base - baseMaj, dedNorm = ded - dedMaj, ratioNorm = baseNorm>0 ? Math.max(0, baseNorm-dedNorm)/baseNorm : ratioDu0;
+  const brutMajMensu = Math.max(0, baseMaj-dedMaj), hMajMensuDu = Mmaj ? Mmaj.hMajMensuV*ratioMaj : 0;
   // Net : cotisations réduites sur les heures complémentaires et majorées
   const ratio = netRatio(d), red = hsReduction(d);
   const netHs = (brutCompl+brutMaj+brutMajMensu)*Math.min(1, ratio+red);
@@ -194,7 +202,7 @@ function moisCompute(){
   const ratioDu = base ? Math.max(0, base-ded)/base : 1;
   // Heures normales : arrondies à l'heure la plus proche (consigne Pajemploi pour les heures mensualisées).
   // Heures complémentaires et majorées : aucun texte ne prévoit d'arrondi, le nombre exact est conservé.
-  const hNormDecl = Math.round(Math.max(0, hMensu*ratioDu - hMajMensuDu) + (inc && taux ? cpTot/taux : 0));
+  const hNormDecl = Math.round(Math.max(0, (hMensu - (Mmaj ? Mmaj.hMajMensuV : 0))*ratioNorm) + (inc && taux ? cpTot/taux : 0));
   const hComplDecl = hcompl, hMajDecl = hmaj + hMajMensuDu;
   const jprev = num('mois-jprev'), jded = absent ? num('mois-jded') : 0;
   const jDecl = jMensu ? Math.ceil((jprev ? jMensu - jMensu/jprev*jded : jMensu*ratioDu) - 1e-9) : 0;
@@ -322,7 +330,7 @@ function renderJournal(){
   h += '</tbody></table></div>';
   h += '<div class="box"><div class="section-label">Cumuls repris automatiquement ailleurs</div>'
     + '<div class="result-line"><span class="lbl">Salaires bruts depuis le début ('+t.n+' mois validés) → indemnité de rupture</span><span class="val">'+fmtEUR(t.brut)+'</span></div>'
-    + '<div class="result-line"><span class="lbl">Salaires bruts de la période de congés N-1 → congés payés (10 %)</span><span class="val">'+fmtEUR(tN1.brut)+'</span></div>'
+    + '<div class="result-line"><span class="lbl">Salaires bruts de la période terminée le 31 mai → congés payés (10 %)</span><span class="val">'+fmtEUR(tN1.brut)+'</span></div>'
     + '<div class="result-line"><span class="lbl">Salaires bruts de la période en cours (depuis le '+ref.toLocaleDateString('fr-FR')+')</span><span class="val">'+fmtEUR(tN.brut)+'</span></div>'
     + '<div class="result-line"><span class="lbl">Heures réellement effectuées depuis le début → régularisation</span><span class="val">'+fmtNum(t.hReel,2)+' h</span></div>'
     + '<div class="result-line"><span class="lbl">Net imposable + indemnités de l\'année '+today().getFullYear()+' → impôts</span><span class="val">'+fmtEUR((()=>{const y=journalTotals(c.id, today().getFullYear()+'-01', today().getFullYear()+'-12'); return y.netImp+y.ie+y.repas+y.km;})())+'</span></div>'
@@ -529,12 +537,12 @@ CALC.ccass = ()=>{
   const hnh=num('ccass-hnorm-habituel'), hsh=sup?num('ccass-hsup-habituel'):0;
   const up = x=>Math.ceil(x-1e-9);
   const jD = jp ? up(jh - jh/jp*(nonDed?0:jnt)) : NaN;
-  const hnD = hpN ? up(hnh - hnh/hpN*hdN) : NaN;
-  const hsD = (sup && hpS) ? up(hsh - hsh/hpS*hdS) : 0;
+  const hnD = hpN ? Math.round(hnh - hnh/hpN*hdN) : NaN;
+  const hsD = (sup && hpS) ? round2(hsh - hsh/hpS*hdS) : 0;
   setTxt('out-ccass-jours-declar', !isNaN(jD) ? Math.max(jD,0)+' j' : '—');
   setTxt('out-ccass-hnorm-declar', !isNaN(hnD) ? Math.max(hnD,0)+' h' : '—');
-  setTxt('out-ccass-hsup-declar', Math.max(hsD,0)+' h');
-  setTxt('out-ccass-h-total-declar', !isNaN(hnD) ? Math.max((hnD||0)+(hsD||0),0)+' h' : '—');
+  setTxt('out-ccass-hsup-declar', fmtNum(Math.max(hsD,0),2)+' h');
+  setTxt('out-ccass-h-total-declar', !isNaN(hnD) ? fmtNum(Math.max((hnD||0)+(hsD||0),0),2)+' h' : '—');
   const jAcc = Math.max(0, jp-jnt);
   const ie = seg('ccass-entretien')===1 ? jAcc*num('ccass-ie-montant') : 0;
   setTxt('out-ccass-entretien', fmtEUR(ie));
@@ -559,8 +567,17 @@ function ccassSendToMois(){
   STATE.sel.mois = key;
   STATE.forms.mois = STATE.forms.mois || {};
   let f = STATE.forms.mois[key];
-  if(!f){ showTheme('mois'); f = formCollect('mois'); }
+  const cR = key!=='libre' ? getContrat(key) : null;
+  // les cases enregistrées concernent un autre mois : on repart du contrat (et du suivi) du mois choisi
+  if(cR && v.m && (!f || (f.i||{})['mois-mois'] !== v.m)){
+    delete STATE.forms.mois[key];
+    if(CURRENT!=='mois') showTheme('mois'); else loadThemeForm('mois');
+    setVal('mois-mois', v.m); moisFillFromContract(cR, v.m);
+    if(typeof hasSuiviMonth==='function' && !hasSuiviMonth(cR.id, v.m) && typeof suiviFillMois==='function') suiviFillMois(cR, v.m);
+    f = formCollect('mois');
+  } else if(!f){ showTheme('mois'); f = formCollect('mois'); }
   f.s['mois-incomplet'] = nonDed ? 0 : 1; f.i['mois-deduction'] = round2(ded);
+  f.i['mois-ded-maj'] = (sup && !nonDed && hpS) ? round2(num('ccass-base-sup')/hpS*num('ccass-hded-sup')) : (nonDed ? '' : (hpS ? 0 : ''));
   if(v.m) f.i['mois-mois'] = v.m;
   f.i['mois-jprev'] = v.jprev || '';
   f.i['mois-jded'] = nonDed ? 0 : v.jnt;
@@ -667,7 +684,7 @@ PREFILL.cp = c=>{
   cpRefPeriods(c).forEach(p=>{
     if(!p.s) return;
     const a = iso(p.s), b = iso(p.e);
-    const sCP = S ? Object.keys(S.days||{}).filter(k=>k>=a && k<=b && (ST[S.days[k].st]||{}).cp).length : 0;
+    const sCP = cpPrisSuivi(c, p.s, p.e);
     let pris = Math.max(sCP, journalTotals(c.id, a.slice(0,7), b.slice(0,7)).jCP);
     if(p.k==='n') pris += parseFloat(rp.cpPrisN)||0;
     if(pris) setVal('cp-'+p.k+'-solde', pris);
@@ -696,7 +713,7 @@ CALC.cp = ()=>{
   if(pools.n2>0||pools.n1>0){
     if(pools.n2>0) rep+='<div class="result-line"><span class="lbl">↳ dont jours restants d\u2019il y a deux ans (à prendre en premier)</span><span class="val">'+fmtNum(pools.n2,2)+' j</span></div>';
     if(pools.n1>0) rep+='<div class="result-line"><span class="lbl">↳ dont jours restants de la période terminée le 31 mai</span><span class="val">'+fmtNum(pools.n1,2)+' j</span></div>';
-    rep+='<div class="result-line"><span class="lbl">↳ dont période N</span><span class="val">'+fmtNum(pools.n,2)+' j</span></div>';
+    rep+='<div class="result-line"><span class="lbl">↳ dont période en cours</span><span class="val">'+fmtNum(pools.n,2)+' j</span></div>';
   }
   setHTML('cp-repart', rep);
   // Suggestion du total des salaires d'après le contrat
@@ -704,11 +721,12 @@ CALC.cp = ()=>{
   if(c && val('cp-n1-debut') && val('cp-n1-fin')){
     const s=parseD(val('cp-n1-debut')), e=parseD(val('cp-n1-fin'));
     const mo = monthsBetween(s, addDays(e,1)) || 0;
-    const jt = journalTotals(c.id, isoMonth(s), isoMonth(e));
     // assiette du 10ᵉ : tout le brut de la période, y compris les congés payés versés (art. L3141-24),
-    // sauf les 12ᵉ versés d'avance chaque mois (ils paient déjà ces congés)
+    // sauf les 12ᵉ versés d'avance chaque mois (ils paient déjà ces congés). Mois validés tels qu'enregistrés,
+    // autres mois calculés comme dans l'onglet Mois (suivi ou planning).
+    const jt = contratCumuls(c, isoMonth(s), isoMonth(e));
     const est = jt.n ? jt.brut - jt.cp12 : derive(c, e).brutBase*mo;
-    const src = jt.n ? 'Total de vos '+jt.n+' mois validés sur la période N-1' : 'Estimation d\'après le contrat pour la période N-1 (validez vos mois pour avoir le montant exact)';
+    const src = 'Salaires de la période terminée le 31 mai'+(jt.n ? ' ('+(jt.n-jt.estimes)+' mois validés'+(jt.estimes ? ', '+jt.estimes+' calculés d\u2019après le planning ou le suivi' : '')+')' : ' (estimation d\u2019après le contrat)');
     setHTML('cp-total-suggest', est ? src+' : <a href="#" onclick="setVal(\'cp-total-salaires\','+round2(est)+');CALC.cp();persistTheme(\'cp\');return false;">'+fmtEUR(est)+'</a> (touchez pour l\'utiliser).' : '');
   } else setHTML('cp-total-suggest','');
   if(seg('cp-valeur')!==1) return;
@@ -886,8 +904,7 @@ PREFILL.fin = c=>{
     if(rp.regulVerse && parseD(rp.date)) setVal('fin-regul-debut', c.debut);
     const Rg = contratCumuls(c, val('fin-regul-debut').slice(0,7), val('fin-regul-fin').slice(0,7));
     if(Rg.n || rp.regulVerse){ setVal('fin-regul-verse', round2(Rg.brutMensu + (parseFloat(rp.regulVerse)||0))); setVal('fin-regul-heures', round2(Rg.hContrat + (parseFloat(rp.regulHeures)||0))); }
-    const N = contratCumuls(c, isoMonth(cpRefStart(parseD(c.fin)||today())));
-    setVal('fin-total-salaires', round2(N.brut - N.cp12));
+    setVal('fin-total-salaires', round2(finBaseDixieme(c)));
     if(J.estimes) setTimeout(()=>toast(J.estimes+' mois non validés : montants calculés d\u2019après le suivi ou le planning. Vérifiez-les avec vos relevés Pajemploi.'), 300);
   }
   // Avenants enregistrés pendant la période de régularisation : une sous-période par avenant
@@ -913,7 +930,7 @@ PREFILL.fin = c=>{
 };
 /* Jours de congés restants d'un contrat : calcul « Congés payés » enregistré s'il existe,
    sinon périodes du contrat et jours de congés notés dans les mois validés */
-function cpDispoFor(c){
+function cpDispoFor(c, detail){
   const f = STATE.forms.cp && STATE.forms.cp[c.id];
   if(!f){
     // Sans calcul « Congés payés » enregistré : seule la période en cours est reprise (les périodes
@@ -924,22 +941,53 @@ function cpDispoFor(c){
     const acquis = joursAcquisCP(iso(Pn.s), iso(Pn.e), 0, false, c);
     const rp = c.rep || {};
     // congés notés dans le suivi au jour le jour, sinon ceux des mois validés
-    const S = (STATE.suivi||{})[c.id], sCP = S ? Object.keys(S.days||{}).filter(k=>k>=iso(Pn.s) && k<=iso(Pn.e) && (ST[S.days[k].st]||{}).cp).length : 0;
+    const sCP = cpPrisSuivi(c, Pn.s, Pn.e);
     const pris = Math.max(sCP, journalTotals(c.id, isoMonth(Pn.s), isoMonth(Pn.e)).jCP) + (parseFloat(rp.cpPrisN)||0);
-    return Math.max(0, acquis - pris + (parseFloat(rp.cpReliquat)||0));
+    const restN = Math.max(0, acquis - pris);
+    const tot = Math.max(0, acquis - pris + (parseFloat(rp.cpReliquat)||0));
+    return detail ? {rest: tot, parts: [{k:'n', s:Pn.s, e:Pn.e, acq:acquis, rest:restN}]} : tot;
   }
   const refF = parseD(c.fin) || today();
   const P = cpRefPeriods(Object.assign({}, c, {fin: iso(refF)}), refF);
-  const order = ['n2','n1','n'], pools = {};
+  const order = ['n2','n1','n'], pools = {}, acqs = {}, bornes = {};
   order.forEach(k=>{
     const p = P.find(x=>x.k===k);
     const deb = f ? (f.i['cp-'+k+'-debut']||'') : (p.s ? iso(p.s) : ''), end = f ? (f.i['cp-'+k+'-fin']||'') : (p.e ? iso(p.e) : '');
     pools[k] = joursAcquisCP(deb, end, f ? parseFloat(f.i['cp-'+k+'-mal'])||0 : 0, false, c);
+    acqs[k] = pools[k]; bornes[k] = {s: parseD(deb), e: parseD(end)};
     let pris = f ? parseFloat(f.i['cp-'+k+'-solde'])||0 : (deb && end ? journalTotals(c.id, deb.slice(0,7), end.slice(0,7)).jCP : 0);
     for(const kk of order){ if(pools[kk]===undefined) continue; const u = Math.min(pools[kk], pris); pools[kk] -= u; pris -= u; }
   });
   const rest = Object.values(pools).reduce((a,b)=>a+b, 0);
-  return isNaN(rest) ? null : rest;
+  if(isNaN(rest)) return null;
+  return detail ? {rest, parts: order.filter(k=>bornes[k].s && bornes[k].e).map(k=>({k, s:bornes[k].s, e:bornes[k].e, acq:acqs[k], rest:pools[k]}))} : rest;
+}
+/* Méthode du dixième en fin de contrat : 10 % des salaires qui ont donné droit aux jours restants.
+   Pour chaque période (1er juin – 31 mai), salaires de la période × jours restants ÷ jours acquis. */
+function finBaseDixieme(c){
+  const D = cpDispoFor(c, true); if(!D || !D.parts) return 0;
+  let base = 0;
+  D.parts.forEach(p=>{
+    if(!(p.rest>0) || !(p.acq>0)) return;
+    const T = contratCumuls(c, isoMonth(p.s), isoMonth(p.e));
+    base += Math.max(0, T.brut - T.cp12) * Math.min(1, p.rest/p.acq);
+  });
+  return base;
+}
+/* Jours de congés pris d'après le suivi au jour le jour ou « Mes congés » (jours ouvrables : une semaine = 6 jours) */
+function cpPrisSuivi(c, s, e){
+  if(!s || !e) return 0;
+  const S = (STATE.suivi||{})[c.id], aSuivi = S && Object.keys(S.days||{}).length, aConges = ((STATE.settings||{}).conges||[]).length;
+  if(!aSuivi && !aConges) return 0;
+  const deb = parseD(c.debut), fin = parseD(c.fin);
+  let d = new Date(s.getFullYear(), s.getMonth(), 1), n = 0;
+  const lim = e < today() ? e : today();
+  while(d <= lim){
+    const last = new Date(d.getFullYear(), d.getMonth()+1, 0);
+    if(!(deb && deb > last) && !(fin && fin < d)) n += suiviMonth(c, isoMonth(d), {sansCP:true}).T.cpOuv || 0;
+    d = new Date(d.getFullYear(), d.getMonth()+1, 1);
+  }
+  return n;
 }
 function finAutoRupture(){
   const pr = finPreavis();
@@ -1047,7 +1095,9 @@ CALC.fin = ()=>{
    (suivi s'il existe, sinon planning). Les cases de « Salaire du mois » ne sont pas modifiées. */
 function moisPourContrat(c, ym){
   const J = journalOf(c.id)[ym];
-  if(J) return {valide:true, brut:J.brut, net:J.net, netImp:J.netImp||0, ie:J.ie||0, repas:J.repas||0, km:J.km||0, hDecl:J.hDecl, jDecl:J.jDecl, hCompl:J.hCompl||0, hMaj:J.hMaj||0, jCP:J.jCP||0, cp:J.cpMontant||0, acompte:0, jours:J.jours||0, j8:J.j8||0, hm8:J.hm8||0};
+  const kHs = netRatio(parseD(ym)) + hsReduction(parseD(ym)), kN = netRatio(parseD(ym));
+  if(J) return {valide:true, brut:J.brut, net:J.net, netImp:J.netImp||0, ie:J.ie||0, repas:J.repas||0, km:J.km||0, hDecl:J.hDecl, jDecl:J.jDecl, hCompl:J.hCompl||0, hMaj:J.hMaj||0, jCP:J.jCP||0, cp:J.cpMontant||0, acompte:0, jours:J.jours||0, j8:J.j8||0, hm8:J.hm8||0,
+    netHs: J.netHs||0, cpNet: (J.cpMontant||0)*kN, datepaie: J.datepaie||'', type: paramsAt(c, parseD(ym)).type};
   const th = $('theme-mois'); if(!th) return null;
   const champs = [...th.querySelectorAll('input,select,textarea')].map(el=>[el, el.value]);
   const segs = [...th.querySelectorAll('.seg[id]')].map(g=>[g.id, seg(g.id)]);
@@ -1056,64 +1106,124 @@ function moisPourContrat(c, ym){
   let r = null;
   try{ setVal('mois-mois', ym); moisFillFromContract(c, ym); r = moisCompute(); }
   finally{ champs.forEach(([el,v])=>{ el.value = v; }); segs.forEach(([id,v])=>setSegVal(id, v)); STATE.sel.mois = selAvant; }
-  return r && {valide:false, brut:r.brut, net:r.net, netImp:r.netImp, ie:r.ie, repas:r.repas, km:r.km, hDecl:r.hNormDecl, jDecl:r.jDecl, hCompl:r.hComplDecl, hMaj:r.hMajDecl, jCP:r.jcp, cp:r.cpTot, acompte:r.acompte||0, jours:r.jours||0, j8:r.j8||0, hm8:r.hm8||0};
+  return r && {valide:false, brut:r.brut, net:r.net, netImp:r.netImp, ie:r.ie, repas:r.repas, km:r.km, hDecl:r.hNormDecl, jDecl:r.jDecl, hCompl:r.hComplDecl, hMaj:r.hMajDecl, jCP:r.jcp, cp:r.cpTot, acompte:r.acompte||0, jours:r.jours||0, j8:r.j8||0, hm8:r.hm8||0,
+    netCompl: (r.brutCompl||0)*Math.min(1,kHs), netMaj: ((r.brutMaj||0)+(r.brutMajMensu||0))*Math.min(1,kHs), cpNet: (r.cpTot||0)*kN, datepaie: r.datepaie||'', type: r.inc ? 1 : paramsAt(c, parseD(ym)).type};
 }
 function parentsContrat(){ const k = selKey('parents'); return k!=='libre' ? getContrat(k) : null; }
+let PARENTS_CTX = null;
+function parentsOuvrir(cid, ym){
+  STATE.sel.parents = cid; showTheme('parents');
+  setVal('par-mois', ym); setVal('par-annee', String(ym).slice(0,4));
+  CALC.parents(); persistTheme('parents');
+}
+function moisVersParents(){
+  const c = moisContrat(); if(!c){ toast('Choisissez un enfant enregistré.'); return; }
+  parentsOuvrir(c.id, val('mois-mois') || curMonth());
+}
 PREFILL.parents = ()=>{ setVal('par-mois', curMonth()); setVal('par-annee', today().getFullYear()); };
 let PARENTS_TXT = '';
+/* Bloc d'un enfant pour un mois : ce que les parents déclarent, ce qu'ils versent (HTML + texte du message) */
+function parentsMoisBloc(c, ym, titre){
+  const line = (l, v)=>'<div class="result-line"><span class="lbl">'+l+'</span><span class="val">'+v+'</span></div>';
+  const m = moisPourContrat(c, ym); if(!m) return null;
+  const total = m.net + m.ie + m.repas + m.km;
+  const Ms = hasSuiviMonth(c.id, ym) ? suiviMonth(c, ym) : null, fraisAv = Ms ? round2(Ms.T.frais) : 0;
+  const h = (titre ? '<div class="h-sec">'+esc(titre)+'</div>' : '')
+    + '<p class="hint">'+(m.valide ? '✔ Mois validé : chiffres enregistrés.' : 'Estimation d’après '+(Ms ? 'le suivi des journées' : 'le planning du contrat')+'. Validez le mois dans « Salaire du mois » pour figer les chiffres.')+'</p>'
+    + '<div class="pajemploi-block"><div class="pajemploi-title">À déclarer sur Pajemploi — '+esc(c.enfant||'')+' — '+esc(fmtMonth(ym))+'</div>'
+    + line('Heures normales', (m.hDecl||0)+' h') + line('Jours d’activité', (m.jDecl||0)+' j')
+    + (m.hCompl ? line('Heures complémentaires', fmtNum(m.hCompl,2)+' h'+(m.netCompl ? ' · '+fmtEUR(m.netCompl)+' net' : '')) : '') + (m.hMaj ? line('Heures majorées', fmtNum(m.hMaj,2)+' h'+(m.netMaj ? ' · '+fmtEUR(m.netMaj)+' net' : '')) : '')
+    + (m.netHs && !m.netCompl && !m.netMaj ? line('Montant net des heures en plus', fmtEUR(m.netHs)) : '')
+    + (m.cp ? line('Congés payés', fmtNum(m.jCP||0,2)+' j · '+fmtEUR(m.cpNet)+' net') : (m.type===1 ? '' : line('Congés payés', 'ne rien remplir (année complète)')))
+    + line('Salaire net', fmtEUR(m.net)) + line('Indemnités d’entretien', fmtEUR(m.ie)) + line('Repas', fmtEUR(m.repas)) + line('Kilomètres', fmtEUR(m.km))
+    + (m.datepaie ? line('Date de paiement', fmtDate(m.datepaie)) : '') + '</div>'
+    + (Ms ? line('Heures faites (prévu au planning)', fmtH(Ms.T.R)+' ('+fmtH(Ms.T.hPrev)+')') + line('Jours où l’enfant est venu', Ms.T.jAcc+' j') : '')
+    + '<div class="result-line total"><span class="lbl">Total à verser pour '+esc(c.enfant||'cet enfant')+'</span><span class="val">'+fmtEUR(total)+'</span></div>'
+    + (fraisAv ? line('Frais avancés à rembourser (hors Pajemploi)', fmtEUR(fraisAv)) : '')
+    + (m.acompte ? line('Acompte déjà versé', fmtEUR(m.acompte)) + line('Reste à verser', fmtEUR(total - m.acompte)) : '');
+  const t = [(c.enfant||'Enfant')+' — '+fmtMonth(ym),
+    'À déclarer sur Pajemploi : '+(m.hDecl||0)+' h normales, '+(m.jDecl||0)+' jours d’activité'+(m.hCompl?', '+fmtNum(m.hCompl,2)+' h complémentaires'+(m.netCompl?' ('+fmtEUR(m.netCompl)+' net)':''):'')+(m.hMaj?', '+fmtNum(m.hMaj,2)+' h majorées'+(m.netMaj?' ('+fmtEUR(m.netMaj)+' net)':''):'')
+      + (m.cp ? ', congés payés '+fmtNum(m.jCP||0,2)+' j ('+fmtEUR(m.cpNet)+' net)' : '') + (m.datepaie ? ', date de paiement '+fmtDate(m.datepaie) : ''),
+    'Salaire net : '+fmtEUR(m.net), 'Entretien : '+fmtEUR(m.ie)+' · Repas : '+fmtEUR(m.repas)+' · Km : '+fmtEUR(m.km), 'Total à verser : '+fmtEUR(total)+(m.valide?'':' (estimation)')];
+  if(Ms) t.push('Heures faites : '+fmtH(Ms.T.R)+' (prévu '+fmtH(Ms.T.hPrev)+') · jours de présence : '+Ms.T.jAcc);
+  if(fraisAv) t.push('Frais avancés à rembourser : '+fmtEUR(fraisAv));
+  return {h, t, total: round2(total), valide: m.valide};
+}
+function contratActifMois(c, ym){ const d0 = parseD(ym), last = new Date(d0.getFullYear(), d0.getMonth()+1, 0), deb = parseD(c.debut), fin = parseD(c.fin); return !(deb && deb > last) && !(fin && fin < d0); }
+/* Frères et sœurs : autres enfants de la même famille (même nom d'employeur) accueillis ce mois-là */
+function parentsFratrie(c, ym){
+  const f = String(c.famille||'').trim().toLowerCase(); if(!f) return [];
+  return STATE.contrats.filter(x=>x.id!==c.id && String(x.famille||'').trim().toLowerCase()===f && contratActifMois(x, ym));
+}
+/* Année de paiement d'un mois de salaire (crédit d'impôt : sommes versées pendant l'année) */
+function anneePaiement(c, ym){
+  const J = journalOf(c.id)[ym]; const dp = J && parseD(J.datepaie);
+  if(dp) return dp.getFullYear();
+  const d = parseD(ym);
+  return c.paiementJour ? new Date(d.getFullYear(), d.getMonth()+1, 1).getFullYear() : d.getFullYear();
+}
 CALC.parents = ()=>{
   const c = parentsContrat(), ym = val('par-mois') || curMonth(), an = parseInt(val('par-annee')) || today().getFullYear();
-  if(!c){ setHTML('par-mois-out', '<p class="hint">Choisissez un enfant enregistré : le récapitulatif part de son contrat.</p>'); setHTML('par-annee-out',''); PARENTS_TXT=''; return; }
-  const deb = parseD(c.debut), fin = parseD(c.fin), d0 = parseD(ym), last = new Date(d0.getFullYear(), d0.getMonth()+1, 0);
-  const actif = !(deb && deb > last) && !(fin && fin < d0);
+  if(!c){ setHTML('par-mois-out', '<p class="hint">Choisissez un enfant enregistré : le récapitulatif part de son contrat.</p>'); setHTML('par-annee-out',''); PARENTS_TXT=''; PARENTS_CTX=null; return; }
   const line = (l, v)=>'<div class="result-line"><span class="lbl">'+l+'</span><span class="val">'+v+'</span></div>';
   let h = '', t = [];
-  if(!actif){ h = '<p class="hint">Pas de contrat en cours ce mois-là.</p>'; }
+  PARENTS_CTX = null;
+  if(!contratActifMois(c, ym)){ h = '<p class="hint">Pas de contrat en cours ce mois-là.</p>'; }
   else {
-    const m = moisPourContrat(c, ym);
-    const total = m.net + m.ie + m.repas + m.km;
-    h += '<p class="hint">'+(m.valide ? '✔ Mois validé : chiffres enregistrés.' : 'Estimation d’après '+(hasSuiviMonth(c.id, ym) ? 'le suivi des journées' : 'le planning du contrat')+'. Validez le mois dans « Salaire du mois » pour figer les chiffres.')+'</p>'
-      + '<div class="pajemploi-block"><div class="pajemploi-title">À déclarer sur Pajemploi — '+esc(fmtMonth(ym))+'</div>'
-      + line('Heures normales', (m.hDecl||0)+' h') + line('Jours d’activité', (m.jDecl||0)+' j')
-      + (m.hCompl ? line('Heures complémentaires', fmtNum(m.hCompl,2)+' h') : '') + (m.hMaj ? line('Heures majorées', fmtNum(m.hMaj,2)+' h') : '')
-      + line('Salaire net', fmtEUR(m.net)) + line('Indemnités d’entretien', fmtEUR(m.ie)) + line('Repas', fmtEUR(m.repas)) + line('Kilomètres', fmtEUR(m.km)) + '</div>'
-      + '<div class="result-line total"><span class="lbl">Total à verser à l’assistante maternelle</span><span class="val">'+fmtEUR(total)+'</span></div>'
-      + (m.acompte ? line('Acompte déjà versé', fmtEUR(m.acompte)) + line('Reste à verser', fmtEUR(total - m.acompte)) : '')
-      + '<p class="hint">Aide de la CAF (CMG) : versée directement aux parents ; estimation dans « Aide CMG des parents ».</p>';
-    t.push('Récapitulatif '+fmtMonth(ym)+' — '+(c.enfant||''), 'À déclarer sur Pajemploi : '+(m.hDecl||0)+' h normales, '+(m.jDecl||0)+' jours d’activité'+(m.hCompl?', '+fmtNum(m.hCompl,2)+' h complémentaires':'')+(m.hMaj?', '+fmtNum(m.hMaj,2)+' h majorées':''),
-      'Salaire net : '+fmtEUR(m.net), 'Entretien : '+fmtEUR(m.ie)+' · Repas : '+fmtEUR(m.repas)+' · Km : '+fmtEUR(m.km), 'Total à verser : '+fmtEUR(total)+(m.valide?'':' (estimation)'));
+    const fr = $('par-fratrie') && $('par-fratrie').checked ? parentsFratrie(c, ym) : [];
+    const blocs = [c].concat(fr).map(x=>({c:x, b:parentsMoisBloc(x, ym, fr.length ? x.enfant : '')})).filter(x=>x.b);
+    PARENTS_CTX = {ym, items: blocs.map(x=>({cid:x.c.id, total:x.b.total}))};
+    t.push('Récapitulatif '+fmtMonth(ym)+(c.famille ? ' — '+c.famille : ''));
+    blocs.forEach(x=>{ h += x.b.h; t.push(''); t.push(...x.b.t); });
+    if(blocs.length > 1){
+      const tot = blocs.reduce((s,x)=>s+x.b.total, 0);
+      h += '<div class="result-line total"><span class="lbl">Total à verser pour la famille</span><span class="val">'+fmtEUR(tot)+'</span></div>'
+        + '<p class="hint">Une déclaration Pajemploi par enfant : chaque bloc orange se recopie séparément.</p>';
+      t.push('', 'Total pour la famille : '+fmtEUR(tot)+' (une déclaration Pajemploi par enfant)');
+    }
+    t.push('', 'Merci de me confirmer votre accord, ou de me signaler une erreur.');
+    h += '<p class="hint">Aide de la CAF (CMG) : versée directement aux parents ; estimation dans « Aide CMG des parents ». Avec <b>Pajemploi+</b>, c’est Pajemploi qui verse le salaire à l’assistante maternelle et prélève les parents (aide déduite) : les parents ne lui versent alors rien eux-mêmes.</p>';
   }
+  const nbFr = contratActifMois(c, ym) ? parentsFratrie(c, ym).length : 0;
+  show('par-fratrie-row', nbFr > 0, 'flex');
   setHTML('par-mois-out', h);
-  // Année : sommes versées (salaire net + entretien), pour le crédit d'impôt « frais de garde » des parents
-  let net = 0, ie = 0, repas = 0, n = 0, est = 0;
-  for(let mo=0; mo<12; mo++){
-    const dm = new Date(an, mo, 1), lm = new Date(an, mo+1, 0);
+  // Année : sommes VERSÉES pendant l'année (date de paiement), pour le crédit d'impôt « frais de garde » des parents
+  let net = 0, ie = 0, repas = 0, n = 0, est = 0, fut = 0;
+  const deb = parseD(c.debut), fin = parseD(c.fin);
+  for(let k=-1; k<12; k++){
+    const dm = new Date(an, k, 1), lm = new Date(an, k+1, 0);
     if((deb && deb > lm) || (fin && fin < dm)) continue;
-    const ymm = isoMonth(dm), x = moisPourContrat(c, ymm); if(!x) continue;
-    net += x.net; ie += x.ie; repas += x.repas; n++; if(!x.valide) est++;
+    const ymm = isoMonth(dm); if(anneePaiement(c, ymm)!==an) continue;
+    const x = moisPourContrat(c, ymm); if(!x) continue;
+    net += x.net; ie += x.ie; repas += x.repas; n++; if(!x.valide) est++; if(ymm >= curMonth()) fut++;
   }
   const nais = parseD(c.naissance), moins6 = nais ? (new Date(an, 0, 1) - nais) < 6*365.25*86400000 : null;
   const garde = net + ie, plafond = 3500;
-  setHTML('par-annee-out', !n ? '<p class="hint">Pas de mois de contrat cette année.</p>' :
-      line('Mois pris en compte', n+(est ? ' (dont '+est+' estimés)' : ''))
+  setHTML('par-annee-out', !n ? '<p class="hint">Pas de salaire versé cette année pour ce contrat.</p>' :
+      line('Mois de salaire versés dans l’année', n+(est ? ' (dont '+est+' estimés'+(fut ? ', dont '+fut+' pas encore payés' : '')+')' : ''))
     + line('Salaires nets versés', fmtEUR(net)) + line('Indemnités d’entretien', fmtEUR(ie)) + line('Repas (non retenus pour le crédit d’impôt)', fmtEUR(repas))
     + '<div class="result-line total"><span class="lbl">Frais de garde de l’année (salaire net + entretien)</span><span class="val">'+fmtEUR(garde)+'</span></div>'
-    + '<p class="hint">'+(moins6===false ? 'L’enfant avait 6 ans ou plus au 1er janvier '+an+' : pas de crédit d’impôt pour frais de garde.' :
-        'À déclarer par les parents (cases 7GA à 7GC), après avoir retiré l’aide CMG reçue dans l’année : crédit d’impôt de 50 %, dans la limite de '+fmtEUR(plafond)+' de frais par enfant.'+(moins6===null ? ' (Date de naissance non renseignée : vérifiez que l’enfant avait moins de 6 ans au 1er janvier.)' : ''))+'</p>');
-  if(n) t.push('', 'Année '+an+' : salaires nets '+fmtEUR(net)+', entretien '+fmtEUR(ie)+' → frais de garde '+fmtEUR(garde)+' (avant déduction de l’aide CMG).');
+    + '<p class="hint">Compté à la date de paiement : un salaire de décembre payé en janvier compte pour l’année suivante. '+(moins6===false ? 'L’enfant avait 6 ans ou plus au 1er janvier '+an+' : pas de crédit d’impôt pour frais de garde.' :
+        'À déclarer par les parents (cases 7GA à 7GC ; 7GE à 7GG en résidence alternée, plafond divisé par deux), après avoir retiré l’aide CMG reçue dans l’année : crédit d’impôt de 50 %, dans la limite de '+fmtEUR(plafond)+' de frais par enfant.'+(moins6===null ? ' (Date de naissance non renseignée : vérifiez que l’enfant avait moins de 6 ans au 1er janvier.)' : ''))+'</p>');
+  if(n) t.push('', 'Année '+an+' (salaires payés dans l’année'+(fut ? ', dont '+fut+' à venir, estimés' : '')+') pour '+(c.enfant||'')+' : salaires nets '+fmtEUR(net)+', entretien '+fmtEUR(ie)+' → frais de garde '+fmtEUR(garde)+' (avant déduction de l’aide CMG).');
   t.push('', 'Calculé avec Carnet Assmat. Les montants exacts sont ceux de Pajemploi et de la CAF.');
   PARENTS_TXT = t.join('\n');
 };
 function parentsPartager(){
   if(!PARENTS_TXT){ toast('Choisissez d’abord un enfant enregistré.'); return; }
-  if(navigator.share){ navigator.share({title:'Récapitulatif assistante maternelle', text:PARENTS_TXT}).catch(()=>{}); return; }
-  if(navigator.clipboard){ navigator.clipboard.writeText(PARENTS_TXT).then(()=>toast('Récapitulatif copié : collez-le dans un SMS ou un mail.'), ()=>toast('Copie impossible.')); return; }
+  const note = ()=>{ if(!PARENTS_CTX) return;
+    PARENTS_CTX.items.forEach(it=>{ const mr = monthRec(it.cid, PARENTS_CTX.ym);
+      mr.envoyeLe = iso(today()); mr.envoyeTotal = it.total; if(mr.st==='ouvert') mr.st = 'avalider';
+      auditLog(it.cid, fmtMonth(PARENTS_CTX.ym)+' : récapitulatif envoyé aux parents ('+fmtEUR(it.total)+')'); });
+    saveState(); };
+  if(navigator.share){ navigator.share({title:'Récapitulatif assistante maternelle', text:PARENTS_TXT}).then(note).catch(()=>{}); return; }
+  if(navigator.clipboard){ navigator.clipboard.writeText(PARENTS_TXT).then(()=>{ note(); toast('Récapitulatif copié : collez-le dans un SMS ou un mail aux parents.'); }, ()=>toast('Copie impossible.')); return; }
   toast('Partage non disponible sur cet appareil.');
 }
 /* Écrans longs : bouton « Voir le résultat » en haut, qui descend directement au résultat */
 function ajouterBoutonsResultat(){
   document.querySelectorAll('.theme').forEach(th=>{
-    if(th.id==='theme-contrat') return;
+    if(th.id==='theme-contrat' || th.id==='theme-mois') return;
     const stub = th.querySelector('.stub'); if(!stub || th.querySelector('.go-result')) return;
     if(th.querySelectorAll('input, select, textarea').length < 10) return;
     const b = document.createElement('button'); b.type = 'button'; b.className = 'btn small go-result'; b.textContent = '⬇ Voir le résultat';

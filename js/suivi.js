@@ -69,7 +69,7 @@ function calcDay(c, d, k){
   const pl = plannedDay(c, d), inC = inContract(c, d), r = dayRec(c.id, k);
   const sd = suiviDebut(c);
   // un jour férié prévu au planning et non renseigné est réputé chômé (payé, sans accueil ni indemnité d'entretien)
-  let st = r ? r.st : (!inC ? 'hors' : (sd && d < sd) ? 'avant' : (pl.min ? (ferieName(d) ? 'ferieCh' : 'todo') : 'none'));
+  let st = r ? r.st : (!inC ? 'hors' : (sd && d < sd) ? 'avant' : (pl.min ? (ferieName(d) ? 'ferieCh' : (enConges(d) ? 'cpAm' : absEnfant(c, d) ? 'absPrev' : 'todo')) : 'none'));
   const def = ST[st] || {};
   const P = inC ? pl.min : 0;
   let real = 0;
@@ -241,16 +241,17 @@ function renderJour(list){
     const x = calcDay(c, d, k), locked = monthLocked(c.id, k.slice(0,7));
     const prev = x.P ? 'Prévu : '+(x.pl.s && x.pl.e ? x.pl.s+' – '+x.pl.e+' · ' : '')+fmtH(x.P) : 'Pas d\'accueil prévu';
     let etat;
-    if(x.st==='todo'){ nbConf++; etat = '<span class="pill">à renseigner</span>'; }
+    if(x.st==='none' && !x.r) etat = '';
+    else if(x.st==='todo'){ nbConf++; etat = '<span class="pill">à renseigner</span>'; }
     else if(x.st==='avant') etat = '<span class="pill off">avant le suivi</span>';
     else etat = '<span class="pill st-'+(x.def.c||'none')+'">'+esc((ST[x.st]||{}).l||x.st)+'</span>'
       + (x.r && x.r.a ? ' <span class="hint">'+esc(x.r.a)+' – '+esc(x.r.dep||'?')+'</span>' : '') + (x.r && x.r.late ? ' <span class="badge">saisi après coup</span>' : '');
     return '<div class="kid" style="margin-bottom:10px"><div class="kname">'+esc(c.enfant||'Enfant')+'</div>'
-      + '<div class="kfam">'+esc(prev)+'</div><div style="margin:6px 0">'+etat+'</div>'
+      + '<div class="kfam">'+esc(prev)+'</div>'+(etat ? '<div style="margin:6px 0">'+etat+'</div>' : '')
       + (locked ? '<div class="hint">Mois clôturé : modification par régularisation (onglet Mois).</div>' :
         '<div class="kactions">'
         + (x.P && x.st!=='conf' ? '<button class="btn small primary" onclick="suiviConforme(\''+c.id+'\',\''+k+'\')">✔ Conforme</button>' : '')
-        + '<button class="btn small" onclick="dayEdit(\''+c.id+'\',\''+k+'\')">'+(x.r?'✎ Modifier':'✎ Écart / absence')+'</button></div>')
+        + '<button class="btn small" onclick="dayEdit(\''+c.id+'\',\''+k+'\')">'+(x.r ? '✎ Modifier' : x.P ? '✎ Noter un changement ou une absence' : '＋ Accueil exceptionnel ce jour-là')+'</button></div>')
       + '</div>';
   }).join('');
   h += cards || '<div class="info-box">Aucun contrat en cours ce jour-là.</div>';
@@ -437,15 +438,15 @@ function renderMoisSuivi(c){
     + '<div class="result-line"><span class="lbl">Indemnités kilométriques</span><span class="val">'+fmtEUR(T.kmEur)+'</span></div>'
     + '<div class="result-line"><span class="lbl">Frais avancés à rembourser (hors Pajemploi)</span><span class="val">'+fmtEUR(T.frais)+'</span></div>'
     + '<div class="net-hint">Estimation indicative. Les chiffres exacts à déclarer sont donnés par « Salaire du mois & Pajemploi » ; la référence reste le contrat, la convention collective et Pajemploi.</div>'
-    + '<button class="btn primary block" onclick="suiviVersPaie(\''+c.id+'\',\''+SV.ym+'\')">➡️ Préparer la déclaration Pajemploi de ce mois</button>'
+    + '<button class="btn primary block" onclick="suiviVersPaie(\''+c.id+'\',\''+SV.ym+'\')">➡️ Étape suivante : vérifier et valider les chiffres du mois</button>'
     + '</div></div>';
   // Actions de statut
   h += '<div class="btn-row">'
-    + '<button class="btn small" onclick="suiviPrint(\''+c.id+'\',\''+SV.ym+'\')">📄 Récapitulatif pour les parents (PDF)</button>'
-    + '<button class="btn small" onclick="suiviShare(\''+c.id+'\',\''+SV.ym+'\')">📤 Envoyer aux parents</button>'
+    + '<button class="btn small" onclick="parentsOuvrir(\''+c.id+'\',\''+SV.ym+'\')">📤 Envoyer le récapitulatif aux parents</button>'
+    + '<button class="btn small" onclick="suiviPrint(\''+c.id+'\',\''+SV.ym+'\')">📄 Détail jour par jour (PDF)</button>'
     + '<button class="btn small" onclick="suiviCSV(\''+c.id+'\',\''+SV.ym+'\')">⬇️ Tableau (CSV)</button></div>'
     + '<div class="btn-row">'
-    + (!locked ? '<button class="btn small" onclick="suiviSetSt(\''+c.id+'\',\''+SV.ym+'\',\'avalider\')">Envoyé aux parents</button><button class="btn small" onclick="suiviValide(\''+c.id+'\',\''+SV.ym+'\')">✔ Validé par le parent</button><button class="btn small" onclick="suiviCloture(\''+c.id+'\',\''+SV.ym+'\')">🔒 Clôturer le mois</button>' :
+    + (!locked ? '<button class="btn small" onclick="suiviValide(\''+c.id+'\',\''+SV.ym+'\')">✔ Le parent est d’accord (facultatif)</button>' :
       '<button class="btn small" onclick="suiviPaye(\''+c.id+'\',\''+SV.ym+'\')">💶 Marquer payé</button><button class="btn small danger" onclick="suiviRouvrir(\''+c.id+'\',\''+SV.ym+'\')">Rouvrir (tracé)</button>')
     + '</div>';
   if(mr.contestation) h += '<div class="warn-box">Contestation du parent : '+esc(mr.contestation)+'</div>';
@@ -537,7 +538,7 @@ function suiviFillMois(c, ym){
   const ded = Math.max(0, M.base - M.due);
   setVal('mois-base', round2(M.base)); setVal('mois-heures', round2(M.hMensuV)); setVal('mois-jmensu', round2(M.jMensuV));
   setSegVal('mois-incomplet', ded>0.004 ? 1 : 0);
-  setVal('mois-deduction', round2(ded)); setVal('mois-jprev', T.jPrev + T.jOut); setVal('mois-jded', T.jDed + T.jOut); setVal('mois-hded', round2((T.hDed+T.hOut)/60));
+  setVal('mois-deduction', round2(ded)); setVal('mois-ded-maj', ''); setVal('mois-jprev', T.jPrev + T.jOut); setVal('mois-jded', T.jDed + T.jOut); setVal('mois-hded', round2((T.hDed+T.hOut)/60));
   setSegVal('mois-heuresup', (T.compl||T.maj) ? 1 : 0); setVal('mois-hcompl', round2(T.compl/60)); setVal('mois-hmaj', round2(T.maj/60)); setVal('mois-majoration', M.majPct);
   setSegVal('mois-ferie', (T.ferieMin||T.mai1Min) ? 1 : 0); setVal('mois-hferie', round2(T.ferieMin/60)); setVal('mois-h1mai', round2(T.mai1Min/60));
   setVal('mois-jcp', T.cpOuv||'');
@@ -581,10 +582,11 @@ async function suiviArchive(cid, ym, st){
   saveState(); suiviRefresh(); toast('Mois '+(st==='valide'?'validé':'clôturé')+' et archivé.');
 }
 function suiviPaye(cid, ym){
-  askText('Date de paiement', 'Date à laquelle le salaire a été payé (AAAA-MM-JJ) :', iso(today()), v=>{
+  askText('Salaire reçu', 'Date à laquelle le salaire de '+fmtMonth(ym)+' a été payé :', iso(today()), v=>{
     const d = parseD((v||'').trim()); if(!d){ toast('Date non reconnue.'); return; }
     const mr = monthRec(cid, ym); mr.payeLe = iso(d); mr.st = 'paye'; auditLog(cid, fmtMonth(ym)+' payé le '+d.toLocaleDateString('fr-FR')); saveState(); suiviRefresh();
-  });
+    if(typeof renderMoisDash==='function' && CURRENT==='home') renderMoisDash();
+  }, {type:'date'});
 }
 function suiviRouvrir(cid, ym){
   showConfirmDialog('Rouvrir '+fmtMonth(ym)+' ?', 'Rouvrir un mois validé ou clôturé est tracé dans le journal. Préférez une régularisation si le mois est déjà déclaré ou payé.', ()=>{
@@ -598,7 +600,7 @@ function suiviAddReg(cid){
     const imput = curMonth();
     suiviOf(cid).regs.push({date: iso(today()), origine: p[0], imput, montant: parseFloat(p[1].replace(',','.')), motif: p.slice(2).join(';')||'régularisation'});
     auditLog(cid, 'Régularisation '+p[0]+' → '+imput+' : '+p[1]+' € ('+(p[2]||'')+')');
-    if(parseFloat(p[1].replace(',','.')) < 0) toast('Un trop-perçu ne peut être retenu qu\'avec l\'accord écrit de la salariée.');
+    if(parseFloat(p[1].replace(',','.')) < 0) toast('Somme versée en trop : informez la salariée par écrit ; la retenue se fait par petites sommes, dans la limite de la part saisissable du salaire. Un accord écrit sur l\u2019échéancier évite les litiges.');
     saveState(); suiviRefresh();
   });
 }

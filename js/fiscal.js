@@ -27,8 +27,9 @@ function buildAbattement(){
       + '<div class="field"><label>Fin du contrat</label><input type="date" id="ab-c'+i+'-fin"></div></div>'
       + '<div class="toggle-row"><span class="q">Enfant handicapé, malade ou inadapté (abattement majoré) ?</span><div class="seg" id="ab-c'+i+'-hand"><button class="on">Non</button><button>Oui</button></div></div>'
       + '<div class="toggle-row"><span class="q">Accueil continu de 24 heures (jour et nuit) ?</span><div class="seg" id="ab-c'+i+'-h24"><button class="on">Non</button><button>Oui</button></div><div class="hint">Abattement de 4 SMIC par jour (5 si l\'enfant est aussi handicapé, malade ou inadapté).</div></div>'
-      + '<div class="btn-row" style="margin:-6px 0 10px"><button type="button" class="btn small" onclick="abFromJournal('+i+')">🗂️ Remplir avec mes mois (validés ou estimés)</button><button type="button" class="btn small" onclick="abPrefillDays('+i+')">📅 Jours d\'après le planning</button></div>'
-      + '<div class="ab-table-wrap"><table class="ab-table"><thead><tr><th>Mois</th>'+AB_COLS.map(c=>'<th>'+c.t+'</th>').join('')+'<th>Abatte­ment</th><th>Imposable</th></tr></thead><tbody>'+rows+'</tbody></table></div>'
+      + '<details class="fold"><summary>Voir et corriger le détail mois par mois</summary>'
+      + '<div class="btn-row" style="margin:4px 0 10px"><button type="button" class="btn small" onclick="abFromJournal('+i+')">🗂️ Remplir avec mes mois (validés ou estimés)</button><button type="button" class="btn small" onclick="abPrefillDays('+i+')">📅 Jours d\'après le planning</button></div>'
+      + '<div class="ab-table-wrap"><table class="ab-table"><thead><tr><th>Mois</th>'+AB_COLS.map(c=>'<th>'+c.t+'</th>').join('')+'<th>Abatte­ment</th><th>Imposable</th></tr></thead><tbody>'+rows+'</tbody></table></div></details>'
       + '<div class="result-line"><span class="lbl">Sommes perçues</span><span class="val" id="out-ab-c'+i+'-sal">—</span></div>'
       + '<div class="result-line"><span class="lbl">Abattement</span><span class="val" id="out-ab-c'+i+'-abatt">—</span></div>'
       + '<div class="result-line total"><span class="lbl">Imposable pour cet enfant</span><span class="val" id="out-ab-c'+i+'-decl">—</span></div></div>';
@@ -109,10 +110,10 @@ function abFromJournal(i, silent){
     if(py!==a){ ['sal','ind','av','j8','hm8'].forEach(k=>setVal('ab-c'+i+'-m'+m+'-'+k, '')); continue; }
     n++;
     // net imposable du salaire seul + entretien et repas versés (les indemnités kilométriques ne s'ajoutent pas)
-    setVal('ab-c'+i+'-m'+m+'-sal', round2(r.netImp||0)); setVal('ab-c'+i+'-m'+m+'-ind', round2((r.ie||0)+(r.repas||0)));
+    setVal('ab-c'+i+'-m'+m+'-sal', (+(r.netImp||0)).toFixed(2)); setVal('ab-c'+i+'-m'+m+'-ind', ((r.ie||0)+(r.repas||0)).toFixed(2));
     // repas fournis par les parents : forfait fiscal obligatoire par jour de présence
     const cc = paramsAt(c, parseD(key));
-    setVal('ab-c'+i+'-m'+m+'-av', cc.repasMode===0 && r.jours ? round2(r.jours*R('repasAvantage', key)) : '');
+    setVal('ab-c'+i+'-m'+m+'-av', cc.repasMode===0 && r.jours ? (r.jours*R('repasAvantage', key)).toFixed(2) : '');
     setVal('ab-c'+i+'-m'+m+'-j8', r.j8||''); setVal('ab-c'+i+'-m'+m+'-hm8', r.hm8||'');
   }
   if(!silent){ CALC.abattement(); persistTheme('abattement'); toast(n ? n+' mois repris'+(est ? ' (dont '+est+' estimés d\u2019après le planning ou le suivi : validez vos mois pour des chiffres définitifs)' : '')+'. Si vous préférez le net imposable de l\'attestation Pajemploi, il contient déjà l\'entretien et les repas : videz alors la colonne « Indemnités ».' : 'Aucun mois validé pour cette année.'); }

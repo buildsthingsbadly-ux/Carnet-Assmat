@@ -364,6 +364,21 @@ function auditLog(cid, txt){
   if(STATE.audit.length > 5000) STATE.audit.splice(0, STATE.audit.length-5000);
 }
 let _promptCb = null;
+/* « d’octobre », « de novembre » : élision devant une voyelle */
+function deMoisTxt(ym){ const n = fmtMonth(ym); return (/^[aeiouéèh]/i.test(n) ? 'd\u2019' : 'de ')+n; }
+/* Mes congés payés (dates communes à tous les contrats) : sans suivi au jour le jour, ces jours prévus au planning
+   comptent comme congés (pas d'entretien ni de repas, décomptés des congés) */
+function enConges(d){
+  const L = (STATE.settings && STATE.settings.conges) || []; if(!L.length) return false;
+  const k = typeof d==='string' ? d : iso(d);
+  return L.some(p=>p && p.du && p.au && k >= p.du && k <= p.au);
+}
+/* Absences prévues d'un enfant (vacances de la famille en plus de vos congés) : salaire dû, pas d'entretien ni de repas */
+function absEnfant(c, d){
+  const L = (STATE.settings && STATE.settings.absEnf) || []; if(!L.length || !c) return false;
+  const k = typeof d==='string' ? d : iso(d);
+  return L.some(p=>p && p.cid===c.id && p.du && p.au && k >= p.du && k <= p.au);
+}
 function askText(title, message, def, cb, opts){
   const i0 = $('prompt-input'); if(i0) i0.type = (opts && opts.type) || 'text';
   setTxt('prompt-title', title); setTxt('prompt-message', message); setVal('prompt-input', def||'');

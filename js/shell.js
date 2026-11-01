@@ -35,12 +35,13 @@ function renderAccueil(){
   setHTML('hello', 'Bonjour'+(p.nom?' '+esc(p.nom.split(' ')[0]):'')+' · <span>'+t.toLocaleDateString('fr-FR',{weekday:'long', day:'numeric', month:'long'})+'</span>');
   // Premiers pas, tant que l'essentiel n'est pas fait
   const steps = [
+    {ok: !!(STATE.ui||{}).demoVue, t:'Découvrir avec un exemple (sans risque)', a:'STATE.ui.demoVue=1;startDemo()', opt:true},
     {ok: !!p.nom, t:'Renseigner mon profil (nom, agrément)', a:"showTheme('reglages')"},
     {ok: STATE.contrats.length>0, t:'Ajouter mon premier enfant', a:"editContrat(null)"},
-    {ok: !!STATE.lastExport, t:'Faire une première copie de sécurité', a:'syncExport()'},
-    {ok: isStandalone(), t:'Installer l\'application sur le téléphone', a:"showTheme('aide')", opt:true},
-    {ok: !!(STATE.ui||{}).demoVue || STATE.contrats.length>0, t:'Découvrir avec un exemple (sans risque)', a:'STATE.ui.demoVue=1;startDemo()', opt:true}
-  ];
+    {ok: ((STATE.settings||{}).conges||[]).length>0, t:'Noter mes semaines de congés', a:"showTheme('reglages');setTimeout(()=>{const e=$('conges-wrap');if(e)e.scrollIntoView();},80)", opt:true},
+    {ok: !!STATE.lastExport, t:'Faire une première copie de sécurité', a:'syncExport()', si: STATE.contrats.length>0},
+    {ok: isStandalone(), t:'Installer l\'application sur le téléphone', a:"showTheme('aide')", opt:true}
+  ].filter(s=>s.si!==false);
   const todoSteps = steps.filter(s=>!s.ok);
   if(todoSteps.length && !(STATE.ui||{}).onboardingDone){
     setHTML('onboarding', '<div class="box onboard"><div class="section-label">Pour bien démarrer</div>'
@@ -104,9 +105,13 @@ function renderMoisDash(){
     const passe = finM < t;
     const steps = [];
     if(useSuivi) steps.push({b:'Compléter les journées', ok: todo===0 && (passe || t>=ouv), cur: todo>0, t: todo ? todo+' journée(s) à renseigner' : 'Journées renseignées', a: todo ? "openSuivi('cal','"+c.id+"','"+ym+"')" : ''});
-    if(useSuivi) steps.push({b: mr.st==='avalider' ? 'Noter la validation' : 'Envoyer le récapitulatif', ok: ['valide','cloture','declare','paye'].includes(mr.st), cur: mr.st==='avalider', t: mr.st==='avalider' ? 'Récapitulatif envoyé, en attente de validation' : ['valide','cloture','declare','paye'].includes(mr.st) ? 'Récapitulatif validé / clôturé' : 'Récapitulatif à envoyer aux parents', a: "openSuivi('mois','"+c.id+"','"+ym+"')"});
-    steps.push({b:'Préparer la déclaration', ok: !!J, t: J ? 'Déclaré sur Pajemploi (net '+fmtEUR(J.net)+')' : 'Déclaration Pajemploi à préparer', a: J ? "preparerDeclaration('"+c.id+"','"+ym+"')" : (useSuivi ? "suiviVersPaie('"+c.id+"','"+ym+"')" : "preparerDeclaration('"+c.id+"','"+ym+"')")});
-    steps.push({b:'Marquer payé', ok: !!mr.payeLe, t: mr.payeLe ? 'Payé le '+fmtDate(mr.payeLe) : 'Salaire à recevoir', a: mr.payeLe ? '' : "suiviPaye('"+c.id+"','"+ym+"')"});
+    // un seul parcours : 1. vérifier et valider les chiffres, 2. les envoyer aux parents (ce sont eux qui déclarent sur Pajemploi), 3. salaire reçu
+    const totalNow = round2(net + ieM + frais), change = mr.envoyeTotal!==undefined && Math.abs(mr.envoyeTotal - totalNow) > 0.011;
+    const envoye = !change && (!!(mr.envoyeLe || mr.valideLe) || ['avalider','valide'].includes(mr.st));
+    steps.push({b:'Vérifier et valider les chiffres', ok: !!J, t: J ? '1. Chiffres validés (net '+fmtEUR(J.net)+')' : '1. Vérifier et valider les chiffres du mois', a: J ? "preparerDeclaration('"+c.id+"','"+ym+"')" : (useSuivi ? "suiviVersPaie('"+c.id+"','"+ym+"')" : "preparerDeclaration('"+c.id+"','"+ym+"')")});
+    steps.push({b:'Envoyer aux parents', ok: envoye, t: envoye ? '2. Envoyé aux parents'+(mr.valideLe ? ' · accord noté' : '') : change ? '2. ⚠ Chiffres changés depuis l’envoi ('+fmtEUR(mr.envoyeTotal)+' → '+fmtEUR(totalNow)+') : renvoyez le récapitulatif' : '2. Envoyer aux parents (ils déclarent sur Pajemploi)', a: "parentsOuvrir('"+c.id+"','"+ym+"')"});
+    steps.push({b:'Noter le salaire reçu', ok: !!mr.payeLe, t: mr.payeLe ? '3. Salaire reçu le '+fmtDate(mr.payeLe) : '3. Salaire à recevoir', a: mr.payeLe ? '' : "suiviPaye('"+c.id+"','"+ym+"')"});
+    const iCur = steps.findIndex(s=>!s.ok); if(iCur>=0) steps[iCur].cur = true;
     const next = steps.find(s=>!s.ok);
     h += '<div class="kid" style="margin-bottom:12px"><div class="kname">'+esc(c.enfant||'')+'</div><div class="kfam">'+esc(c.famille||'')+'</div>'
       + '<div class="stepper">'+steps.map(s=>'<div class="sp '+(s.ok?'done':s.cur?'cur':'')+'">'+(s.ok?'✔':'○')+' '+(s.a?'<a href="#" onclick="'+s.a+';return false;">'+esc(s.t)+'</a>':esc(s.t))+'</div>').join('')+'</div>'
@@ -119,7 +124,8 @@ function renderMoisDash(){
   h += '<div class="month-total"><div class="mt-row"><span>Total du mois'+(estim?' (en partie estimé)':'')+'</span></div>'
     + '<div class="mt-row"><span>Salaires nets</span><b>'+fmtEUR(totNet)+'</b></div><div class="mt-row"><span>Indemnités et frais</span><b>'+fmtEUR(totFrais)+'</b></div>'
     + '<div class="mt-row mt-big"><span>Total perçu</span><b>'+fmtEUR(totNet+totFrais)+'</b></div></div>'
-    + '<div class="btn-row"><button class="btn small" onclick="showTheme(\'ccass\')">Absence à calculer</button><button class="btn small" onclick="openSuivi(\'mois\',null,DASH_YM)">Détail du suivi</button></div>';
+    + (!((STATE.settings||{}).conges||[]).length && list.some(c=>!(((STATE.suivi||{})[c.id]||{}).days && Object.keys(STATE.suivi[c.id].days).length)) ? '<p class="hint">Astuce : notez vos semaines de congés une fois pour toutes (<a href="#" onclick="showTheme(\'reglages\');setTimeout(()=>{const e=$(\'conges-wrap\');if(e)e.scrollIntoView();},80);return false;">Réglages</a>) : l\u2019entretien et les repas ne seront pas comptés pendant vos vacances.</p>' : '')
+    + '<div class="btn-row"><button class="btn small" onclick="showTheme(\'ccass\')">Calculer une absence</button>'+(list.some(c=>((STATE.suivi||{})[c.id]||{}).days && Object.keys(STATE.suivi[c.id].days).length) ? '<button class="btn small" onclick="openSuivi(\'mois\',null,DASH_YM)">Détail des journées</button>' : '')+'</div>';
   setHTML('home-mois', h);
 }
 

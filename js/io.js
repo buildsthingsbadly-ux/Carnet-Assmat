@@ -2,7 +2,7 @@
    IMPRESSION / PDF · SAUVEGARDE · RÉGLAGES · MISES À JOUR RÉGLEMENTAIRES · AIDE · DÉMARRAGE
    ===================================================================================== */
 'use strict';
-const APP_VERSION = '3.10.0';
+const APP_VERSION = '3.11.0';
 
 /* ---------------------------------- Impression / PDF ---------------------------------- */
 let _pc = null;
@@ -149,7 +149,45 @@ function renderSettings(){
   PROFIL_FIELDS.forEach(k=>setVal('prof-'+k, (STATE.profil||{})[k]));
   setVal('set-zone', STATE.settings.zone||''); setVal('set-rappel', STATE.settings.rappel||'18:30'); setVal('set-conservation', STATE.settings.conservation||5);
   setVal('set-pin-new', ''); setSegVal('set-suivi', STATE.settings.suivi===0 ? 1 : 0); setSegVal('set-font', STATE.settings.font||0);
-  regRenderStatus(); regRenderTable();
+  regRenderStatus(); regRenderTable(); congesRender(); absEnfRender();
+}
+function absEnfRender(){
+  const sel = $('absenf-cid'); if(sel){ const v = sel.value; sel.innerHTML = STATE.contrats.map(c=>'<option value="'+esc(c.id)+'">'+esc(c.enfant||'Enfant')+'</option>').join(''); if(v) sel.value = v; }
+  show('absenf-wrap', STATE.contrats.length>0);
+  const L = STATE.settings.absEnf || [];
+  setHTML('absenf-list', L.length ? L.map((p,i)=>{ const c = getContrat(p.cid); return '<div class="result-line"><span class="lbl">'+esc(c ? c.enfant : 'Enfant supprimé')+' : du '+fmtDate(p.du)+' au '+fmtDate(p.au)+'</span><span class="val"><button type="button" class="btn small" onclick="absEnfDel('+i+')" aria-label="Retirer cette absence">Retirer</button></span></div>'; }).join('') : '<p class="hint">Aucune absence notée.</p>');
+}
+function absEnfAdd(){
+  const cid = val('absenf-cid'), du = val('absenf-du'), au = val('absenf-au') || du;
+  if(!getContrat(cid)){ toast('Choisissez l\u2019enfant.'); return; }
+  if(!parseD(du)){ toast('Choisissez le premier jour d\u2019absence.'); return; }
+  if(au < du){ toast('La date de fin est avant la date de début.'); return; }
+  STATE.settings.absEnf = (STATE.settings.absEnf||[]).concat([{cid, du, au}]).sort((a,b)=>a.du<b.du?-1:1);
+  setVal('absenf-du',''); setVal('absenf-au','');
+  auditLog(cid, 'Absence prévue de l\u2019enfant du '+fmtDate(du)+' au '+fmtDate(au)); saveState(); absEnfRender();
+  toast('Absence notée : le salaire reste dû, l\u2019entretien et les repas ne sont pas comptés ces jours-là.');
+}
+function absEnfDel(i){
+  const L = STATE.settings.absEnf || []; const p = L[i]; if(!p) return;
+  L.splice(i,1); auditLog(p.cid, 'Absence prévue retirée ('+fmtDate(p.du)+' – '+fmtDate(p.au)+')'); saveState(); absEnfRender();
+}
+/* Mes congés payés : périodes communes à tous les contrats (utile sans suivi au jour le jour) */
+function congesRender(){
+  const L = STATE.settings.conges || [];
+  setHTML('conges-list', L.length ? L.map((p,i)=>'<div class="result-line"><span class="lbl">Du '+fmtDate(p.du)+' au '+fmtDate(p.au)+'</span><span class="val"><button type="button" class="btn small" onclick="congesDel('+i+')" aria-label="Retirer cette période">Retirer</button></span></div>').join('') : '<p class="hint">Aucune période notée.</p>');
+}
+function congesAdd(){
+  const du = val('conges-du'), au = val('conges-au') || du;
+  if(!parseD(du)){ toast('Choisissez la date du premier jour de congé.'); return; }
+  if(au < du){ toast('La date de fin est avant la date de début.'); return; }
+  STATE.settings.conges = (STATE.settings.conges||[]).concat([{du, au}]).sort((a,b)=>a.du<b.du?-1:1);
+  setVal('conges-du',''); setVal('conges-au','');
+  auditLog('', 'Congés notés du '+fmtDate(du)+' au '+fmtDate(au)); saveState(); congesRender();
+  toast('Congés notés : les jours prévus au planning pendant cette période comptent comme congés payés.');
+}
+function congesDel(i){
+  const L = STATE.settings.conges || []; const p = L[i]; if(!p) return;
+  L.splice(i,1); auditLog('', 'Congés retirés ('+fmtDate(p.du)+' – '+fmtDate(p.au)+')'); saveState(); congesRender();
 }
 function settingsChanged(){
   const amBefore = STATE.settings.am;
@@ -313,8 +351,8 @@ function regClearManual(){
 /* ---------------------------------- Aide ---------------------------------- */
 const AIDE = [
   ['Comment commencer ?', 'Sur l\'accueil, touchez <b>« Ajouter un enfant »</b> et répondez aux questions (prénom, dates, planning, tarif). Recommencez pour chaque enfant (4 en cours au maximum). Ensuite, chaque calcul se remplit tout seul : choisissez l\'enfant en haut de l\'écran. Pour un calcul ponctuel, choisissez « Saisie libre ». Renseignez aussi une fois « Mon profil » (Réglages) pour les documents.'],
-  ['Chaque mois : 3 gestes', '1. Touchez <b>« Ce mois-ci »</b> sur la carte de l\'enfant (ou l\'alerte « Déclaration Pajemploi »).<br>2. Vérifiez les cases (absence, heures en plus, jours de présence), puis <b>recopiez sur Pajemploi</b> le bloc orange, ligne par ligne : une déclaration par enfant.<br>3. Touchez <b>« Valider ce mois »</b>. Le mois est gardé dans l\'historique : congés payés, régularisation, indemnité de rupture et impôts se remplissent ensuite tout seuls, sans recalcul. Si le bulletin Pajemploi donne un autre net, corrigez avant de valider.'],
-  ['Le suivi au jour le jour (facultatif)', 'Chaque soir, ouvrez <b>Suivi &amp; paie</b> : pour une journée normale, un appui sur <b>« Conforme »</b> (ou « Tout conforme » pour tous les enfants). En cas d\'écart, touchez « Écart / absence » : heures réelles, motif d\'absence, repas, kilomètres, frais avancés avec photo du ticket, certificat, note. En fin de mois, l\'onglet <b>Mois</b> fait la liste des vérifications, le récapitulatif à envoyer aux parents, la clôture (le mois ne se modifie plus, sauf par une régularisation tracée), puis <b>« Préparer la déclaration »</b> remplit « Salaire du mois &amp; Pajemploi » avec les vrais chiffres. Si vous n\'utilisez pas le suivi, tous les autres calculs fonctionnent comme avant, à partir du planning.'],
+  ['Chaque mois : 3 étapes', 'Dans l\'onglet <b>Mois</b>, chaque enfant a sa carte avec 3 étapes, à faire dans l\'ordre :<br>1. <b>Vérifier et valider les chiffres</b> : le résultat et le bloc orange « Ce que les parents recopient sur Pajemploi » sont en haut ; ne corrigez en dessous que ce qui a changé (absence, heures en plus, jour férié, congés). Touchez « Valider ce mois » : le mois est gardé et sert ensuite aux congés, à la fin de contrat et aux impôts.<br>2. <b>Envoyer aux parents</b> : le récapitulatif part par SMS ou mail. Ce sont les parents qui déclarent sur Pajemploi, entre le 25 et le 5.<br>3. <b>Salaire reçu</b> : notez la date du paiement.<br>Si le bulletin Pajemploi donne un autre net, corrigez le mois et validez-le à nouveau.'],
+  ['Le suivi au jour le jour (facultatif)', 'Chaque soir, ouvrez <b>Suivi &amp; paie</b> : pour une journée normale, un appui sur <b>« Conforme »</b> (ou « Tout conforme » pour tous les enfants). En cas de changement, touchez « Noter un changement ou une absence » : heures réelles, motif d\'absence, repas, kilomètres, frais avancés avec photo du ticket, certificat, note. En fin de mois, l\'étape 1 de l\'onglet <b>Mois</b> reprend ces vrais chiffres ; une fois le mois validé, les journées ne se modifient plus, sauf par une régularisation tracée. Sans suivi, tous les calculs partent du planning : notez alors vos semaines de congés dans <b>Réglages</b>.'],
   ['Un contrat déjà commencé', 'Vous pouvez ajouter un enfant accueilli depuis longtemps. Indiquez la vraie date de début du contrat, puis ouvrez « Contrat déjà commencé : reprendre les compteurs » : date à partir de laquelle vous suivez l\'enfant dans le carnet, salaires déjà versés, congés restants, absences pour maladie déjà déduites. Les calculs (congés, fin de contrat, absences) en tiennent compte et le suivi ne vous demande rien avant cette date.'],
   ['Avenant ou correction ?', 'Quand vous modifiez le planning ou le salaire d\'un enfant, le carnet demande s\'il s\'agit d\'un <b>avenant</b> (à partir d\'une date : les mois d\'avant restent calculés avec les anciennes valeurs, et un avenant au milieu d\'un mois est réparti sur les deux périodes) ou d\'une <b>correction</b> d\'erreur (tout est recalculé).'],
   ['Que devient un contrat terminé ?', 'Touchez « Fin de contrat » sur la carte de l\'enfant et indiquez le dernier jour (fin du préavis). Le contrat reste affiché jusqu\'à cette date, puis <b>se range tout seul</b> dans « Contrats terminés » : il <b>libère sa place</b> pour un nouvel enfant mais <b>garde toutes ses données</b> (mois validés, calculs, documents), utiles pour vos impôts, une attestation ou un litige. Inutile de le supprimer. Une suppression efface tout définitivement : faites d\'abord une copie de sécurité. Conservez vos justificatifs au moins 5 ans.'],
@@ -324,13 +362,13 @@ const AIDE = [
   ['Le salaire mensualisé', 'Pour que vous touchiez la même somme chaque mois, on « lisse » les heures de l\'année : heures par semaine × nombre de semaines ÷ 12 × salaire horaire. Le salaire horaire ne peut jamais être inférieur au minimum légal : le carnet vous prévient et applique le minimum d\'office.'],
   ['Heures complémentaires et majorées', 'Les heures en plus du contrat sont payées au tarif normal jusqu\'à 45 h dans la semaine. Au-delà de 45 h, elles sont <b>majorées</b> (10 % au minimum). Elles sont exonérées d\'impôt dans une limite annuelle.'],
   ['Les indemnités d\'entretien', 'Elles remboursent vos frais (eau, chauffage, jouets, produits…). Elles sont dues pour chaque jour où l\'enfant est présent, au minimum 90 % du « minimum garanti » pour 9 h d\'accueil, calculé selon la durée de la journée, jamais moins de 2,65 € par jour. Ce n\'est pas du salaire : pas de cotisations.'],
-  ['Les congés payés', 'Vous gagnez 2,5 jours ouvrables par mois d\'accueil (30 jours par an au maximum), du 1er juin au 31 mai. Un arrêt maladie donne aussi des congés (2 jours par mois). On prend d\'abord les jours les plus anciens. Le montant payé est le plus avantageux pour vous entre le « maintien de salaire » et 10 % des salaires de l\'année.'],
+  ['Les congés payés', 'Vous gagnez 2,5 jours ouvrables par mois d\'accueil (30 jours par an au maximum), du 1er juin au 31 mai. Un arrêt maladie donne aussi des congés (2 jours par mois). On prend d\'abord les jours les plus anciens. Le montant payé est le plus avantageux pour vous entre le « maintien de salaire » et 10 % des salaires de l\'année. Si vous ne notez pas vos journées, indiquez vos périodes de congés dans <b>Réglages ▸ Mes congés payés</b> : elles sont décomptées automatiquement et l\'entretien n\'est pas compté ces jours-là.'],
   ['Absences et mois incomplet', 'La méthode de la Cour de cassation sert à retirer du salaire mensualisé les heures d\'une absence <b>non payée</b> :<br>✅ arrivée ou départ en cours de mois, premier mois avec adaptation (obligatoire depuis 2022) ;<br>✅ votre arrêt maladie, accident du travail, maternité ou paternité (vous êtes indemnisée par la CPAM et l\'IRCEM) ;<br>✅ congé sans solde ou congés payés pas encore acquis, votre enfant malade, autre absence non payée ;<br>✅ événement familial, seulement pour les jours pris au-delà de ceux prévus par la loi ;<br>✅ enfant accueilli malade avec certificat : 5 jours au plus par période de 12 mois (plus en cas d\'hospitalisation ou de maladie de 14 jours et plus).<br>⛔ On ne déduit <b>jamais</b> : l\'absence de l\'enfant voulue par les parents ou une fermeture qu\'ils imposent, l\'enfant malade sans certificat ou au-delà des 5 jours, vos congés payés en année complète, les semaines non prévues en année incomplète, les jours fériés chômés, les événements familiaux dans la limite légale.<br>Le thème « Mois incomplet &amp; absences » vous guide motif par motif.'],
   ['Jours fériés', 'Un jour férié non travaillé qui tombe un jour d\'accueil prévu est payé (dès le début du contrat, si les jours d\'accueil prévus juste avant et juste après sont travaillés ou l\'absence autorisée). Le 1er mai travaillé est payé double ; un autre jour férié travaillé est majoré de 10 %. Le carnet connaît tous les jours fériés (y compris ceux d\'Alsace-Moselle si vous l\'activez dans les Réglages).'],
   ['Fin de contrat', 'Préavis : 8 jours si moins de 3 mois d\'ancienneté, 15 jours jusqu\'à 1 an, 1 mois au-delà. Les parents qui retirent l\'enfant après 9 mois doivent l\'indemnité de rupture (1/80ᵉ de tous les salaires bruts du contrat), sauf faute grave. Il faut aussi payer les congés non pris et, en année incomplète, faire la régularisation. Documents : certificat de travail, attestation France Travail, solde de tout compte.'],
   ['Impôts : l\'abattement', 'Vous avez droit à un régime spécial : on déduit, pour chaque enfant et chaque jour de présence, 3 fois le SMIC horaire (4 fois pour un enfant handicapé). <b>Attention</b> : le montant pré-rempli sur votre déclaration ne tient pas compte de cet abattement. Il faut le corriger vous-même. Le carnet vous donne les chiffres à mettre et vérifie si le régime ordinaire n\'est pas plus avantageux.'],
   ['L\'aide CMG des parents', 'La CAF (ou la MSA) aide les parents à vous payer : c\'est le complément de libre choix du mode de garde (CMG). Il dépend de leurs revenus, du nombre d\'enfants et des heures d\'accueil. Le carnet l\'estime pour vous aider à présenter votre tarif. Les cotisations sociales sont aussi prises en charge.'],
-  ['Pajemploi', 'Chaque mois, les parents déclarent votre salaire sur Pajemploi. Le thème « Salaire du mois &amp; Pajemploi » donne exactement les chiffres à déclarer : heures, jours d\'activité, jours de congés, salaire net, indemnités.'],
+  ['Pajemploi', 'Chaque mois, ce sont les parents (vos employeurs) qui déclarent votre salaire sur Pajemploi, entre le 25 du mois et le 5 du mois suivant. « Salaire du mois &amp; Pajemploi » donne exactement les chiffres à recopier : heures, jours d\'activité, jours de congés, salaire net, indemnités ; le bouton « Envoyer le récapitulatif aux parents » les leur transmet (un seul message pour les frères et sœurs de la même famille, mais une déclaration Pajemploi par enfant). Avec <b>Pajemploi+</b>, Pajemploi vous verse directement le salaire et prélève les parents.'],
   ['Agrément et durées maximales', 'Votre agrément fixe le nombre d\'enfants accueillis en même temps (4 en général). Au plus 13 h par jour (11 h de repos obligatoire) et 48 h par semaine en moyenne (plus seulement avec votre accord écrit, 2 250 h par an au maximum). Le carnet vous alerte en cas de dépassement.'],
   ['Les mises à jour de la loi', 'Chaque montant légal (SMIC, minimum garanti, salaire minimum, barème CMG, abattement…) est enregistré avec sa <b>date d\'effet</b>. Le bouton « Rechercher les mises à jour » télécharge les nouvelles valeurs : elles s\'appliquent automatiquement aux calculs concernés, à partir de la bonne date, et le carnet vous dit ce qui change pour chaque enfant. Vous pouvez aussi ajouter une valeur vous-même (Réglages ▸ ✎).'],
   ['Mes données et mon téléphone', 'Tout est enregistré <b>uniquement sur votre téléphone</b> : rien n\'est envoyé sur internet. Si vous changez de téléphone ou effacez les données du navigateur, vous perdez tout : faites régulièrement une <b>copie de sécurité</b> (bouton sur l\'accueil) et gardez le fichier (Google Drive, e-mail…). Sur le nouveau téléphone, utilisez « Restaurer une copie ».'],

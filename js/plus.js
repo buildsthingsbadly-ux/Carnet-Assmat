@@ -127,7 +127,7 @@ function demoBanner(){
   if(!isDemo()) return;
   const b = document.createElement('div');
   b.className = 'demo-bar'; b.id = 'demo-bar';
-  b.innerHTML = '🎓 <b>Démonstration</b> : données d\'exemple, vos vraies données sont à l\'abri. <button class="btn small" onclick="exitDemo()">Quitter la démo</button>';
+  b.innerHTML = '<span>🎓 <b>Démo</b> · exemple sans risque</span> <button class="btn small" onclick="exitDemo()">Quitter la démo</button>';
   document.body.appendChild(b);
 }
 function startDemo(){
@@ -153,20 +153,27 @@ function startDemo(){
     if(pd[6]) days[pd[6]] = {st:'absMalC', certif:true, prevenu:'Appel du papa à 7 h 30'};
     if(pd[10]) days[pd[10]] = {st:'absPrev'};
     S.suivi = {demo1:{days, months:{}, regs:[]}};
-    // trois mois plus anciens déjà validés (historique)
     S.journal = {demo1:{}, demo2:{}};
-    for(let i=2;i<=4;i++){
-      const m = new Date(t.getFullYear(), t.getMonth()-i, 1), ym = isoMonth(m);
-      [lea, ines].forEach(c=>{ if(parseD(c.debut) > m) return; const dv = derive(c, m);
-        S.journal[c.id][ym] = {brut:round2(dv.brut), net:round2(dv.net), netImp:round2(dv.net*1.037), ie:round2(dv.ieMois), repas:round2(dv.repasMois), km:0, hDecl:Math.round(dv.hMensu), jDecl:Math.ceil(dv.joursMensu), hCompl:0, hMaj:0, hReel:round2(dv.hMensu), hContrat:round2(dv.hMensu), brutMensu:round2(dv.brutBase), jours:Math.round(dv.joursMensu), jCP:0, cpMontant:0, ded:0, j8:Math.round(dv.joursMensu), hm8:0, taux:dv.tauxEff}; });
-    }
     // copie de sécurité des vraies données, remise en place à la sortie de la démonstration
     const vraies = JSON.stringify(STATE);
     try{ localStorage.setItem(STORE_KEY+'-avant-demo', vraies); }catch(e){}
     idbSaveState(STORE_KEY+'-avant-demo', vraies);
     try{ localStorage.setItem(DEMO_FLAG, '1'); }catch(e){}
     S._savedAt = new Date().toISOString();
-    STATE = S; saveNow();
+    STATE = S;
+    // trois mois plus anciens déjà validés (historique), calculés exactement comme de vrais mois
+    for(let i=2;i<=4;i++){
+      const m = new Date(t.getFullYear(), t.getMonth()-i, 1), ym = isoMonth(m);
+      [lea, ines].forEach(c=>{ if(parseD(c.debut) > m) return;
+        try{
+          const x = moisPourContrat(c, ym), M = suiviMonth(c, ym), T = M.T; if(!x) return;
+          S.journal[c.id][ym] = {brut:round2(x.brut), net:round2(x.net), netImp:round2(x.netImp), ie:round2(x.ie), repas:round2(x.repas), km:round2(x.km||0), hDecl:x.hDecl, jDecl:x.jDecl, hCompl:x.hCompl||0, hMaj:x.hMaj||0,
+            hReel:round2((T.R+T.ferieChMin)/60), hContrat:round2(Math.max(0, T.R+T.ferieChMin-T.compl-T.maj)/60), brutMensu:round2(M.due), jours:x.jours, jCP:x.jCP||0, cpMontant:round2(x.cp||0), ded:0, j8:x.j8, hm8:round2(x.hm8||0), taux:M.taux,
+            datepaie: iso(new Date(m.getFullYear(), m.getMonth()+1, 5)), validatedAt:new Date().toISOString()};
+        }catch(e){}
+      });
+    }
+    saveNow();
     setTimeout(()=>location.reload(), 300);
   }, 'Oui, essayer', 'Annuler');
 }
