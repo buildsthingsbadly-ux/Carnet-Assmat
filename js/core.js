@@ -235,12 +235,11 @@ function regBuild(){
       if(!rp || !Array.isArray(rp.values)) return;
       if(!base.params[k]){ base.params[k] = clone(rp); return; }
       const bp = base.params[k];
-      ['label','cat','unit','note','src'].forEach(f=>{ if(rp[f] && remoteNewer) bp[f]=rp[f]; });
-      rp.values.forEach(rv=>{
-        const ex = bp.values.find(x=>x.du===rv.du);
-        if(!ex) bp.values.push(clone(rv));
-        else if(remoteNewer) ex.v = clone(rv.v);
-      });
+      // fichier plus récent : il fait foi pour ce paramètre (y compris une valeur retirée parce qu'elle était erronée) ;
+      // fichier plus ancien que la réglementation intégrée : ignoré
+      if(!remoteNewer) return;
+      ['label','cat','unit','note','src'].forEach(f=>{ if(rp[f]) bp[f]=rp[f]; });
+      bp.values = clone(rp.values);
     });
     if(remoteNewer && remote.version) base.version = remote.version;
     (remote.changelog||[]).forEach(c=>{ if(!base.changelog.some(x=>x.date===c.date && x.text===c.text)) base.changelog.push(c); });
