@@ -2,7 +2,7 @@
    IMPRESSION / PDF · SAUVEGARDE · RÉGLAGES · MISES À JOUR RÉGLEMENTAIRES · AIDE · DÉMARRAGE
    ===================================================================================== */
 'use strict';
-const APP_VERSION = '3.11.2';
+const APP_VERSION = '3.12.0';
 
 /* ---------------------------------- Impression / PDF ---------------------------------- */
 let _pc = null;
@@ -205,10 +205,19 @@ function settingsChanged(){
 
 /* ---------------------------------- Mises à jour réglementaires ---------------------------------- */
 function regRenderStatus(){
-  const txt = 'Réglementation : version du <b>'+fmtDate(REG.version)+'</b>. '
-    + (STATE.regCheckedAt ? 'Dernière recherche de mise à jour : '+new Date(STATE.regCheckedAt).toLocaleDateString('fr-FR')+'.' : 'Aucune recherche de mise à jour faite depuis ce téléphone.')
-    + (Object.keys(STATE.regManual||{}).length ? ' Vous avez modifié certaines valeurs à la main.' : '');
+  const jours = STATE.regCheckedAt ? Math.floor((Date.now()-new Date(STATE.regCheckedAt))/86400000) : null;
+  const txt = 'Réglementation : version du <b>'+fmtDate(REG.version)+'</b>'+(STATE.regRemote ? ' (téléchargée)' : ' (intégrée à l\u2019application)')+'. '
+    + (jours===null ? '<b>Aucune mise à jour faite depuis ce téléphone.</b>' : 'Dernière vérification : '+new Date(STATE.regCheckedAt).toLocaleDateString('fr-FR')+(jours>35 ? ' — <b>il y a plus d\u2019un mois, pensez à mettre à jour.</b>' : '.'))
+    + (Object.keys(STATE.regManual||{}).length ? ' Vous avez modifié certaines valeurs à la main (elles priment).' : '')
+    + (STATE.regRemote ? ' <a href="#" onclick="regResetRemote();return false;">Revenir à la réglementation intégrée</a>' : '');
   setHTML('reg-status', txt); setHTML('reg-home-status', txt);
+}
+function regResetRemote(){
+  showConfirmDialog('Revenir à la réglementation intégrée ?', 'La réglementation téléchargée sera oubliée : les calculs utiliseront celle livrée avec l\u2019application (version du '+fmtDate(REG_DEFAULT.version)+'). Vos valeurs saisies à la main sont gardées. Vous pourrez la télécharger à nouveau à tout moment.', ()=>{
+    const before = regSnapshot(); STATE.regRemote = null; regBuild(); saveNow(); regRenderStatus(); regRenderTable();
+    if(CURRENT!=='home') recalc(CURRENT); else renderHome();
+    const ch = regDiff(before); toast(ch.length ? ch.length+' valeur(s) remise(s) à la version intégrée.' : 'Réglementation intégrée rétablie.');
+  }, 'Oui, revenir', 'Annuler');
 }
 function regSnapshot(){ const s={}; Object.keys(REG.params).forEach(k=>s[k]=JSON.stringify(REG.params[k].values.map(x=>[x.du,x.v]))); return s; }
 function regDiff(before){
@@ -332,17 +341,23 @@ function regEdit(k){
   const p = REG.params[k], cur = R(k);
   const isArr = Array.isArray(cur) && typeof cur[0]==='number';
   if(cur && typeof cur==='object' && !isArr){ toast('Cette valeur se modifie par fichier de réglementation.'); return; }
-  askText('Nouvelle valeur : '+p.label, 'Saisissez la date d\'effet puis la valeur, séparées par un espace. Exemple : 2027-01-01 '+(isArr?cur.join(';'):String(cur))+(p.unit==='ratio'?' (ratio, ex. 0.7812)':''), iso(today())+' '+(isArr?cur.join(';'):String(cur)), txt=>{
-    const m = String(txt||'').trim().match(/^(\d{4}-\d{2}-\d{2})\s+(.+)$/);
-    if(!m){ toast('Format attendu : AAAA-MM-JJ valeur'); return; }
-    let v;
-    if(isArr) v = m[2].split(/[;\s]+/).map(x=>parseFloat(x.replace(',','.')));
-    else v = parseFloat(m[2].replace(',','.'));
-    if(isArr ? v.some(isNaN) : isNaN(v)){ toast('Valeur non reconnue.'); return; }
-    STATE.regManual[k] = (STATE.regManual[k]||[]).filter(x=>x.du!==m[1]).concat([{du:m[1], v}]);
-    regBuild(); saveNow(); regRenderTable(); regRenderStatus();
-    toast('Valeur ajoutée : elle s\'applique à partir du '+fmtDate(m[1])+'.');
-  });
+  const pct = p.unit==='ratio', montre = x=>pct ? fmtNum(x*100, 4).replace(/,?0+$/,'') : String(x).replace('.',',');
+  askText('Date d\u2019effet : '+p.label, 'À partir de quel jour la nouvelle valeur s\u2019applique-t-elle ? (valeur actuelle : '+fmtRegV(cur, p.unit)+')', iso(today()), du=>{
+    if(!parseD(du)){ toast('Date non reconnue.'); return; }
+    askText('Nouvelle valeur : '+p.label, (pct ? 'En pourcentage (ex. 1,04 pour 1,04 %).' : isArr ? 'Plusieurs nombres séparés par « ; ».' : 'Unité : '+(p.unit||'—')+'.')+' Elle s\u2019appliquera à partir du '+fmtDate(du)+', à tous les calculs concernés.', isArr ? cur.map(montre).join(' ; ') : montre(cur), txt=>{
+      const lire = s=>parseFloat(String(s).trim().replace(/\s/g,'').replace(',','.'));
+      let v = isArr ? String(txt||'').split(';').map(lire) : lire(txt);
+      if(isArr ? v.some(isNaN) : isNaN(v)){ toast('Valeur non reconnue.'); return; }
+      if(pct) v = Math.round(v/100*1e8)/1e8;
+      if(!isArr && v<0){ toast('Une valeur négative n\u2019est pas possible.'); return; }
+      if(!isArr && typeof cur==='number' && cur>0 && (v > cur*3 || v < cur/3)){ if(!confirm('Cette valeur est très différente de l\u2019actuelle ('+fmtRegV(cur,p.unit)+'). La garder quand même ?')) return; }
+      STATE.regManual[k] = (STATE.regManual[k]||[]).filter(x=>x.du!==du).concat([{du, v}]);
+      auditLog('', 'Réglementation modifiée à la main : '+p.label+' = '+fmtRegV(v,p.unit)+' à partir du '+fmtDate(du));
+      regBuild(); saveNow(); regRenderTable(); regRenderStatus();
+      if(CURRENT!=='home' && CURRENT!=='reglages') recalc(CURRENT);
+      toast('Valeur ajoutée : elle s\u2019applique à partir du '+fmtDate(du)+' dans tous les calculs.');
+    });
+  }, {type:'date'});
 }
 function regClearManual(){
   showConfirmDialog('Supprimer vos valeurs ?', 'Les valeurs saisies à la main seront supprimées ; les valeurs officielles du carnet s\'appliqueront.', ()=>{ STATE.regManual={}; regBuild(); saveNow(); regRenderTable(); regRenderStatus(); }, 'Oui', 'Annuler');

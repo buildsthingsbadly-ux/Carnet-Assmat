@@ -176,7 +176,7 @@ function suiviMonth(c, ym, opts){
   const regs = (suiviOf(c.id).regs||[]).filter(g=>g.imput===ym);
   const regBrut = regs.reduce((s,g)=>s+(parseFloat(g.montant)||0),0);
   const cc = paramsAt(c, last);
-  const cp12 = (cc.type===1 && cc.cpMode===0) ? (due+complPay+majPay+ferieSup)*0.10 : 0;
+  const cp12 = (cc.type===1 && cc.cpMode===0) ? (due+complPay+majPay+ferieSup)*(R('cpDixieme', d0)||0.10) : 0;
   const cpVerse = (opts||{}).sansCP ? 0 : round2(cpIndemniteMois(c, ym, T.cpOuv));   // montant à verser : au centime
   const brut = due + complPay + majPay + ferieSup + regBrut + cp12 + cpVerse;
   const ratio = netRatio(d0), red = hsReduction(d0);
@@ -497,7 +497,7 @@ function cpIndemniteMois(c, ym, joursPris){
   const acquis = typeof joursAcquisCP==='function' ? joursAcquisCP(iso(s), iso(e), 0, false, c) : 0; if(!acquis) return 0;
   const K = contratCumuls(c, isoMonth(s), isoMonth(e), true);
   const dv = derive(c, e), vj = dv.moyH/6*dv.tauxEff;
-  const indem = Math.max(acquis*vj, (K.brut - K.cp12)*0.10);
+  const indem = Math.max(acquis*vj, (K.brut - K.cp12)*(R('cpDixieme')||0.10));
   return cc.cpMode===1 ? indem : indem*Math.min(1, joursPris/acquis);
 }
 /* Cumuls d'un contrat entre deux mois ('AAAA-MM' inclus) : mois validés tels qu'enregistrés, et pour les mois

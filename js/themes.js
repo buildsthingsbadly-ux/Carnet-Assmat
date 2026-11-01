@@ -140,6 +140,10 @@ function moisFillFromContract(c, m){
   if(typeof suiviFillMois==='function') suiviFillMois(c, m);
 }
 /* Tous les chiffres du mois : utilisés pour l'affichage, Pajemploi et l'historique */
+function moisPssAlerte(r){
+  const p = R('pss', r.d);
+  return p && r.brut > p ? 'Salaire de '+fmtEUR(r.brut)+' chez cet employeur : au-delà du plafond de la Sécurité sociale ('+fmtEUR(p)+' par mois), d\u2019autres taux de cotisations s\u2019appliquent. Le net estimé est moins précis : fiez-vous au bulletin Pajemploi.' : '';
+}
 function moisCompute(){
   const m = val('mois-mois') || curMonth(), d = parseD(m);
   const inc = seg('mois-type')===1;
@@ -153,7 +157,7 @@ function moisCompute(){
   const supFerie = fer ? num('mois-hferie')*taux*R('majFerie',d)/100 + num('mois-h1mai')*taux*R('majPremierMai',d)/100 : 0;
   const brutCompl = hcompl*taux, brutMaj = hmaj*taux*(1+majPct/100);
   const brutNormal = Math.max(0, base-ded) + supFerie;
-  const cp12 = inc && seg('mois-cp12')===1 ? (brutNormal+brutCompl+brutMaj)*0.10 : 0;
+  const cp12 = inc && seg('mois-cp12')===1 ? (brutNormal+brutCompl+brutMaj)*(R('cpDixieme', d)||0.10) : 0;
   const cpVerse = inc ? num('mois-cpmontant') : 0;
   const cpTot = cp12 + cpVerse;
   const regul = num('mois-regul');
@@ -239,8 +243,9 @@ CALC.mois = ()=>{
     : 'Minimum légal pour une journée de '+fmtNum(r.hj||R('ieHeuresRef', r.d)||9,2)+' h : '+fmtEUR(r.ieLeg)+'. Laissez vide pour l\'appliquer.'+(moisContrat() ? ' Cases modifiées à la main : calcul sur la durée moyenne.' : ''));
   setTxt('mois-hreel-hint', r.hReelAuto ? 'Calculé d\'après le planning : '+fmtNum(r.hReel,2)+' h. Corrigez si besoin (sert à la régularisation de fin de contrat).' : 'Gardées dans l\'historique pour la régularisation de fin de contrat.');
   const w = [];
-  const tauxMin = R('salMin', d);
-  if(r.taux && r.taux < tauxMin-1e-9) w.push('⛔ Salaire horaire inférieur au minimum légal de ce mois ('+fmtEUR(tauxMin)+').');
+  const cT = moisContrat(), tauxMin = R(cT && cT.titre ? 'salMinTitre' : 'salMin', d);
+  if(r.taux && r.taux < tauxMin-1e-9) w.push('⛔ Salaire horaire inférieur au minimum légal de ce mois ('+fmtEUR(tauxMin)+(cT && cT.titre ? ', avec le titre AM-AP' : '')+').');
+  const pssW = moisPssAlerte(r); if(pssW) w.push('⚠️ '+pssW);
   if(r.ieAuto && r.ieAuto.releves && r.ieAuto.mode===2) w.push('⚠️ Le montant prévu au contrat pour 9 h ('+fmtEUR(r.ieAuto.fixe)+') est inférieur au minimum légal ('+fmtEUR(ieLegalJour(R('ieHeuresRef', d)||9, d))+' pour 9 h) : le minimum est appliqué '+r.ieAuto.releves+' j sur '+r.ieAuto.jours+'. Pensez à un avenant.');
   else if(r.ieAuto && r.ieAuto.releves) w.push('⚠️ Le montant du contrat ('+fmtEUR(r.ieAuto.fixe)+' par jour) est inférieur au minimum légal pour les journées de plus de '+fmtH(Math.floor(ieSeuilHeures(r.ieAuto.fixe, d)*60))+' : le minimum est appliqué ces jours-là ('+r.ieAuto.releves+' j sur '+r.ieAuto.jours+'). Pensez à un avenant.');
   else if(!r.ieAuto && r.ieSaisie && !r.hj) w.push('Durée des journées non indiquée : '+fmtEUR(r.ieSaisie)+' par jour est retenu sans contrôle. Il est sous le minimum légal pour les journées de plus de '+fmtH(Math.floor(ieSeuilHeures(r.ieSaisie, d)*60))+' : indiquez la durée moyenne pour le vérifier.');
@@ -734,7 +739,7 @@ CALC.cp = ()=>{
   const taux=num('cp-taux'), h=num('cp-heures'), tot=num('cp-total-salaires');
   const vj = (h/6)*taux;                          // valeur d'un jour ouvrable (6 jours ouvrables par semaine)
   // les deux méthodes portent sur les MÊMES jours : ceux acquis pendant la période de référence (N-1) dont le salaire est saisi
-  const maintien = A.n1*vj, dixieme = tot*0.10;
+  const maintien = A.n1*vj, dixieme = tot*(R('cpDixieme')||0.10);
   const verser = Math.max(maintien, dixieme);
   setTxt('out-cp-maintien', fmtEUR(maintien)); setTxt('out-cp-dixieme', fmtEUR(dixieme));
   setTxt('out-cp-verser', fmtEUR(verser)); setTxt('out-cp-net', fmtEUR(toNet(verser)));
@@ -1066,7 +1071,7 @@ CALC.fin = ()=>{
   let cpV = 0;
   if(seg('fin-cp')===1){
     const vj = (num('fin-heures')/6)*toBrutFin(num('fin-taux'));
-    const mt = num('fin-jours')*vj, dx = toBrutFin(num('fin-total-salaires'))*0.10;
+    const mt = num('fin-jours')*vj, dx = toBrutFin(num('fin-total-salaires'))*(R('cpDixieme', val('fin-notif')||undefined)||0.10);
     cpV = Math.max(mt, dx);
     setTxt('out-fin-maintien', fmtEUR(mt)); setTxt('out-fin-dixieme', fmtEUR(dx)); setTxt('out-fin-cp', fmtEUR(cpV));
     setTxt('fin-badge', mt>=dx ? 'Maintien' : 'Dixième');
@@ -1225,14 +1230,14 @@ CALC.parents = ()=>{
     const x = moisPourContrat(c, ymm); if(!x) continue;
     net += x.net; ie += x.ie; repas += x.repas; n++; if(!x.valide) est++; if(ymm >= curMonth()) fut++;
   }
-  const nais = parseD(c.naissance), moins6 = nais ? (new Date(an, 0, 1) - nais) < 6*365.25*86400000 : null;
-  const garde = net + ie, plafond = 3500;
+  const ageMax = R('creditGardeAgeMax', an+'-01-01') || 6, nais = parseD(c.naissance), moins6 = nais ? new Date(an, 0, 1) < new Date(nais.getFullYear()+ageMax, nais.getMonth(), nais.getDate()) : null;
+  const garde = net + ie, plafond = R('creditGardePlafond', an+'-12-31') || 3500, tauxCI = R('creditGardeTaux', an+'-12-31') || 0.5;
   setHTML('par-annee-out', !n ? '<p class="hint">Pas de salaire versé cette année pour ce contrat.</p>' :
       line('Mois de salaire versés dans l’année', n+(est ? ' (dont '+est+' estimés'+(fut ? ', dont '+fut+' pas encore payés' : '')+')' : ''))
     + line('Salaires nets versés', fmtEUR(net)) + line('Indemnités d’entretien', fmtEUR(ie)) + line('Repas (non retenus pour le crédit d’impôt)', fmtEUR(repas))
     + '<div class="result-line total"><span class="lbl">Frais de garde de l’année (salaire net + entretien)</span><span class="val">'+fmtEUR(garde)+'</span></div>'
-    + '<p class="hint">Compté à la date de paiement : un salaire de décembre payé en janvier compte pour l’année suivante. '+(moins6===false ? 'L’enfant avait 6 ans ou plus au 1er janvier '+an+' : pas de crédit d’impôt pour frais de garde.' :
-        'À déclarer par les parents (cases 7GA à 7GC ; 7GE à 7GG en résidence alternée, plafond divisé par deux), après avoir retiré l’aide CMG reçue dans l’année : crédit d’impôt de 50 %, dans la limite de '+fmtEUR(plafond)+' de frais par enfant.'+(moins6===null ? ' (Date de naissance non renseignée : vérifiez que l’enfant avait moins de 6 ans au 1er janvier.)' : ''))+'</p>');
+    + '<p class="hint">Compté à la date de paiement : un salaire de décembre payé en janvier compte pour l’année suivante. '+(moins6===false ? 'L’enfant avait '+ageMax+' ans ou plus au 1er janvier '+an+' : pas de crédit d’impôt pour frais de garde.' :
+        'À déclarer par les parents (cases 7GA à 7GC ; 7GE à 7GG en résidence alternée, plafond divisé par deux), après avoir retiré l’aide CMG reçue dans l’année : crédit d’impôt de '+fmtNum(tauxCI*100,0)+' %, dans la limite de '+fmtEUR(plafond)+' de frais par enfant.'+(moins6===null ? ' (Date de naissance non renseignée : vérifiez que l’enfant avait moins de '+ageMax+' ans au 1er janvier.)' : ''))+'</p>');
   if(n) t.push('', 'Année '+an+' (salaires payés dans l’année'+(fut ? ', dont '+fut+' à venir, estimés' : '')+') pour '+(c.enfant||'')+' : salaires nets '+fmtEUR(net)+', entretien '+fmtEUR(ie)+' → frais de garde '+fmtEUR(garde)+' (avant déduction de l’aide CMG).');
   t.push('', 'Calculé avec Carnet Assmat. Les montants exacts sont ceux de Pajemploi et de la CAF.');
   PARENTS_TXT = t.join('\n');

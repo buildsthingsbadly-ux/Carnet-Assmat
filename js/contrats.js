@@ -93,7 +93,7 @@ function derive(c, when){
   const tauxReleve = tauxSaisi>0 && tauxSaisi < tauxMin - 1e-9;
   const majPct = Math.max(parseFloat(c.maj)||R('majMin',d), R('majMin',d));
   const brutBase = hNormMensu*tauxEff + hMajMensu*tauxEff*(1+majPct/100);
-  const cp12 = (c.type===1 && c.cpMode===0) ? brutBase*0.10 : 0;
+  const cp12 = (c.type===1 && c.cpMode===0) ? brutBase*(R('cpDixieme', d)||0.10) : 0;
   const brut = brutBase + cp12;
   const net = netMensualise(brut, hMajMensu*tauxEff*(1+majPct/100), d);
   // Indemnité d'entretien : moyenne par jour d'accueil sur le planning (A et B)

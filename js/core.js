@@ -255,6 +255,7 @@ function regBuild(){
   Object.values(base.params).forEach(p=>p.values.sort((a,b)=>a.du<b.du?-1:a.du>b.du?1:0));
   base.changelog.sort((a,b)=>a.date<b.date?1:-1);
   REG = base;
+  if(typeof document!=='undefined' && document.body) try{ regFillTexts(); }catch(e){}
 }
 /* Valeur en vigueur à une date (Date, 'AAAA-MM-JJ' ou 'AAAA-MM'). Sans date : aujourd'hui. */
 function R(key, when){
@@ -299,11 +300,24 @@ function cotisLignes(when){
   ].filter(x=>x.t);
 }
 function netRatio(when){
-  const L = cotisLignes(when), ctrl = R(STATE.settings.am ? 'netRatioAM' : 'netRatio', when);
+  const kCtrl = STATE.settings.am ? 'netRatioAM' : 'netRatio';
+  const L = cotisLignes(when), ctrl = R(kCtrl, when);
   const calc = L ? 1 - L.reduce((s,x)=>s + x.t*x.base, 0) : null;
-  // si la mise à jour de la réglementation n'a changé que le taux global, c'est lui qui fait foi
-  if(calc!==null && (!ctrl || Math.abs(calc - ctrl) < 0.0005)) return calc;
-  return ctrl || calc || 0.78;
+  if(calc===null) return ctrl || 0.78;
+  if(!ctrl || Math.abs(calc - ctrl) < 0.0005) return calc;
+  // écart : la valeur la plus récente fait foi. Une mise à jour d'un seul taux détaillé (ex. la prévoyance)
+  // s'applique donc d'office ; si seule la valeur globale a été mise à jour, c'est elle qui compte.
+  const cles = ['cotVieillessePlaf','cotVieillesseDeplaf','cotRetraiteT1','cotCEG','cotPrevoyance','cotCsgDed','cotCsgNonDed','cotCrds','assietteCsg'].concat(STATE.settings.am ? ['cotAlsaceMoselle'] : []);
+  const duDetail = cles.map(k=>Rdu(k, when)).filter(Boolean).sort().pop() || '';
+  return String(Rdu(kCtrl, when)||'') > duDetail ? ctrl : calc;
+}
+/* Textes des règles : les chiffres affichés suivent la réglementation en vigueur (balises data-reg) */
+function regFillTexts(root){
+  (root||document).querySelectorAll('[data-reg]').forEach(el=>{
+    const p = REG.params[el.dataset.reg]; if(!p) return;
+    const v = R(el.dataset.reg), f = el.dataset.fmt || '';
+    el.textContent = f==='pct' ? fmtNum(v*100, (v*100)%1 ? 2 : 0)+' %' : f==='eur' ? fmtEUR(v) : f==='eur0' ? fmtNum(v,0)+' €' : fmtNum(v, v%1 ? 2 : 0).replace(/(,\d)0$/,'$1');
+  });
 }
 /* Réduction de cotisations salariales sur les heures complémentaires et majorées : les cotisations retraite
    (vieillesse de base et complémentaire, CEG) ne sont pas prélevées sur ces heures (loi du 24 décembre 2018) */
