@@ -599,7 +599,7 @@
   <!-- ===================================================== 04 CONGÉS PAYÉS ===================================================== -->
   <div class="theme" id="theme-cp" data-persist="1">
     <h2>Congés payés</h2>
-    <p class="sub">Suivi sur 3 périodes de référence (du 1er juin au 31 mai) avec report des jours restants, montant en euros et paiement.</p>
+    <p class="sub">Suivi sur 3 périodes de référence (du 1er juin au 31 mai) avec report des jours restants, montant en euros et paiement. Les congés pris se remplissent tout seuls d'après le suivi au jour le jour ou, sans suivi, d'après <a href="#" onclick="showTheme('reglages');setTimeout(()=>{const e=$('conges-wrap');if(e)e.scrollIntoView();},80);return false;">Réglages ▸ Mes congés payés</a>.</p>
     <div class="kid-picker" data-for="cp"></div>
     <div class="btn-row" style="margin:-6px 0 14px"><button class="btn small" onclick="cpAutoDates()">📅 Remplir les dates automatiquement</button></div>
 
@@ -733,7 +733,7 @@
     <div class="toggle-row" id="fin-cp-row"><span class="q">Reste-t-il des jours de congés payés non pris ou non payés ?</span>
       <div class="seg" id="fin-cp"><button>Non</button><button class="on">Oui</button></div></div>
     <div id="fin-cp-wrap" class="subblock">
-      <div class="field"><label>Jours de congés restants dus</label><input type="number" step="0.5" id="fin-jours" placeholder="ex. 3"><div class="hint">Voir le thème « Congés payés ».</div></div>
+      <div class="field"><label>Jours de congés restants dus</label><input type="number" step="0.5" id="fin-jours" placeholder="ex. 3"><div class="hint" id="fin-jours-hint">Voir le thème « Congés payés ».</div></div>
       <div class="grid2">
         <div class="field"><label>Salaire horaire (€)</label><input type="number" step="0.01" id="fin-taux" placeholder="ex. 4.50"></div>
         <div class="field"><label>Heures par semaine (moyenne)</label><input type="number" step="0.25" id="fin-heures" placeholder="ex. 40"></div>
@@ -886,10 +886,11 @@
     <div class="section-label">La famille</div>
     <div class="toggle-row"><span class="q">Nombre d'enfants à charge dans le foyer (tous, y compris ceux qui ne sont pas gardés par vous)</span>
       <div class="seg" id="cmg-nbenfants-foyer"><button class="on">1</button><button>2</button><button>3</button><button>4 à 7</button><button>8 et +</button></div>
-      <div class="hint">Plus il y a d'enfants à charge, plus l'aide est élevée. Un enfant handicapé (AEEH) compte double.</div></div>
+      <div class="hint">Plus il y a d'enfants à charge, plus l'aide est élevée. Chaque enfant qui touche l'AEEH (gardé ou non) fait appliquer le taux de la tranche suivante : comptez-le deux fois.</div></div>
     <div class="toggle-row"><span class="q">Famille monoparentale ?</span>
       <div class="seg" id="cmg-monoparental"><button class="on">Non</button><button>Oui</button></div>
-      <div class="hint">L'aide est alors versée jusqu'aux 12 ans de l'enfant (au lieu de 6 ans).</div></div>
+      <div class="hint">L'aide est alors versée jusqu'aux 12 ans de l'enfant (au lieu de 6 ans). Le plafond de ressources reste de 8 500 € par mois.</div>
+      <div class="hint"><b>Résidence alternée</b> (depuis le 1er décembre 2025) : chaque parent touche sa propre aide, qui n'est pas partagée. Faites le calcul pour chaque parent, avec ses ressources, ses enfants à charge et seulement les heures d'accueil à sa charge.</div></div>
     <div class="field"><label>Ressources mensuelles du foyer (€)</label><input type="number" step="0.01" id="cmg-revenu" placeholder="ex. 3000">
       <div class="hint">Revenu net catégoriel de l'avant-dernière année (avis d'imposition) divisé par 12.</div></div>
 
@@ -907,7 +908,7 @@
         <div class="result-line"><span class="lbl">CMG « rémunération » estimé</span><span class="val" id="out-cmg-total">—</span></div>
         <div class="result-line total"><span class="lbl">Reste à payer par les parents chaque mois</span><span class="val" id="out-cmg-reste-total">—</span></div>
         <div class="net-hint">Les cotisations sociales sont en plus prises en charge par la CAF/MSA (dans la limite du plafond horaire) : elles ne sont pas comptées ici.</div>
-        <div class="legal"><strong>Règle —</strong> depuis la réforme du 1er septembre 2025 : CMG = coût mensuel de la garde (salaire net + indemnités d'entretien et de repas, plafonné par heure) × [1 − (ressources mensuelles × taux d'effort ÷ coût horaire de référence)]. Les ressources sont comptées entre un plancher et un plafond ; le taux d'effort baisse avec le nombre d'enfants à charge. Le coût au-delà du plafond horaire reste à la charge des parents. Estimation indicative : seule la CAF ou la MSA fixe le montant exact (résidence alternée, AEEH, situations particulières…). Vérifiez avec le simulateur officiel de l'Urssaf.</div>
+        <div class="legal"><strong>Règle —</strong> depuis la réforme du 1er septembre 2025 : CMG = coût mensuel de la garde (salaire net + indemnités d'entretien et de repas, plafonné par heure) × [1 − (ressources mensuelles × taux d'effort ÷ coût horaire de référence)]. Les ressources sont comptées entre un plancher et un plafond ; le taux d'effort baisse avec le nombre d'enfants à charge. Le coût au-delà du plafond horaire reste à la charge des parents. Il n'y a plus de reste à charge minimum ni de minimum d'heures, et les cotisations sociales de l'assistante maternelle sont prises en charge à 100 %. Valeurs vérifiées sur urssaf.fr (mise à jour du 24/04/2026) : plancher 814,02 €, plafond 8 500 €, coût horaire de référence 4,91 €, plafond horaire 8,09 €. Estimation indicative : seule la CAF ou la MSA fixe le montant exact. Vérifiez avec le simulateur officiel de l'Urssaf.</div>
         <button class="btn primary block" onclick="askPrintChoice('cmg','Aide CMG — Récapitulatif')">📄 Récapitulatif PDF (enregistrer ou imprimer)</button>
       </div>
     </div>
