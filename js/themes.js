@@ -621,12 +621,16 @@ function semainesAccueil(c, s, e){
     const mois = (e - s)/86400000/ (365.25/12);
     return (parseFloat(paramsAt(c, e).semaines)||0) * Math.min(12, mois) / 12;
   }
-  let n = 0;
+  let n = 0, W = 0;
   for(let w = mondayOf(s); w <= e; w = addDays(w, 7)){
-    let h = 0;
-    for(let i=0;i<7;i++){ const d = addDays(w, i); if(d < s || d > e || !inContract(c, d)) continue; h += plannedDay(c, d).min; }
+    let h = 0, nbJ = 0;
+    for(let i=0;i<7;i++){ const d = addDays(w, i); if(d < s || d > e || !inContract(c, d)) continue; nbJ++; h += plannedDay(c, d).min; }
+    W += nbJ/7;   // semaine coupée par le début ou la fin de la période : comptée au prorata
     if(h > 0) n++;
   }
+  // semaines sans accueil pas encore toutes connues : on ne compte jamais plus que la part prévue au contrat
+  const cc = paramsAt(c, e);
+  if(cc.semOffAVenir){ const prevues = (parseFloat(cc.semaines)||0) * W / 52; return Math.min(n, prevues); }
   return n;
 }
 function joursAcquisCP(d1, d2, moisMal, enCours, c){
@@ -913,6 +917,21 @@ PREFILL.fin = c=>{
     if(Rg.n || rp.regulVerse){ setVal('fin-regul-verse', round2(Rg.brutMensu + (parseFloat(rp.regulVerse)||0))); setVal('fin-regul-heures', round2(Rg.hContrat + (parseFloat(rp.regulHeures)||0))); }
     setVal('fin-total-salaires', round2(finBaseDixieme(c)));
     if(J.estimes) setTimeout(()=>toast(J.estimes+' mois non validés : montants calculés d\u2019après le suivi ou le planning. Vérifiez-les avec vos relevés Pajemploi.'), 300);
+  }
+  // Année incomplète : avant la régularisation, vérifier que les semaines sans accueil sont toutes notées
+  setHTML('fin-regul-semaines', '');
+  if(c.type===1 && val('fin-regul-debut') && val('fin-regul-fin')){
+    const s0 = parseD(val('fin-regul-debut')), e0 = parseD(val('fin-regul-fin'));
+    let n = 0, W = 0;
+    for(let w = mondayOf(s0); w <= e0; w = addDays(w, 7)){ let h = 0, nbJ = 0; for(let i=0;i<7;i++){ const d = addDays(w,i); if(d < s0 || d > e0 || !inContract(c, d)) continue; nbJ++; h += plannedDay(c, d).min; } W += nbJ/7; if(h>0) n++; }
+    const prevues = (parseFloat(c.semaines)||0) * W / 52, hR = num('fin-regul-heures');
+    const suiviPeriode = (()=>{ const S=(STATE.suivi||{})[c.id]; return !!(S && Object.keys(S.days||{}).some(k=>k>=iso(s0) && k<=iso(e0))); })();
+    if(n > prevues + 0.5 && hR){
+      const est = round2(hR * prevues / n);
+      setHTML('fin-regul-semaines', '<div class="warn-box">Le planning compte <b>'+n+' semaines d\u2019accueil</b> sur la période, pour environ <b>'+fmtNum(prevues,1)+'</b> prévues au contrat ('+c.semaines+' par an). '
+        + (suiviPeriode ? 'Vérifiez les journées du suivi.' : 'Si des semaines sans accueil n\u2019ont pas été notées, la régularisation serait trop élevée : notez-les (<a href="#" onclick="noterSemaineOff(\''+c.id+'\');return false;">📅 semaine sans accueil</a>) puis rouvrez ce calcul, ou <a href="#" onclick="setVal(\'fin-regul-heures\','+est+');CALC.fin();persistTheme(\'fin\');return false;">utilisez l\u2019estimation : '+fmtNum(est,2)+' h</a>.')
+        + ' Si l\u2019enfant est vraiment venu '+n+' semaines, la régularisation est due.</div>');
+    }
   }
   // Avenants enregistrés pendant la période de régularisation : une sous-période par avenant
   const rd = val('fin-regul-debut'), rf = val('fin-regul-fin');

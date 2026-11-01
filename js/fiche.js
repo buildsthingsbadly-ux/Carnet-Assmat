@@ -53,9 +53,10 @@ function ficheOrigine(c, ym){
   if(!c) return 'Calcul fait avec les chiffres que vous avez saisis (saisie libre, sans fiche enfant).';
   if(journalOf(c.id)[ym]) return '✔ Mois <b>validé</b> : les chiffres sont ceux enregistrés au moment de la validation.';
   const cg = ((STATE.settings||{}).conges||[]).length, ab = ((STATE.settings||{}).absEnf||[]).some(p=>p.cid===c.id);
-  return hasSuiviMonth(c.id, ym)
+  const inc = c.type===1 && c.semOffAVenir ? ' <b>Semaines sans accueil pas encore toutes connues</b> : tant qu’une semaine n’est pas notée, l’entretien et les repas la comptent comme une semaine d’accueil (le salaire, lui, ne change pas).' : '';
+  return (hasSuiviMonth(c.id, ym)
     ? 'Chiffres tirés du <b>suivi au jour le jour</b> (journées notées), le planning du contrat servant pour les jours non notés.'
-    : 'Chiffres <b>calculés sans suivi au jour le jour</b> : le carnet part du planning du contrat'+(cg||ab ? ' et des '+(cg?'congés':'')+(cg&&ab?' et ':'')+(ab?'absences prévues':'')+' notés dans Réglages' : '')+'. C\'est une estimation : si un jour a été différent (absence, heures en plus), corrigez-le dans « Salaire du mois ».';
+    : 'Chiffres <b>calculés sans suivi au jour le jour</b> : le carnet part du planning du contrat'+(cg||ab ? ' et des '+(cg?'congés':'')+(cg&&ab?' et ':'')+(ab?'absences prévues':'')+' notés dans Réglages' : '')+'. C\'est une estimation : si un jour a été différent (absence, heures en plus), corrigez-le dans « Salaire du mois ».') + inc;
 }
 function semainesTxt(c){ return c.type===1 ? (parseFloat(c.semaines)||0)+' semaines d\'accueil' : '52 semaines (toute l\'année, vos 5 semaines de congés comprises)'; }
 
@@ -68,7 +69,8 @@ function ficheMois(){
   // 1. salaire de base
   const sem = c ? (c.type===1 ? (parseFloat(c.semaines)||0) : 52) : null;
   const calc1 = [];
-  if(dv && sem && Math.abs(dv.moyH*sem/12 - hM) < 0.05) calc1.push([FN(dv.moyH)+' h par semaine en moyenne × '+sem+' semaines ÷ 12 mois', FH(hM)+' par mois']);
+  if(dv && dv.methode==='annuel') calc1.push([FN(dv.hAn)+' h prévues sur l’année (planning irrégulier) ÷ 12 mois', FH(hM)+' par mois']);
+  else if(dv && sem && Math.abs(dv.moyH*sem/12 - hM) < 0.05) calc1.push([FN(dv.moyH)+' h par semaine en moyenne × '+sem+' semaines ÷ 12 mois', FH(hM)+' par mois']);
   else calc1.push(['Heures payées chaque mois (moyenne de l\'année)', FH(hM)]);
   if(r.taux && Math.abs(hM*r.taux - r.base) < 0.05) calc1.push([FH(hM)+' × '+FE(r.taux)+' brut de l\'heure', FE(r.base)]);
   else calc1.push(['Salaire de base (dont heures au-delà de 45 h par semaine, majorées de '+FN(r.majPct,0)+' %)', FE(r.base)]);

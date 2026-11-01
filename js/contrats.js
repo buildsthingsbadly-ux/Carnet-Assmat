@@ -46,7 +46,7 @@ function journalTotals(id, fromM, toM){
   return t;
 }
 /* ---------- Avenants : chaque modification datée garde les anciennes valeurs pour les mois passés ---------- */
-const PARAM_KEYS = ['type','semaines','titre','alterne','alterneRef','wA','wB','tA','tB','horaires','semOff','taux','maj','ieMode','ieMontant','repasMode','repasPrix','km','kmTaux','cpMode'];
+const PARAM_KEYS = ['type','semaines','semOffAVenir','hAn','jAn','titre','alterne','alterneRef','wA','wB','tA','tB','horaires','semOff','taux','maj','ieMode','ieMontant','repasMode','repasPrix','km','kmTaux','cpMode'];
 function paramsAt(c, when){
   if(!c || !Array.isArray(c.hist) || !c.hist.length) return c;
   const k = iso(parseD(when) || today());
@@ -85,8 +85,12 @@ function derive(c, when){
   const majA=Math.max(0,hA-seuil), majB=Math.max(0,hB-seuil);
   const semaines = c.type===1 ? (parseFloat(c.semaines)||0) : 52;
   const {moyH, moyJ, moyMaj} = rythmeMoyen(c.type, c.alterne, hA, hB, jA, jB, majA, majB), moyNorm = moyH-moyMaj;
-  const hNormMensu = moyNorm*semaines/12, hMajMensu = moyMaj*semaines/12;
-  const joursMensu = moyJ*semaines/12;
+  let hNormMensu = moyNorm*semaines/12, hMajMensu = moyMaj*semaines/12;
+  let joursMensu = moyJ*semaines/12;
+  // planning irrégulier : total d'heures (et de jours) prévu sur l'année ÷ 12, méthode équivalente admise
+  const hAn = parseFloat(String(c.hAn||'').replace(',','.'))||0, jAn = parseFloat(String(c.jAn||'').replace(',','.'))||0;
+  const methode = hAn>0 ? 'annuel' : (c.alterne ? 'alterne' : 'semaine');
+  if(hAn>0){ hMajMensu = Math.min(hMajMensu, hAn/12); hNormMensu = hAn/12 - hMajMensu; if(jAn>0) joursMensu = jAn/12; }
   const tauxMin = R(c.titre ? 'salMinTitre' : 'salMin', d);
   const tauxSaisi = parseFloat(c.taux)||0;
   const tauxEff = tauxSaisi ? Math.max(tauxSaisi, tauxMin) : 0;
@@ -111,7 +115,7 @@ function derive(c, when){
   const maxJour = Math.max(0, ...A, ...B);
   return { A,B,hA,hB,jA,jB,moyH,moyJ,moyMaj,moyNorm,semaines,hNormMensu,hMajMensu,hMensu:hNormMensu+hMajMensu,joursMensu,
     tauxMin,tauxSaisi,tauxEff,tauxReleve,majPct,brutBase,cp12,brut,net,ieJour,ieMois,ieSousMin,repasMois,km,
-    totalNet: net+ieMois+repasMois+km, maxJour, hMaxSem: Math.max(hA,hB), hDayAvg: (moyJ? moyH/moyJ : 0) };
+    totalNet: net+ieMois+repasMois+km, maxJour, hMaxSem: Math.max(hA,hB), hDayAvg: (moyJ? moyH/moyJ : 0), methode, hAn, jAn };
 }
 /* Semaine moyenne servant à la mensualisation.
    Année complète : moyenne des semaines A et B (52 semaines du calendrier, une semaine B vide compte).
@@ -236,6 +240,7 @@ function renderHome(){
       + '<div class="kline"><span>Entretien (moyenne/mois)</span><b>'+(dv.ieMois?fmtEUR(dv.ieMois):'—')+'</b></div>'
       + '<div class="kline"><span>Mois validés</span><b>'+nbMois+'</b></div>'
       + '<div class="kactions"><button class="btn small primary" onclick="openFor(\'mois\',\''+c.id+'\')">Ce mois-ci</button>'
+      + (c.type===1 ? '<button class="btn small" onclick="noterSemaineOff(\''+c.id+'\')">📅 Semaine sans accueil</button>' : '')
       + '<button class="btn small" onclick="openDocs(\''+c.id+'\')">📄 Documents</button>'
       + '<button class="btn small" onclick="editContrat(\''+c.id+'\')">✎ Modifier</button>'
       + '<button class="btn small" onclick="terminerContrat(\''+c.id+'\')">Fin de contrat</button></div>'
@@ -290,6 +295,41 @@ function renderHome(){
   if(se) se.textContent = STATE.lastExport ? 'Dernière copie de sécurité : '+new Date(STATE.lastExport).toLocaleDateString('fr-FR')+'.' : 'Aucune copie de sécurité faite depuis cet appareil.';
 }
 
+/* Année incomplète : semaines d'accueil de l'année du contrat (date anniversaire), passées et à venir */
+function bilanSemaines(c, ref){
+  const deb = parseD(c.debut); if(!deb || c.type!==1) return null;
+  const t = ref || today();
+  let an = new Date(t.getFullYear(), deb.getMonth(), deb.getDate()); if(an > t) an = new Date(t.getFullYear()-1, deb.getMonth(), deb.getDate()); if(an < deb) an = deb;
+  const finAn = addDays(new Date(an.getFullYear()+1, an.getMonth(), an.getDate()), -1), fin = parseD(c.fin);
+  let passees = 0, avenir = 0, off = 0;
+  for(let w = mondayOf(an); w <= finAn; w = addDays(w, 7)){
+    // une semaine à cheval sur deux années de contrat compte pour l'année où tombe la majorité de ses jours
+    let h = 0, nbJ = 0;
+    for(let i=0;i<7;i++){ const d = addDays(w, i); if(d < an || d > finAn || !inContract(c, d)) continue; nbJ++; h += plannedDay(c, d).min; }
+    if(nbJ < 4) continue;
+    if(semaineSansAccueil(paramsAt(c, w), w)) off++;
+    if(h > 0){ if(addDays(w, 6) < t) passees++; else avenir++; }
+  }
+  const sem = parseFloat(paramsAt(c, t).semaines)||0;
+  return {debut: an, fin: finAn, passees, avenir, off, semaines: sem, aPlacer: Math.max(0, Math.round(passees + avenir - sem)), depasse: passees > sem, finContrat: !!(fin && fin <= finAn)};
+}
+/* Noter une semaine sans accueil (année incomplète), quand les parents la donnent */
+function noterSemaineOff(cid){
+  const c = getContrat(cid); if(!c) return;
+  askText('Semaine sans accueil', 'Choisissez un jour de la semaine où '+(c.enfant||'l\u2019enfant')+' ne vient pas. Toute la semaine (du lundi au dimanche) sera notée sans accueil ; refaites la même chose pour l\u2019annuler.', iso(today()), v=>{
+    const d = parseD(v); if(!d){ toast('Date non reconnue.'); return; }
+    const k = iso(mondayOf(d));
+    const bascule = arr=>{ arr = Array.isArray(arr) ? arr.slice() : []; return arr.includes(k) ? arr.filter(x=>x!==k) : arr.concat([k]); };
+    const avant = (paramsAt(c, d).semOff||[]).includes(k);
+    // la semaine peut tomber dans une période couverte par un ancien avenant : on met à jour la bonne version
+    const H = (c.hist||[]).slice().sort((x,y)=>x.jusqua<y.jusqua?-1:1).find(h=>iso(d) <= h.jusqua && h.p);
+    if(H) H.p.semOff = bascule(H.p.semOff); else c.semOff = bascule(c.semOff);
+    auditLog(c.id, 'Semaine du '+fmtDate(k)+' : '+(avant ? 'accueil rétabli' : 'sans accueil'));
+    saveState(); if(typeof renderHome==='function' && CURRENT==='home') renderHome();
+    const b = bilanSemaines(c);
+    toast('Semaine du lundi '+fmtDate(k)+' : '+(avant ? 'accueil rétabli.' : 'sans accueil (pas d\u2019entretien ni de repas).')+(b && b.aPlacer ? ' Encore '+b.aPlacer+' semaine(s) sans accueil à noter cette année.' : ''));
+  }, {type:'date'});
+}
 function computeAlerts(){
   const out = [], now = today(), mNow = now.getMonth();
   const actifs = STATE.contrats.filter(c=>contratActif(c, now));
@@ -297,6 +337,14 @@ function computeAlerts(){
     const nom = '<b>'+esc(c.enfant||'Enfant')+'</b>';
     const dv = derive(c, now);
     if(!contratActif(c, now) && parseD(c.fin) && parseD(c.fin) < now) return;
+    // Année incomplète : semaines sans accueil pas encore notées, ou accueil au-delà du contrat
+    if(c.type===1 && contratActif(c, now) && (parseFloat(c.semaines)||0) > 0){
+      const b = bilanSemaines(c);
+      if(b && b.depasse) out.push({lvl:'warn', html:nom+' est déjà venu '+b.passees+' semaines depuis le '+fmtDate(iso(b.debut))+', pour '+b.semaines+' prévues au contrat sur l\u2019année. Si c\u2019est exact, les heures en plus se régularisent (ou un avenant est à prévoir) ; sinon, notez les semaines sans accueil oubliées.',
+        act:'<button class="btn small" onclick="noterSemaineOff(\''+c.id+'\')">📅 Noter une semaine sans accueil</button>'});
+      else if(b && b.aPlacer && (c.semOffAVenir || b.aPlacer >= 4)) out.push({lvl: b.aPlacer > b.avenir/2 ? 'warn' : 'info', html:nom+' : '+b.aPlacer+' semaine(s) sans accueil restent à noter d\u2019ici le '+fmtDate(iso(b.fin))+' (contrat : '+b.semaines+' semaines d\u2019accueil par an, '+b.off+' déjà notées). Notez-les dès que les parents les donnent : l\u2019entretien, les repas, les congés et la régularisation en dépendent.',
+        act:'<button class="btn small" onclick="noterSemaineOff(\''+c.id+'\')">📅 Noter une semaine sans accueil</button>'});
+    }
     // Salaire minimum (appliqué d'office)
     if(dv.tauxReleve){
       out.push({lvl:'err', html:'Le salaire horaire de '+nom+' ('+fmtEUR(dv.tauxSaisi)+') est inférieur au minimum légal en vigueur depuis le '+fmtDate(Rdu(c.titre?'salMinTitre':'salMin'))+' ('+fmtEUR(dv.tauxMin)+'). Les calculs appliquent automatiquement '+fmtEUR(dv.tauxMin)+'. Il faut signer un avenant avec la famille.',
@@ -426,7 +474,7 @@ function openFor(theme, id){ STATE.sel[theme] = id; delete (STATE.forms[theme]||
    ASSISTANT « ENFANT & CONTRAT »
    ===================================================================================== */
 let CT = null, CT_STEP = 0, CT_IS_NEW = true;
-const CT_TEXT = ['enfant','famille','naissance','debut','fin','semaines','taux','maj','ieMontant','repasPrix','km',
+const CT_TEXT = ['enfant','famille','naissance','debut','fin','semaines','hAn','jAn','taux','maj','ieMontant','repasPrix','km',
   'enfantNom','parent1','parent2','adresse','tel','email','adaptation','paiementJour','kmTaux'];
 const REP_KEYS = ['date','cumulBrut','cpReliquat','cpPrisN','mal','regulVerse','regulHeures'];
 function buildWeek(containerId, prefix){
@@ -448,6 +496,7 @@ function editContrat(id, force){
   setTxt('ct-title', CT_IS_NEW ? 'Nouvel enfant' : 'Modifier : '+(CT.enfant||'enfant'));
   CT_TEXT.forEach(k=>setVal('ct-'+k, CT[k]));
   setSegVal('ct-handicap', CT.handicap); setSegVal('ct-type', CT.type); setSegVal('ct-titre', CT.titre);
+  setSegVal('ct-semConnues', CT.semOffAVenir ? 1 : 0); if(CT.hAn) { const d=$('ct-irreg-wrap'); if(d) d.open = true; }
   setSegVal('ct-alterne', CT.alterne); setSegVal('ct-alterneRef', CT.alterneRef||0); setSegVal('ct-ieMode', CT.ieMode); setSegVal('ct-repasMode', CT.repasMode); setSegVal('ct-cpMode', CT.cpMode);
   for(let i=0;i<7;i++){ setVal('ct-wA'+i, CT.wA[i]); setVal('ct-wB'+i, CT.wB[i]);
     ['A','B'].forEach(w=>{ const t=(CT['t'+w]||[])[i]||[]; setVal('ct-w'+w+i+'s', t[0]||''); setVal('ct-w'+w+i+'e', t[1]||''); }); }
@@ -462,6 +511,7 @@ function ctRead(){
   if(!CT) return;
   CT_TEXT.forEach(k=>CT[k]=val('ct-'+k).trim());
   CT.handicap=seg('ct-handicap'); CT.type=seg('ct-type'); CT.titre=seg('ct-titre'); CT.alterne=seg('ct-alterne'); CT.alterneRef=seg('ct-alterneRef');
+  CT.semOffAVenir = CT.type===1 && seg('ct-semConnues')===1 ? 1 : 0;
   CT.ieMode=seg('ct-ieMode'); CT.repasMode=seg('ct-repasMode'); CT.cpMode=seg('ct-cpMode');
   CT.horaires = seg('ct-horaires');
   CT.tA = CT.tA||[]; CT.tB = CT.tB||[];
@@ -483,7 +533,12 @@ function ctRefresh(){
   $('ct-prev').style.visibility = CT_STEP===0 ? 'hidden' : 'visible';
   $('ct-next').textContent = CT_STEP===4 ? '✔ Enregistrer' : 'Suivant →';
   show('ct-semaines-wrap', CT.type===1);
+  show('ct-semConnues-row', CT.type===1, 'flex');
+  setTxt('ct-semoff-label', CT.semOffAVenir ? 'Facultatif : touchez seulement les semaines sans accueil déjà connues' : 'Touchez les semaines où l\u2019enfant ne vient pas (vacances scolaires, vos congés…)');
   show('ct-semoff-wrap', CT.type===1);
+  setHTML('ct-semConnues-hint', CT.semOffAVenir
+    ? 'D\u2019accord : cochez ci-dessous seulement les semaines déjà connues (ou aucune). Ensuite, dès que les parents vous donnent une semaine sans accueil, notez-la avec le bouton « 📅 Semaine sans accueil » (onglet Enfants ou Mois). En attendant, le carnet estime les congés et la régularisation avec le nombre de semaines du contrat, et vous rappelle combien de semaines restent à placer. Prévoyez dans le contrat le délai dans lequel les parents vous préviennent.'
+    : 'Le salaire mensualisé ne dépend que du nombre de semaines : il est juste dès maintenant. Les dates servent à l\u2019entretien et aux repas de chaque mois, aux congés et à la régularisation.');
   if(CT.type===1) ctRenderWeeks();
   show('ct-cpMode-row', CT.type===1, 'flex');
   setTxt('ct-type-hint', CT.type===1
@@ -528,7 +583,11 @@ function ctRefresh(){
   const warns = [];
   if(dv.maxJour > R('hMaxJour')) warns.push('Une journée dépasse '+R('hMaxJour')+' h : impossible avec 11 h de repos obligatoire entre deux journées.');
   if(dv.moyH > R('hMaxSemaine')) warns.push('Plus de '+R('hMaxSemaine')+' h par semaine en moyenne : possible seulement avec votre accord écrit (2 250 h par an au maximum).');
-  if(dv.hMaxSem > R('seuilMaj')) warns.push('Plus de 45 h par semaine : les heures au-delà seront payées avec une majoration (10 % minimum).');
+  if(dv.hMaxSem > R('seuilMaj')) warns.push('Plus de '+R('seuilMaj')+' h par semaine : les heures au-delà seront payées avec une majoration ('+R('majMin')+' % minimum).');
+  const semVide = CT.alterne && (!dv.hA || !dv.hB);
+  if(CT.type===1 && semVide && (parseFloat(CT.semaines)||0) > 26) warns.push('Accueil une semaine sur deux : l\u2019enfant vient au plus 26 semaines par an. Le nombre de semaines du contrat ('+CT.semaines+') doit compter <b>seulement les semaines où il vient</b> (ex. période scolaire de 36 semaines, une sur deux : 18). Sinon le salaire serait doublé.');
+  if(CT.type===0 && semVide) warns.push('Année complète avec une semaine sur deux sans accueil : le salaire est la moyenne des deux semaines (une semaine vide compte pour 0 h). Si l\u2019enfant ne vient vraiment qu\u2019une semaine sur deux, choisissez plutôt « Non, une partie de l\u2019année » avec le nombre de semaines où il vient.');
+  if(dv.hAn>0){ const hPlan = dv.moyH*(CT.type===1 ? (parseFloat(CT.semaines)||0) : 52); if(hPlan && Math.abs(hPlan - dv.hAn)/hPlan > 0.15) warns.push('Planning irrégulier : le total annuel ('+fmtNum(dv.hAn,2)+' h) est très différent de la semaine type × semaines ('+fmtNum(hPlan,2)+' h). Vérifiez le total : c\u2019est lui qui fixe le salaire.'); }
   setHTML('ct-planning-warn', warns.join('<br>')); show('ct-planning-warn', warns.length>0);
   setHTML('ct-taux-hint', 'Minimum légal aujourd\'hui : <b>'+fmtEUR(dv.tauxMin)+'</b> brut de l\'heure'+(CT.titre?' (avec titre AM-AP)':'')+' — en vigueur depuis le '+fmtDate(Rdu(CT.titre?'salMinTitre':'salMin'))+'.'
     + (dv.tauxReleve ? ' <span style="color:var(--error)">Votre tarif est en dessous : '+fmtEUR(dv.tauxMin)+' sera appliqué.</span>' : '')
@@ -572,6 +631,7 @@ function ctRecap(dv){
     ['Type de contrat', CT.type===1 ? 'Année incomplète ('+(dv.semaines||'?')+' semaines)' : 'Année complète (52 semaines)'],
     ['Heures par semaine (moyenne)', fmtNum(dv.moyH,2)+' h'],
     ['Heures payées chaque mois', fmtNum(dv.hMensu,2)+' h'+(dv.hMajMensu?' (dont '+fmtNum(dv.hMajMensu,2)+' h majorées)':'')],
+    ['Calcul', dv.methode==='annuel' ? fmtNum(dv.hAn,2)+' h prévues sur l\u2019année ÷ 12' : fmtNum(dv.moyH,2)+' h'+(CT.alterne ? ' (moyenne des semaines '+(CT.type===1 && (!dv.hA||!dv.hB) ? 'où l\u2019enfant vient' : '1 et 2')+')' : '')+' × '+(CT.type===1 ? (dv.semaines||'?')+' semaines' : '52 semaines')+' ÷ 12'],
     ['Jours d\'accueil par mois (moyenne)', fmtNum(dv.joursMensu,2)+' j'],
     ['Salaire horaire appliqué', fmtEUR(dv.tauxEff)+(dv.tauxReleve?' <span class="badge warn">relevé au minimum</span>':'')],
   ];
