@@ -168,7 +168,7 @@ function startDemo(){
         try{
           const x = moisPourContrat(c, ym), M = suiviMonth(c, ym), T = M.T; if(!x) return;
           S.journal[c.id][ym] = {brut:round2(x.brut), net:round2(x.net), netImp:round2(x.netImp), ie:round2(x.ie), repas:round2(x.repas), km:round2(x.km||0), hDecl:x.hDecl, jDecl:x.jDecl, hCompl:x.hCompl||0, hMaj:x.hMaj||0,
-            hReel:round2((T.R+T.ferieChMin)/60), hContrat:round2(Math.max(0, T.R+T.ferieChMin-T.compl-T.maj)/60), brutMensu:round2(M.due), jours:x.jours, jCP:x.jCP||0, cpMontant:round2(x.cp||0), ded:0, j8:x.j8, hm8:round2(x.hm8||0), taux:M.taux,
+            hReel:round2((T.R+T.ferieChMin+T.dueAbsMin)/60), hContrat:round2(Math.max(0, T.R+T.ferieChMin+T.dueAbsMin-T.compl-T.maj)/60), brutMensu:round2(M.due), jours:x.jours, jCP:x.jCP||0, cpMontant:round2(x.cp||0), ded:0, j8:x.j8, hm8:round2(x.hm8||0), taux:M.taux,
             datepaie: iso(new Date(m.getFullYear(), m.getMonth()+1, 5)), validatedAt:new Date().toISOString()};
         }catch(e){}
       });

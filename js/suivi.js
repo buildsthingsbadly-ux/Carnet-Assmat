@@ -127,7 +127,7 @@ function suiviMonth(c, ym, opts){
   }
   const md = days.filter(x=>x.d.getMonth()===m);
   const T = {hPrev:0, hDed:0, hOut:0, compl:0, maj:0, R:0, jAcc:0, jPrev:0, jDed:0, cp:0, cpOuv:0, ie:0, repas:0, nbRepas:0, km:0, kmEur:0, frais:0,
-    ferieMin:0, mai1Min:0, retards:0, todo:0, j8:0, hm8:0, inC:0, jOut:0, ferieChMin:0};
+    ferieMin:0, mai1Min:0, retards:0, todo:0, j8:0, hm8:0, inC:0, jOut:0, ferieChMin:0, dueAbsMin:0};
   const versions = {};
   md.forEach(x=>{
     const plFull = plannedDay(c, x.d).min;
@@ -144,6 +144,9 @@ function suiviMonth(c, ym, opts){
     if(x.acc && x.R>0 && x.st!=='avant'){ T.jAcc++; if(x.R >= 60*(R('abatHeuresJour', x.d)||8)) T.j8++; else T.hm8 += x.R/60; }
     if(x.def.cp) T.cp++;
     if(x.st==='ferieCh') T.ferieChMin += x.P;
+    // absences payées (enfant absent sans déduction, événement familial, formation…) : heures dues, comptées comme
+    // effectuées pour la régularisation de l'année incomplète (comme les fériés chômés) ; jamais les congés payés
+    else if(x.P && !x.acc && !x.def.cp && x.st!=='avant') T.dueAbsMin += Math.max(0, x.P - x.ded);
     T.ie += x.ie; T.repas += x.repas; T.nbRepas += x.nbRepas; T.km += x.km; T.kmEur += x.kmEur; T.frais += x.frais;
     if(x.acc && x.ferie && x.R){ if(x.ferie==='1er mai') T.mai1Min += x.R; else T.ferieMin += x.R; }
     if(x.retard) T.retards++;
@@ -515,7 +518,7 @@ function contratCumuls(c, fromM, toM){
       if(r){ t.brut += +r.brut||0; t.brutMensu += +r.brutMensu||0; t.hContrat += +r.hContrat||0;
         const cc = paramsAt(c, d); t.cp12 += r.cp12!==undefined ? (+r.cp12||0) : (cc.type===1 && cc.cpMode===0 ? (+r.cpMontant||0) : 0); }
       else { const M = suiviMonth(c, ym, {sansCP: !!(arguments[3])}), T = M.T;
-        t.brut += M.brut; t.brutMensu += M.due; t.hContrat += Math.max(0, T.R + T.ferieChMin - T.compl - T.maj)/60; t.cp12 += M.cp12; t.estimes++; }
+        t.brut += M.brut; t.brutMensu += M.due; t.hContrat += Math.max(0, T.R + T.ferieChMin + T.dueAbsMin - T.compl - T.maj)/60; t.cp12 += M.cp12; t.estimes++; }
       t.n++;
     }
     d = new Date(d.getFullYear(), d.getMonth()+1, 1);
@@ -550,7 +553,7 @@ function suiviFillMois(c, ym){
   setVal('mois-indemj', I.fixe || '');
   setVal('mois-repas', T.jAcc ? +(T.repas/T.jAcc).toFixed(6) : '');
   setVal('mois-km', round2(T.kmEur || (parseFloat(paramsAt(c,parseD(ym)).km)||0)));
-  setVal('mois-hreel', round2((T.R + T.ferieChMin)/60));   // fériés chômés payés : comptés comme effectués pour la régularisation
+  setVal('mois-hreel', round2((T.R + T.ferieChMin + T.dueAbsMin)/60));   // fériés chômés et absences payées : comptés comme effectués pour la régularisation
   setVal('mois-j8', T.j8); setVal('mois-hm8', +T.hm8.toFixed(6));
   setVal('mois-regul', M.regBrut ? round2(M.regBrut) : '');
   if(mr.acompte) setVal('mois-acompte', mr.acompte);

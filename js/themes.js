@@ -693,7 +693,8 @@ PREFILL.cp = c=>{
 CALC.cp = ()=>{
   const A = {}, S = {};
   CP_P.forEach(p=>{
-    const fin = parseD(val('cp-'+p.k+'-fin')), enCours = p.k==='n' && fin && !(fin.getMonth()===4 && fin.getDate()===31);
+    const kF = selKey('cp'), cF = kF!=='libre' ? getContrat(kF) : null;
+    const fin = parseD(val('cp-'+p.k+'-fin')), enCours = p.k==='n' && fin && !(fin.getMonth()===4 && fin.getDate()===31) && !(cF && cF.fin && iso(fin)===cF.fin);
     const kC = selKey('cp'), cC = kC!=='libre' && seg('cp-type')===1 ? getContrat(kC) : null;
     A[p.k]=joursAcquisCP(val('cp-'+p.k+'-debut'), val('cp-'+p.k+'-fin'), num('cp-'+p.k+'-mal'), enCours, cC); S[p.k]=num('cp-'+p.k+'-solde');
   });
@@ -885,7 +886,8 @@ PREFILL.fin = c=>{
   setSegVal('fin-type', c.type);
   setVal('fin-debut', c.debut);
   if(c.fin) setVal('fin-regul-fin', c.fin);
-  setVal('fin-salaire', round2(dv.brut)); setVal('fin-taux', round2(dv.tauxEff)); setVal('fin-heures', round2(dv.moyH));
+  const finM = isoMonth(parseD(c.fin) || today()), Mfin = suiviMonth(c, finM, {sansCP:true});
+  setVal('fin-salaire', round2(Mfin.brut || dv.brut)); setVal('fin-taux', round2(dv.tauxEff)); setVal('fin-heures', round2(dv.moyH));
   setVal('fin-regul-taux', round2(dv.tauxEff));
   const fin = parseD(c.fin) || today();
   const d12 = addMonths(fin, -12), deb = parseD(c.debut);
@@ -924,6 +926,10 @@ PREFILL.fin = c=>{
   }
   const cpd = cpDispoFor(c);
   if(cpd !== null){ setSegVal('fin-cp', cpd>0 ? 1 : 0); setVal('fin-jours', round2(cpd)); }
+  const cpDet = cpDispoFor(c, true), sansForm = !(STATE.forms.cp && STATE.forms.cp[c.id]);
+  setHTML('fin-jours-hint', sansForm && cpDet && !cpDet.prisConnu && c.type!==1
+    ? '⚠️ Aucun congé pris n\u2019est noté depuis le 1er juin : les jours acquis jusqu\u2019au 31 mai sont comptés comme restants. Si vous avez pris des congés, notez-les dans <a href="#" onclick="showTheme(\'reglages\');setTimeout(()=>{const e=$(\'conges-wrap\');if(e)e.scrollIntoView();},80);return false;">Réglages ▸ Mes congés payés</a> ou corrigez ce nombre.'
+    : 'Calculé d\u2019après vos congés notés (suivi, « Mes congés » ou mois validés). Détail dans le thème « Congés payés ».');
   // Année incomplète payée par 12ᵉ : les congés sont déjà payés chaque mois
   if(c.type===1 && c.cpMode===0){ setSegVal('fin-cp', 0); }
   finAutoRupture();
@@ -936,16 +942,25 @@ function cpDispoFor(c, detail){
     // Sans calcul « Congés payés » enregistré : seule la période en cours est reprise (les périodes
     // précédentes sont normalement prises ou payées) ; les reliquats éventuels sont à vérifier.
     const ref = parseD(c.fin) || today();
-    const Pn = cpRefPeriods(Object.assign({}, c, {fin: iso(ref)}), ref).find(x=>x.k==='n');
-    if(!Pn || !Pn.s) return 0;
+    const PP = cpRefPeriods(Object.assign({}, c, {fin: iso(ref)}), ref);
+    const Pn = PP.find(x=>x.k==='n'), P1 = PP.find(x=>x.k==='n1');
+    if(!Pn || !Pn.s) return detail ? {rest:0, parts:[]} : 0;
+    const rp = c.rep || {}, avecReliquat = rp.cpReliquat!==undefined && rp.cpReliquat!=='';
     const acquis = joursAcquisCP(iso(Pn.s), iso(Pn.e), 0, false, c);
-    const rp = c.rep || {};
-    // congés notés dans le suivi au jour le jour, sinon ceux des mois validés
+    // les jours acquis jusqu'au 31 mai se prennent pendant la période en cours : ils restent dus s'ils ne sont pas pris
+    // (année complète, ou année incomplète payée à la prise des congés ; payés en juin ou par 12ᵉ sinon).
+    // La période d'il y a deux ans est réputée prise. Contrat repris avec un reliquat saisi : ce reliquat les remplace.
+    // les congés pris depuis le 1er juin consomment d'abord les jours acquis jusqu'au 31 mai, même déjà payés en juin
+    const aN1 = !avecReliquat && P1 && P1.s, avecN1 = aN1 && (c.type!==1 || c.cpMode===2);
+    const acquis1 = aN1 ? joursAcquisCP(iso(P1.s), iso(P1.e), 0, false, c) : 0;
+    // congés pris depuis le 1er juin : suivi au jour le jour ou « Mes congés », sinon mois validés (+ reprise)
     const sCP = cpPrisSuivi(c, Pn.s, Pn.e);
     const pris = Math.max(sCP, journalTotals(c.id, isoMonth(Pn.s), isoMonth(Pn.e)).jCP) + (parseFloat(rp.cpPrisN)||0);
-    const restN = Math.max(0, acquis - pris);
-    const tot = Math.max(0, acquis - pris + (parseFloat(rp.cpReliquat)||0));
-    return detail ? {rest: tot, parts: [{k:'n', s:Pn.s, e:Pn.e, acq:acquis, rest:restN}]} : tot;
+    const rest1 = avecN1 ? Math.max(0, acquis1 - pris) : 0, restN = Math.max(0, acquis - Math.max(0, pris - acquis1));
+    const tot = rest1 + restN + (avecReliquat ? parseFloat(rp.cpReliquat)||0 : 0);
+    const parts = [{k:'n', s:Pn.s, e:Pn.e, acq:acquis, rest:restN}];
+    if(avecN1) parts.unshift({k:'n1', s:P1.s, e:P1.e, acq:acquis1, rest:rest1});
+    return detail ? {rest: tot, parts, prisConnu: pris>0} : tot;
   }
   const refF = parseD(c.fin) || today();
   const P = cpRefPeriods(Object.assign({}, c, {fin: iso(refF)}), refF);
@@ -1108,6 +1123,19 @@ function moisPourContrat(c, ym){
   finally{ champs.forEach(([el,v])=>{ el.value = v; }); segs.forEach(([id,v])=>setSegVal(id, v)); STATE.sel.mois = selAvant; }
   return r && {valide:false, brut:r.brut, net:r.net, netImp:r.netImp, ie:r.ie, repas:r.repas, km:r.km, hDecl:r.hNormDecl, jDecl:r.jDecl, hCompl:r.hComplDecl, hMaj:r.hMajDecl, jCP:r.jcp, cp:r.cpTot, acompte:r.acompte||0, jours:r.jours||0, j8:r.j8||0, hm8:r.hm8||0,
     netCompl: (r.brutCompl||0)*Math.min(1,kHs), netMaj: ((r.brutMaj||0)+(r.brutMajMensu||0))*Math.min(1,kHs), cpNet: (r.cpTot||0)*kN, datepaie: r.datepaie||'', type: r.inc ? 1 : paramsAt(c, parseD(ym)).type};
+}
+/* Mois d'un contrat entre deux mois (inclus), jusqu'au mois en cours : chiffres validés, sinon calculés
+   comme dans « Salaire du mois » (suivi s'il existe, sinon planning) */
+function moisDuContrat(c, fromYm, toYm){
+  const out = [], deb = parseD(c.debut), fin = parseD(c.fin), lim = curMonth();
+  if(!deb) return out;
+  let d = parseD(fromYm); const end = parseD(toYm);
+  while(d <= end){
+    const ym = isoMonth(d), last = new Date(d.getFullYear(), d.getMonth()+1, 0);
+    if(ym <= lim && !(deb > last) && !(fin && fin < d)){ const x = moisPourContrat(c, ym); if(x) out.push({ym, x}); }
+    d = new Date(d.getFullYear(), d.getMonth()+1, 1);
+  }
+  return out;
 }
 function parentsContrat(){ const k = selKey('parents'); return k!=='libre' ? getContrat(k) : null; }
 let PARENTS_CTX = null;

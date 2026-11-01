@@ -10,7 +10,7 @@ const DOCS = [
   {id:'contrat', g:'Embauche', t:'Contrat de travail (CDI)', d:'Pré-rempli avec le planning, le salaire, les indemnités, les congés, les absences et la rupture.'},
   {id:'autorisations', g:'Embauche', t:'Autorisations et fiche de renseignements', d:'Personnes autorisées, sorties, transport, photos, santé et urgences.'},
   {id:'avenant', g:'Vie du contrat', t:'Avenant au contrat', d:'Changement d\'horaires, de salaire ou d\'indemnités (valeurs actuelles pré-remplies).'},
-  {id:'recap', g:'Vie du contrat', t:'Récapitulatif annuel des sommes versées', d:'Mois par mois, d\'après les mois validés (utile pour vérifier les bulletins et l\'attestation fiscale).'},
+  {id:'recap', g:'Vie du contrat', t:'Récapitulatif annuel des sommes versées', d:'Mois par mois : mois validés, sinon estimés d\'après le planning ou le suivi (utile pour vérifier les bulletins et l\'attestation fiscale).'},
   {id:'retrait', g:'Fin de contrat', t:'Lettre de retrait de l\'enfant (par les parents)', d:'Avec le préavis calculé.'},
   {id:'demission', g:'Fin de contrat', t:'Lettre de démission (par l\'assistante maternelle)', d:'Avec le préavis calculé.'},
   {id:'certificat', g:'Fin de contrat', t:'Certificat de travail', d:'Obligatoire à la fin du contrat.'},
@@ -180,17 +180,22 @@ function printDoc(id){
       + lieuDate() + sign('L\'employeur', 'La salariée');
   }
   else if(id==='recap'){
-    const y = String(today().getFullYear()), J = journalOf(c.id);
-    const years = [...new Set(Object.keys(J).map(m=>m.slice(0,4)))].sort().reverse();
+    const deb = parseD(c.debut), fin = parseD(c.fin);
     h = docHead('Récapitulatif des sommes versées', c);
-    if(!years.length) h += '<p>Aucun mois validé pour cet enfant. Validez chaque mois dans « Salaire du mois & Pajemploi ».</p>';
-    years.forEach(yr=>{
-      const t = journalTotals(c.id, yr+'-01', yr+'-12');
-      h += '<h3>Année '+yr+'</h3><table><tr><td><b>Mois</b></td><td><b>Brut</b></td><td><b>Net</b></td><td><b>Net imposable</b></td><td><b>Entretien</b></td><td><b>Repas + km</b></td></tr>'
-        + t.mois.map(m=>{ const r=J[m]; return '<tr><td>'+fmtMonth(m)+'</td><td>'+fmtEUR(r.brut)+'</td><td>'+fmtEUR(r.net)+'</td><td>'+fmtEUR(r.netImp)+'</td><td>'+fmtEUR(r.ie)+'</td><td>'+fmtEUR((r.repas||0)+(r.km||0))+'</td></tr>'; }).join('')
-        + '<tr class="tot"><td>Total</td><td>'+fmtEUR(t.brut)+'</td><td>'+fmtEUR(t.net)+'</td><td>'+fmtEUR(t.netImp)+'</td><td>'+fmtEUR(t.ie)+'</td><td>'+fmtEUR(t.repas+t.km)+'</td></tr></table>';
-    });
-    h += '<p class="legal-p">Montants enregistrés dans le carnet (estimations pour le net et le net imposable). Les montants officiels sont ceux des bulletins et de l\'attestation fiscale Pajemploi.</p>';
+    if(!deb) h += '<p>Date de début du contrat non renseignée.</p>';
+    let yr = deb ? deb.getFullYear() : 0; const y1 = Math.min(fin ? fin.getFullYear() : 9999, today().getFullYear());
+    const blocs = [];
+    for(; deb && yr <= y1; yr++){
+      const L = moisDuContrat(c, yr+'-01', yr+'-12'); if(!L.length) continue;
+      const t = {brut:0, net:0, netImp:0, ie:0, rk:0}; let est = 0;
+      const rows = L.map(({ym, x})=>{ t.brut+=x.brut; t.net+=x.net; t.netImp+=x.netImp; t.ie+=x.ie; t.rk+=(x.repas||0)+(x.km||0); if(!x.valide) est++;
+        return '<tr><td>'+fmtMonth(ym)+(x.valide ? '' : ' *')+'</td><td>'+fmtEUR(x.brut)+'</td><td>'+fmtEUR(x.net)+'</td><td>'+fmtEUR(x.netImp)+'</td><td>'+fmtEUR(x.ie)+'</td><td>'+fmtEUR((x.repas||0)+(x.km||0))+'</td></tr>'; }).join('');
+      blocs.unshift('<h3>Année '+yr+'</h3><table><tr><td><b>Mois</b></td><td><b>Brut</b></td><td><b>Net</b></td><td><b>Net imposable</b></td><td><b>Entretien</b></td><td><b>Repas + km</b></td></tr>'
+        + rows + '<tr class="tot"><td>Total</td><td>'+fmtEUR(t.brut)+'</td><td>'+fmtEUR(t.net)+'</td><td>'+fmtEUR(t.netImp)+'</td><td>'+fmtEUR(t.ie)+'</td><td>'+fmtEUR(t.rk)+'</td></tr></table>'
+        + (est ? '<p class="legal-p">* '+est+' mois non validé(s) : estimation d\'après '+(((STATE.suivi||{})[c.id]||{}).days && Object.keys(STATE.suivi[c.id].days).length ? 'le suivi des journées ou le planning' : 'le planning du contrat')+'.</p>' : ''));
+    }
+    h += blocs.join('') || '<p>Aucun mois de contrat passé.</p>';
+    h += '<p class="legal-p">Montants du carnet (le net et le net imposable sont des estimations). Les montants officiels sont ceux des bulletins et de l\'attestation fiscale Pajemploi.</p>';
   }
   else if(id==='retrait' || id==='demission'){
     const f = finValues(c);
@@ -233,7 +238,7 @@ function printDoc(id){
       + (f.rupture?row('Indemnité de rupture', esc(f.rupture)):'')
       + '<tr class="tot"><td>Total (brut, frais et indemnité de rupture compris)</td><td>'+esc(f.total)+'</td></tr>'
       + row('Montant net estimé versé', esc(f.net)) + row('Mode de paiement', BL) + '</table>'
-      + (f.tropPercu ? '<p>Note : la régularisation fait apparaître un trop-perçu de '+esc(f.tropPercu)+'. Il n\'est pas retenu sur les sommes ci-dessus ; il ne peut être récupéré qu\'avec l\'accord écrit de la salariée ou sur décision de justice.</p>' : '')
+      + (f.tropPercu ? '<p>Note : la régularisation fait apparaître un trop-perçu de '+esc(f.tropPercu)+'. Il n\'est pas retenu sur les sommes ci-dessus. S\'il est réclamé, il se récupère par petites retenues dans la limite de la part saisissable, après information écrite de la salariée ; un accord écrit sur l\'échéancier évite les litiges.</p>' : '')
       + '<p>Ce reçu, établi en deux exemplaires, peut être dénoncé dans les six mois qui suivent sa signature, après quoi il devient libératoire pour les sommes qui y sont mentionnées.</p>'
       + '<p>Fait à '+BL+', le '+today().toLocaleDateString('fr-FR')+'.</p>' + sign('L\'employeur', 'La salariée (mention « pour solde de tout compte »)')
       + '<p class="legal-p">Montants repris du calcul « Fin de contrat » du carnet : vérifiez-les avec la dernière déclaration Pajemploi.</p>';

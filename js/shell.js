@@ -65,8 +65,13 @@ function renderAccueil(){
   } else {
     setTxt('today-title', '👶 Mes enfants aujourd\'hui');
     setHTML('home-today', list.filter(c=>contratActif(c,t)).map(c=>{
-      const pl = plannedDay(c, t);
-      return '<div class="kid" style="margin-bottom:10px"><div class="kname">'+esc(c.enfant||'')+'</div><div class="kfam">'+(pl.min?'Prévu aujourd\'hui : '+(pl.s&&pl.e?pl.s+' – '+pl.e+' · ':'')+fmtH(pl.min):'Pas d\'accueil prévu aujourd\'hui')+'</div>'
+      const pl = plannedDay(c, t), fer = ferieName(t);
+      const etat = !pl.min ? 'Pas d\'accueil prévu aujourd\'hui'
+        : fer ? 'Jour férié ('+fer+') : pas d\'accueil, payé'
+        : enConges(t) ? '🏖️ Vous êtes en congés payés aujourd\'hui'
+        : absEnfant(c, t) ? 'Absent aujourd\'hui (vacances de la famille) : salaire dû, pas d\'entretien'
+        : 'Prévu aujourd\'hui : '+(pl.s&&pl.e?pl.s+' – '+pl.e+' · ':'')+fmtH(pl.min);
+      return '<div class="kid" style="margin-bottom:10px"><div class="kname">'+esc(c.enfant||'')+'</div><div class="kfam">'+etat+'</div>'
         + '<div class="kactions"><button class="btn small primary" onclick="preparerDeclaration(\''+c.id+'\',curMonth())">Salaire du mois</button><button class="btn small" onclick="openFor(\'ccass\',\''+c.id+'\')">Absence</button></div></div>';
     }).join('') || '<div class="info-box">Aucun accueil aujourd\'hui.</div>');
   }
@@ -158,15 +163,18 @@ function renderAnnee(){
     + ev.map(e=>{ const passe = e.date < t; const st = e.done ? 'done' : passe ? 'past' : (e.date - t)/86400000 < 45 ? 'soon' : '';
       return '<div class="tl '+st+'"><div class="tl-d">'+e.date.toLocaleDateString('fr-FR',{day:'numeric', month:'short'})+'</div><div class="tl-b"><b>'+(e.done?'✔ ':'')+e.titre+'</b><div class="hint" style="margin:2px 0 0">'+e.txt+'</div>'
         + (e.act && !e.done ? '<a href="#" onclick="'+e.act+';return false;">Y aller →</a>' : '')+'</div></div>'; }).join('')+'</div>';
-  // Bilan de l'année (mois validés)
-  const rows = STATE.contrats.map(c=>({c, T: journalTotals(c.id, y+'-01', y+'-12')})).filter(r=>r.T.n);
-  h += '<div class="h-sec">📊 Bilan '+y+' (mois validés)</div>';
-  if(!rows.length) h += '<div class="info-box">Aucun mois validé en '+y+'. Les mois validés dans « Salaire du mois & Pajemploi » apparaissent ici.</div>';
+  // Bilan de l'année : mois validés, sinon estimés (planning ou suivi), jusqu'au mois en cours
+  const rows = STATE.contrats.map(c=>{ const L = moisDuContrat(c, y+'-01', y+'-12'); const T = {n:L.length, est:0, brut:0, net:0, netImp:0, ind:0};
+    L.forEach(({x})=>{ T.brut+=x.brut; T.net+=x.net; T.netImp+=x.netImp; T.ind+=x.ie+(x.repas||0)+(x.km||0); if(!x.valide) T.est++; }); return {c, T}; }).filter(r=>r.T.n);
+  const nbEst = rows.reduce((s,r)=>s+r.T.est, 0);
+  h += '<div class="h-sec">📊 Bilan '+y+'</div>';
+  if(!rows.length) h += '<div class="info-box">Aucun mois de contrat en '+y+' pour l\'instant.</div>';
   else {
     const tot = {brut:0, net:0, netImp:0, ind:0};
-    h += '<div class="ab-table-wrap"><table class="ab-table" style="min-width:520px"><thead><tr><th>Enfant</th><th>Mois</th><th>Brut</th><th>Net</th><th>Net imposable</th><th>Entretien, repas, km</th></tr></thead><tbody>'
-      + rows.map(r=>{ const ind = r.T.ie+r.T.repas+r.T.km; tot.brut+=r.T.brut; tot.net+=r.T.net; tot.netImp+=r.T.netImp; tot.ind+=ind;
-          return '<tr><td>'+esc(r.c.enfant||'')+'</td><td>'+r.T.n+'</td><td class="ab-out">'+fmtEUR(r.T.brut)+'</td><td class="ab-out">'+fmtEUR(r.T.net)+'</td><td class="ab-out">'+fmtEUR(r.T.netImp)+'</td><td class="ab-out">'+fmtEUR(ind)+'</td></tr>'; }).join('')
+    h += (nbEst ? '<p class="hint">'+nbEst+' mois non validé(s) (marqués *) : estimés d\'après le planning ou le suivi, comme dans l\'onglet Mois. Les mois validés sont repris tels quels.</p>' : '')
+      + '<div class="ab-table-wrap"><table class="ab-table" style="min-width:520px"><thead><tr><th>Enfant</th><th>Mois</th><th>Brut</th><th>Net</th><th>Net imposable</th><th>Entretien, repas, km</th></tr></thead><tbody>'
+      + rows.map(r=>{ const ind = r.T.ind; tot.brut+=r.T.brut; tot.net+=r.T.net; tot.netImp+=r.T.netImp; tot.ind+=ind;
+          return '<tr><td>'+esc(r.c.enfant||'')+'</td><td>'+r.T.n+(r.T.est ? ' (dont '+r.T.est+' *)' : '')+'</td><td class="ab-out">'+fmtEUR(r.T.brut)+'</td><td class="ab-out">'+fmtEUR(r.T.net)+'</td><td class="ab-out">'+fmtEUR(r.T.netImp)+'</td><td class="ab-out">'+fmtEUR(ind)+'</td></tr>'; }).join('')
       + '<tr class="ab-total-row"><td>Total</td><td></td><td class="ab-out">'+fmtEUR(tot.brut)+'</td><td class="ab-out">'+fmtEUR(tot.net)+'</td><td class="ab-out">'+fmtEUR(tot.netImp)+'</td><td class="ab-out">'+fmtEUR(tot.ind)+'</td></tr></tbody></table></div>';
   }
   h += '<div class="btn-row"><button class="btn small" onclick="openAbattement('+y+')">Impôts sur '+y+'</button><button class="btn small" onclick="showTheme(\'cp\')">Congés payés</button><button class="btn small" onclick="openDocs()">Récapitulatifs annuels</button></div>';

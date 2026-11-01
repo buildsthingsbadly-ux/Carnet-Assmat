@@ -206,6 +206,7 @@ function buildCmg(){
       + '<div class="ab-child-head"><span class="ab-child-num">Enfant '+i+'</span><select id="cmg-c'+i+'-from" class="btn small" style="flex:1;max-width:240px" aria-label="Remplir cet enfant depuis un contrat"></select></div>'
       + '<div class="grid2"><div class="field"><label>Heures d\'accueil dans le mois</label><input type="number" step="0.25" id="cmg-c'+i+'-heures" placeholder="ex. 160"></div>'
       + '<div class="field"><label>Salaire horaire brut (€)</label><input type="number" step="0.01" id="cmg-c'+i+'-taux" placeholder="ex. 4.50"></div></div>'
+      + '<div class="field"><label>Salaire net du mois (€)</label><input type="number" step="0.01" id="cmg-c'+i+'-net" placeholder="calculé"><div class="hint">Laissez vide : calculé d\'après les heures et le salaire horaire.</div></div>'
       + '<div class="grid2"><div class="field"><label>Indemnités d\'entretien du mois (€)</label><input type="number" step="0.01" id="cmg-c'+i+'-entretien" placeholder="0"></div>'
       + '<div class="field"><label>Repas du mois (€)</label><input type="number" step="0.01" id="cmg-c'+i+'-repas" placeholder="0"></div></div>'
       + '<div class="field"><label>Date de naissance de l\'enfant (facultatif)</label><input type="date" id="cmg-c'+i+'-naiss"></div>'
@@ -223,21 +224,29 @@ function cmgFillSelects(){
     s.value = '';
   }
 }
-function cmgFromContract(i, id){
+function cmgFromContract(i, id, silent){
   const c = getContrat(id); if(!c) return;
   const m = val('cmg-mois') || curMonth();
   const dv = derive(c, m);
-  setVal('cmg-c'+i+'-heures', round2(dv.hMensu)); setVal('cmg-c'+i+'-taux', round2(dv.tauxEff));
-  setVal('cmg-c'+i+'-entretien', round2(dv.ieMois)); setVal('cmg-c'+i+'-repas', round2(dv.repasMois));
+  // même mois que « Salaire du mois » et l'onglet Mois : heures déclarées sur Pajemploi, net, entretien et repas réels
+  const x = typeof contratActifMois==='function' && contratActifMois(c, m) ? moisPourContrat(c, m) : null;
+  if(x){
+    setVal('cmg-c'+i+'-heures', round2((x.hDecl||0) + (x.hCompl||0) + (x.hMaj||0))); setVal('cmg-c'+i+'-taux', round2(dv.tauxEff));
+    setVal('cmg-c'+i+'-net', round2(x.net)); setVal('cmg-c'+i+'-entretien', round2(x.ie)); setVal('cmg-c'+i+'-repas', round2(x.repas));
+  } else {
+    setVal('cmg-c'+i+'-heures', round2(dv.hMensu)); setVal('cmg-c'+i+'-taux', round2(dv.tauxEff)); setVal('cmg-c'+i+'-net', '');
+    setVal('cmg-c'+i+'-entretien', round2(dv.ieMois)); setVal('cmg-c'+i+'-repas', round2(dv.repasMois));
+    if(!silent) toast('Pas de contrat ce mois-là pour '+(c.enfant||'cet enfant')+' : valeurs moyennes du contrat.');
+  }
   setVal('cmg-c'+i+'-naiss', c.naissance);
   $('cmg-c'+i+'-from').value = '';
   CALC.cmg(); persistTheme('cmg');
-  toast('Repris du contrat de '+(c.enfant||'l\'enfant')+'.');
+  if(!silent && x) toast('Repris du contrat de '+(c.enfant||'l\'enfant')+' pour '+fmtMonth(m)+(x.valide ? ' (mois validé).' : ' (estimation d\u2019après '+(hasSuiviMonth(c.id, m) ? 'le suivi' : 'le planning')+').'));
 }
 VIS.cmg = ()=>{ const n=seg('cmg-nbenfants-gardes')+1; for(let i=1;i<=4;i++) show('cmg-child-'+i, i<=n); };
 PREFILL.cmg = ()=>{
   setVal('cmg-mois', curMonth());
-  if(STATE.contrats.length){ cmgFromContract(1, STATE.contrats[0].id); }
+  if(STATE.contrats.length){ cmgFromContract(1, STATE.contrats[0].id, true); }
 };
 CALC.cmg = ()=>{
   cmgFillSelects();
@@ -251,15 +260,15 @@ CALC.cmg = ()=>{
   let cT=0, cmgT=0, rT=0, any=false; const w=[];
   const md = parseD(m);
   for(let i=1;i<=4;i++){
-    const h=num('cmg-c'+i+'-heures'), t=num('cmg-c'+i+'-taux'), ie=num('cmg-c'+i+'-entretien'), rp=num('cmg-c'+i+'-repas');
-    if(i>n || !h || !t || !rs){ ['cout','cmg','reste'].forEach(k=>setTxt('out-cmg-c'+i+'-'+k,'—')); continue; }
+    const h=num('cmg-c'+i+'-heures'), t=num('cmg-c'+i+'-taux'), ie=num('cmg-c'+i+'-entretien'), rp=num('cmg-c'+i+'-repas'), netS = val('cmg-c'+i+'-net');
+    if(i>n || !h || (!t && netS==='') || !rs){ ['cout','cmg','reste'].forEach(k=>setTxt('out-cmg-c'+i+'-'+k,'—')); continue; }
     any = true;
-    const net = toNet(h*t, m), cout = net+ie+rp, ch = cout/h;
+    const net = netS!=='' ? num('cmg-c'+i+'-net') : toNet(h*t, m), cout = net+ie+rp, ch = cout/h;
     const coutPlaf = h*Math.min(ch, plafH);
     let cmg = Math.max(0, coutPlaf*(1 - rev*tx/chr));
     const nais = parseD(val('cmg-c'+i+'-naiss'));
     if(nais){ const lim = new Date(nais.getFullYear()+ageMax, nais.getMonth(), 1); if(md >= lim){ cmg = 0; w.push('Enfant '+i+' : a '+ageMax+' ans ou plus ce mois-ci, plus de CMG'+(mono?'':' (12 ans pour une famille monoparentale)')+'.'); } }
-    if(t < R('salMin', m)-1e-9) w.push('Enfant '+i+' : salaire horaire inférieur au minimum légal ('+fmtEUR(R('salMin',m))+').');
+    if(t && t < R('salMin', m)-1e-9) w.push('Enfant '+i+' : salaire horaire inférieur au minimum légal ('+fmtEUR(R('salMin',m))+').');
     if(ch > plafH+1e-9) w.push('Enfant '+i+' : le coût horaire ('+fmtEUR(ch)+') dépasse le plafond de '+fmtEUR(plafH)+' : la part au-dessus reste entièrement à la charge des parents.');
     const reste = cout - cmg;
     cT+=cout; cmgT+=cmg; rT+=reste;
