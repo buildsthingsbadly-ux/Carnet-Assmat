@@ -157,9 +157,10 @@
       <div class="box">
         <div id="reg-home-status" class="hint" style="margin:0 0 10px;">—</div>
         <div class="btn-row" style="margin-top:0">
-          <button class="btn" onclick="regCheckUpdates(false)">🔄 Rechercher les mises à jour</button>
+          <button class="btn primary" onclick="regCheckUpdates(false)">🔄 Mettre à jour la réglementation</button>
           <button class="btn" onclick="showRegNews(true)">Dernières évolutions</button>
         </div>
+        <p class="hint" style="margin:8px 0 0">Un seul geste : le carnet télécharge les dernières valeurs officielles (SMIC, minimum garanti, salaire minimum, taux de cotisations, CMG, impôts…), vous montre ce qui change et les applique tout seul à tous les calculs, chacune à partir de sa date d'effet. Rien à recalculer ni à reprogrammer. Il le fait aussi seul une fois par semaine si internet est disponible (Réglages).</p>
       </div>
       <div class="h-sec">💾 Mes données</div>
       <div class="box">
@@ -239,7 +240,7 @@
       <details class="help" id="ct-rep-wrap" style="display:none"><summary>🔁 Contrat déjà commencé : reprendre les compteurs (facultatif)</summary><div>
         <p style="margin:0 0 10px">Si ce contrat a commencé avant que vous utilisiez le carnet, indiquez ce qui s'est passé avant. Les calculs (congés, fin de contrat, absences) en tiendront compte. Tout est facultatif : laissez vide ce que vous ne savez pas.</p>
         <div class="field"><label>Date à partir de laquelle vous suivez ce contrat dans le carnet</label><input type="date" id="ct-rep-date"><div class="hint">En général le 1er du mois en cours. Les jours d'avant ne vous seront pas demandés.</div></div>
-        <div class="field"><label>Total des salaires bruts versés avant cette date (€)</label><input type="number" step="0.01" id="ct-rep-cumulBrut" placeholder="cumul Pajemploi"><div class="hint">Sert à l'indemnité de rupture (1/80ᵉ). Il figure sur les bulletins Pajemploi.</div></div>
+        <div class="field"><label>Total des salaires bruts versés avant cette date (€)</label><input type="number" step="0.01" id="ct-rep-cumulBrut" placeholder="cumul Pajemploi"><div class="hint">Sert à l'indemnité de rupture (1/<span data-reg="ruptureDiviseur" data-fmt="num">80</span>ᵉ). Il figure sur les bulletins Pajemploi.</div></div>
         <div class="grid2">
           <div class="field"><label>Jours de congés restants des périodes précédentes</label><input type="number" step="0.5" id="ct-rep-cpReliquat" placeholder="0"></div>
           <div class="field"><label>Jours de congés déjà pris depuis le 1er juin</label><input type="number" step="0.5" id="ct-rep-cpPrisN" placeholder="0"></div>
@@ -280,7 +281,7 @@
       <div class="field"><label>Salaire horaire brut prévu au contrat (€)</label>
         <input type="number" step="0.01" id="ct-taux" placeholder="ex. 4.50">
         <div class="hint" id="ct-taux-hint">—</div></div>
-      <div class="field" id="ct-maj-wrap" style="display:none"><label>Majoration des heures au-delà de 45 h par semaine (%)</label>
+      <div class="field" id="ct-maj-wrap" style="display:none"><label>Majoration des heures au-delà de <span data-reg="seuilMaj" data-fmt="num">45</span> h par semaine (%)</label>
         <input type="number" step="1" id="ct-maj" placeholder="10"><div class="hint">10 % minimum.</div></div>
       <div class="toggle-row"><span class="q">Indemnité d'entretien (frais d'eau, chauffage, jouets…) :</span>
         <div class="seg" id="ct-ieMode"><button class="on">Le minimum légal (automatique)</button><button>Un montant fixe par jour</button><button>Un montant pour 9 h, au prorata en dessous</button></div>
@@ -338,8 +339,8 @@
     </div>
     <div class="grid2">
       <div class="field"><label>Salaire horaire brut (€)</label><input type="number" step="0.01" id="mensu-taux" placeholder="ex. 4.50"></div>
-      <div class="field"><label>Majoration au-delà de 45 h/sem. (%)</label><input type="number" step="1" id="mensu-maj" placeholder="10">
-        <div class="hint">Utile seulement si plus de 45 h par semaine.</div></div>
+      <div class="field"><label>Majoration au-delà de <span data-reg="seuilMaj" data-fmt="num">45</span> h/sem. (%)</label><input type="number" step="1" id="mensu-maj" placeholder="10">
+        <div class="hint">Utile seulement si plus de <span data-reg="seuilMaj" data-fmt="num">45</span> h par semaine.</div></div>
     </div>
     <div class="toggle-row"><span class="q">Avez-vous le titre professionnel AM-AP ?</span>
       <div class="seg" id="mensu-titre"><button class="on">Non</button><button>Oui</button></div></div>
@@ -350,13 +351,13 @@
         <div id="mensu-warn"></div>
         <div class="result-line"><span class="lbl">Moyenne d'heures par semaine</span><span class="val" id="out-mensu-moy">—</span></div>
         <div class="result-line"><span class="lbl">Heures payées chaque mois</span><span class="val" id="out-mensu-heures">—</span></div>
-        <div class="result-line" id="row-mensu-hmaj" style="display:none"><span class="lbl">dont heures majorées (au-delà de 45 h)</span><span class="val" id="out-mensu-hmaj">—</span></div>
+        <div class="result-line" id="row-mensu-hmaj" style="display:none"><span class="lbl">dont heures majorées (au-delà de <span data-reg="seuilMaj" data-fmt="num">45</span> h)</span><span class="val" id="out-mensu-hmaj">—</span></div>
         <div class="result-line"><span class="lbl">Jours d'accueil par mois (moyenne)</span><span class="val" id="out-mensu-jours">—</span></div>
         <div class="result-line total"><span class="lbl">Salaire mensuel brut</span><span class="val" id="out-mensu-salaire">—</span></div>
         <div class="result-line"><span class="lbl">Salaire mensuel net (estimation)</span><span class="val" id="out-mensu-net">—</span></div>
         <div class="result-line" id="row-mensu-cp12" style="display:none"><span class="lbl">Si les congés sont payés chaque mois (1/12ᵉ, année incomplète) : + 10 %, soit un salaire brut de</span><span class="val" id="out-mensu-cp12">—</span></div>
         <div class="net-hint" id="mensu-net-hint">—</div>
-        <div class="legal"><strong>Règle —</strong> CCN des particuliers employeurs et de l'emploi à domicile (IDCC 3239), socle assistant maternel : salaire mensualisé = heures par semaine × 52 (année complète) ou × nombre de semaines d'accueil (année incomplète) ÷ 12 × salaire horaire. Les heures au-delà de 45 h par semaine sont payées avec la majoration prévue au contrat (10 % minimum). Le salaire horaire ne peut pas être inférieur au minimum conventionnel en vigueur. Les jours par mois sont indicatifs (repère pour l'entretien et les repas).</div>
+        <div class="legal"><strong>Règle —</strong> CCN des particuliers employeurs et de l'emploi à domicile (IDCC 3239), socle assistant maternel : salaire mensualisé = heures par semaine × 52 (année complète) ou × nombre de semaines d'accueil (année incomplète) ÷ 12 × salaire horaire. Les heures au-delà de <span data-reg="seuilMaj" data-fmt="num">45</span> h par semaine sont payées avec la majoration prévue au contrat (<span data-reg="majMin" data-fmt="num">10</span> % minimum). Le salaire horaire ne peut pas être inférieur au minimum conventionnel en vigueur. Les jours par mois sont indicatifs (repère pour l'entretien et les repas).</div>
         <button class="btn primary block" onclick="askPrintChoice('mensu','Salaire mensualisé — Récapitulatif')">📄 Récapitulatif PDF (enregistrer ou imprimer)</button>
       </div>
     </div>
@@ -389,7 +390,7 @@
         </div>
         <button class="btn primary block" onclick="validerMois()">✔ Valider ce mois (l'enregistrer dans l'historique)</button>
         <button class="btn block" onclick="moisVersParents()">📤 Envoyer le récapitulatif aux parents</button>
-        <div class="legal"><strong>Règle —</strong> Pajemploi (2026) : une déclaration par enfant, du 25 du mois au 5 du mois suivant. Heures normales = heures mensualisées (arrondies à l'entier le plus proche), diminuées des heures d'absence déduites, augmentées en année incomplète des heures correspondant aux congés payés versés (montant ÷ salaire horaire). Jours d'activité = jours mensualisés, arrondis à l'entier supérieur. Année complète : jamais de case « congés payés ». Les heures complémentaires (taux normal jusqu'à 45 h par semaine) et majorées (au-delà, +10 % minimum) se déclarent à part avec leur montant net. Jour férié ordinaire travaillé : +10 % ; 1er mai : +100 %. Entretien, repas et km ne sont pas du salaire. Une déclaration se corrige en ligne pendant 2 mois.</div>
+        <div class="legal"><strong>Règle —</strong> Pajemploi (2026) : une déclaration par enfant, du 25 du mois au 5 du mois suivant. Heures normales = heures mensualisées (arrondies à l'entier le plus proche), diminuées des heures d'absence déduites, augmentées en année incomplète des heures correspondant aux congés payés versés (montant ÷ salaire horaire). Jours d'activité = jours mensualisés, arrondis à l'entier supérieur. Année complète : jamais de case « congés payés ». Les heures complémentaires (taux normal jusqu'à <span data-reg="seuilMaj" data-fmt="num">45</span> h par semaine) et majorées (au-delà, +10 % minimum) se déclarent à part avec leur montant net. Jour férié ordinaire travaillé : +<span data-reg="majFerie" data-fmt="num">10</span> % ; 1er mai : +<span data-reg="majPremierMai" data-fmt="num">100</span> %. Entretien, repas et km ne sont pas du salaire. Une déclaration se corrige en ligne pendant 2 mois.</div>
         <button class="btn block" onclick="askPrintChoice('mois','Salaire du mois — Récapitulatif')">📄 Récapitulatif PDF (enregistrer ou imprimer)</button>
       </div>
     </div>
@@ -412,8 +413,8 @@
       <div class="seg" id="mois-heuresup"><button class="on">Non</button><button>Oui</button></div></div>
     <div class="subblock" id="mois-heuresup-wrap" style="display:none">
       <div class="grid2">
-        <div class="field"><label>Heures complémentaires (jusqu'à 45 h dans la semaine)</label><input type="number" step="0.25" id="mois-hcompl" placeholder="0"><div class="hint">Payées au salaire horaire normal.</div></div>
-        <div class="field"><label>Heures majorées (au-delà de 45 h dans la semaine)</label><input type="number" step="0.25" id="mois-hmaj" placeholder="0"></div>
+        <div class="field"><label>Heures complémentaires (jusqu'à <span data-reg="seuilMaj" data-fmt="num">45</span> h dans la semaine)</label><input type="number" step="0.25" id="mois-hcompl" placeholder="0"><div class="hint">Payées au salaire horaire normal.</div></div>
+        <div class="field"><label>Heures majorées (au-delà de <span data-reg="seuilMaj" data-fmt="num">45</span> h dans la semaine)</label><input type="number" step="0.25" id="mois-hmaj" placeholder="0"></div>
       </div>
       <div class="field"><label>Majoration de ces heures (%)</label><input type="number" step="1" id="mois-majoration" placeholder="10"><div class="hint">10 % minimum.</div></div>
     </div>
@@ -538,7 +539,7 @@
     <div class="btn-row" id="ccass-report-row" style="display:none;margin:-6px 0 16px"><button type="button" class="btn small" id="ccass-report-btn" onclick="ccassReport()">⬇️ Reporter dans les cases ci-dessous</button></div>
 
     <div class="field"><label>Salaire mensualisé brut, heures normales (€)</label><input type="number" step="0.01" id="ccass-base-normal" placeholder="ex. 902.16"></div>
-    <div class="toggle-row"><span class="q">Le contrat comporte-t-il des heures majorées mensualisées (au-delà de 45 h) ?</span>
+    <div class="toggle-row"><span class="q">Le contrat comporte-t-il des heures majorées mensualisées (au-delà de <span data-reg="seuilMaj" data-fmt="num">45</span> h) ?</span>
       <div class="seg" id="ccass-hassup"><button class="on">Non</button><button>Oui</button></div></div>
     <div id="ccass-base-sup-wrap" class="field subblock" style="display:none"><label>Salaire mensualisé brut, heures majorées (€)</label><input type="number" step="0.01" id="ccass-base-sup" placeholder="0"></div>
 
@@ -597,7 +598,7 @@
           <div class="result-line"><span class="lbl">Total des heures</span><span class="val" id="out-ccass-h-total-declar">—</span></div>
         </div>
         <button class="btn block" onclick="ccassSendToMois()">➡️ Reporter la déduction dans « Salaire du mois »</button>
-        <div class="legal"><strong>Règle —</strong> pour un mois incomplet, la Cour de cassation impose de rapporter le salaire mensualisé aux heures réellement prévues au planning de ce mois (et non à un prorata de jours calendaires) : montant déduit = salaire mensualisé × heures non travaillées ÷ heures prévues dans le mois. Les jours et heures à déclarer s'obtiennent avec la même proportion appliquée aux valeurs habituelles : jours arrondis à l'entier supérieur, heures normales à l'heure la plus proche (comme dans « Salaire du mois »), heures majorées au nombre exact. La méthode s'applique à toute absence <u>non rémunérée</u> : arrivée ou départ en cours de mois, premier mois avec période d'adaptation (obligatoire depuis la CCN de 2022), arrêt maladie, accident du travail, maternité ou paternité de l'assistante maternelle (le particulier employeur ne maintient pas le salaire : indemnités CPAM et IRCEM Prévoyance), congé sans solde ou congés payés non acquis, enfant de l'assmat malade, événement familial au-delà des jours prévus par la loi, enfant accueilli malade avec certificat médical (5 jours par période de 12 mois à partir de la date du contrat ; hospitalisation ou maladie d'au moins 14 jours consécutifs non rémunérées). Elle ne s'applique pas aux absences rémunérées ou déjà exclues : enfant absent pour convenance des parents ou fermeture imposée par eux, enfant malade sans certificat ou au-delà des 5 jours, congés payés en année complète, semaines non prévues en année incomplète, jours fériés chômés, événements familiaux dans la limite légale. Indemnités d'entretien et de repas : jamais dues les jours où l'enfant n'est pas accueilli.</div>
+        <div class="legal"><strong>Règle —</strong> pour un mois incomplet, la Cour de cassation impose de rapporter le salaire mensualisé aux heures réellement prévues au planning de ce mois (et non à un prorata de jours calendaires) : montant déduit = salaire mensualisé × heures non travaillées ÷ heures prévues dans le mois. Les jours et heures à déclarer s'obtiennent avec la même proportion appliquée aux valeurs habituelles : jours arrondis à l'entier supérieur, heures normales à l'heure la plus proche (comme dans « Salaire du mois »), heures majorées au nombre exact. La méthode s'applique à toute absence <u>non rémunérée</u> : arrivée ou départ en cours de mois, premier mois avec période d'adaptation (obligatoire depuis la CCN de 2022), arrêt maladie, accident du travail, maternité ou paternité de l'assistante maternelle (le particulier employeur ne maintient pas le salaire : indemnités CPAM et IRCEM Prévoyance), congé sans solde ou congés payés non acquis, enfant de l'assmat malade, événement familial au-delà des jours prévus par la loi, enfant accueilli malade avec certificat médical (<span data-reg="absMaladieEnfant" data-fmt="num">5</span> jours par période de 12 mois à partir de la date du contrat ; hospitalisation ou maladie d'au moins 14 jours consécutifs non rémunérées). Elle ne s'applique pas aux absences rémunérées ou déjà exclues : enfant absent pour convenance des parents ou fermeture imposée par eux, enfant malade sans certificat ou au-delà des <span data-reg="absMaladieEnfant" data-fmt="num">5</span> jours, congés payés en année complète, semaines non prévues en année incomplète, jours fériés chômés, événements familiaux dans la limite légale. Indemnités d'entretien et de repas : jamais dues les jours où l'enfant n'est pas accueilli.</div>
         <button class="btn primary block" onclick="askPrintChoice('ccass','Mois incomplet — Récapitulatif')">📄 Récapitulatif PDF (enregistrer ou imprimer)</button>
       </div>
     </div>
@@ -640,7 +641,7 @@
           <div class="result-line"><span class="lbl">Montant net (estimation)</span><span class="val" id="out-cp-net">—</span></div>
           <div id="cp-paiement"></div>
         </div>
-        <div class="legal"><strong>Règle —</strong> 2,5 jours ouvrables acquis par mois (ou 4 semaines) d'accueil, arrondis au jour supérieur, 30 jours au maximum par période (1er juin – 31 mai). Depuis la loi du 22 avril 2024, un arrêt maladie non professionnel donne aussi des congés : 2 jours par mois (24 jours par an au maximum). Les congés se prennent d'abord sur les plus anciens. Le montant retenu est le plus favorable entre le maintien de salaire et 10 % des salaires de la période (Code du travail, art. L3141-24). Année complète : les congés sont déjà payés dans le salaire mensualisé ; en juin, on vérifie si les 10 % sont plus favorables et on verse la différence. Année incomplète : les congés s'ajoutent au salaire mensualisé, payés selon le contrat (en juin, à la prise des congés, ou par 12ᵉ chaque mois).</div>
+        <div class="legal"><strong>Règle —</strong> <span data-reg="cpParMois" data-fmt="num">2,5</span> jours ouvrables acquis par mois (ou 4 semaines) d'accueil, arrondis au jour supérieur, <span data-reg="cpMax" data-fmt="num">30</span> jours au maximum par période (1er juin – 31 mai). Depuis la loi du 22 avril 2024, un arrêt maladie non professionnel donne aussi des congés : <span data-reg="cpMaladie" data-fmt="num">2</span> jours par mois (<span data-reg="cpMaladieMax" data-fmt="num">24</span> jours par an au maximum). Les congés se prennent d'abord sur les plus anciens. Le montant retenu est le plus favorable entre le maintien de salaire et 10 % des salaires de la période (Code du travail, art. L3141-24). Année complète : les congés sont déjà payés dans le salaire mensualisé ; en juin, on vérifie si les 10 % sont plus favorables et on verse la différence. Année incomplète : les congés s'ajoutent au salaire mensualisé, payés selon le contrat (en juin, à la prise des congés, ou par 12ᵉ chaque mois).</div>
         <button class="btn primary block" onclick="askPrintChoice('cp','Congés payés — Récapitulatif')">📄 Récapitulatif PDF (enregistrer ou imprimer)</button>
       </div>
     </div>
@@ -657,7 +658,7 @@
     <div class="field"><label>Année (pour les impôts des parents)</label><input type="number" step="1" id="par-annee" placeholder="ex. 2026"></div>
     <div class="stub"><div class="stub-head">Sur l'année</div><div class="stub-body" id="par-annee-out"></div></div>
     <div class="btn-row"><button class="btn primary" onclick="parentsPartager()">📤 Envoyer le récapitulatif aux parents</button></div>
-    <div class="legal"><strong>Pour les parents —</strong> crédit d'impôt pour frais de garde d'un enfant de moins de 6 ans au 1er janvier : 50 % des sommes versées (salaire net et indemnités d'entretien, sans les repas), diminuées de l'aide CMG reçue, dans la limite de 3 500 € par enfant et par an (cases 7GA à 7GC ; en résidence alternée, cases 7GE à 7GG avec un plafond divisé par deux). Les sommes comptent l'année où elles sont payées. Les montants affichés sont des estimations : l'attestation Pajemploi et celle de la CAF font foi.</div>
+    <div class="legal"><strong>Pour les parents —</strong> crédit d'impôt pour frais de garde d'un enfant de moins de <span data-reg="creditGardeAgeMax" data-fmt="num">6</span> ans au 1er janvier : <span data-reg="creditGardeTaux" data-fmt="pct">50 %</span> des sommes versées (salaire net et indemnités d'entretien, sans les repas), diminuées de l'aide CMG reçue, dans la limite de <span data-reg="creditGardePlafond" data-fmt="eur0">3 500 €</span> par enfant et par an (cases 7GA à 7GC ; en résidence alternée, cases 7GE à 7GG avec un plafond divisé par deux). Les sommes comptent l'année où elles sont payées. Les montants affichés sont des estimations : l'attestation Pajemploi et celle de la CAF font foi.</div>
   </div>
 
   <div class="theme" id="theme-ie" data-persist="1">
@@ -690,7 +691,7 @@
           <div class="result-line total"><span class="lbl">À verser et à déclarer sur Pajemploi</span><span class="val" id="out-ie-verser">—</span></div>
           <div class="result-line" id="row-ie-conformite"><span class="lbl">Conformité<span class="badge" id="ie-badge">—</span></span><span class="val" id="out-ie-ecart">—</span></div>
         </div>
-        <div class="legal"><strong>Règle —</strong> CCN IDCC 3239 : l'indemnité d'entretien ne peut pas être inférieure à 90 % du minimum garanti pour une journée de 9 heures ; elle est calculée au prorata de la durée réelle d'accueil, sans jamais descendre sous 2,65 € par jour d'accueil. Pour un employeur personne morale (hors convention), la référence est 85 % du MG. Elle n'est pas due si l'enfant est absent. Elle n'est pas soumise à cotisations.</div>
+        <div class="legal"><strong>Règle —</strong> CCN IDCC 3239 : l'indemnité d'entretien ne peut pas être inférieure à <span data-reg="iePct" data-fmt="pct">90 %</span> du minimum garanti pour une journée de 9 heures ; elle est calculée au prorata de la durée réelle d'accueil, sans jamais descendre sous <span data-reg="iePlancher" data-fmt="eur">2,65 €</span> par jour d'accueil. Pour un employeur personne morale (hors convention), la référence est 85 % du MG. Elle n'est pas due si l'enfant est absent. Elle n'est pas soumise à cotisations.</div>
         <button class="btn primary block" onclick="askPrintChoice('ie','Indemnités d\'entretien — Récapitulatif')">📄 Récapitulatif PDF (enregistrer ou imprimer)</button>
       </div>
     </div>
@@ -782,7 +783,7 @@
 
     <div class="toggle-row" id="fin-rupture-row"><span class="q">L'indemnité de rupture est-elle due ?</span>
       <div class="seg" id="fin-rupture"><button class="on">Non</button><button>Oui</button></div>
-      <div class="hint" id="fin-rupture-hint">Due par les parents qui retirent l'enfant après au moins 9 mois de contrat, sauf faute grave ou lourde.</div></div>
+      <div class="hint" id="fin-rupture-hint">Due par les parents qui retirent l'enfant après au moins <span data-reg="ruptureAnciennete" data-fmt="num">9</span> mois de contrat, sauf faute grave ou lourde.</div></div>
     <div id="fin-rupture-wrap" class="field subblock" style="display:none"><label>Total des salaires bruts perçus pendant tout le contrat (hors entretien, repas, km)</label>
       <input type="number" step="0.01" id="fin-rupture-total" placeholder="ex. 28500">
       <div class="hint">Le total figure sur vos relevés Pajemploi (cumul du contrat). <a href="#" onclick="finEstimeTotal();return false;">Estimer à partir du contrat</a></div></div>
@@ -808,7 +809,7 @@
           <div class="result-line" id="row-fin-regul-ecart"><span class="lbl">Écart de régularisation<span class="badge" id="fin-regul-badge">—</span></span><span class="val" id="out-fin-regul-ecart">—</span></div>
         </div>
         <div id="fin-rupture-results" style="display:none">
-          <div class="result-line"><span class="lbl">Indemnité de rupture (1/80ᵉ des salaires bruts)</span><span class="val" id="out-fin-rupture">—</span></div>
+          <div class="result-line"><span class="lbl">Indemnité de rupture (1/<span data-reg="ruptureDiviseur" data-fmt="num">80</span>ᵉ des salaires bruts)</span><span class="val" id="out-fin-rupture">—</span></div>
         </div>
         <div class="result-line"><span class="lbl">Total des sommes dues (salaire en brut, indemnités telles quelles)</span><span class="val" id="out-fin-total">—</span></div>
         <div class="result-line total"><span class="lbl">À verser au total (estimation en net)</span><span class="val" id="out-fin-net">—</span></div>
@@ -820,7 +821,7 @@
           <div class="result-line"><span class="lbl">Reçu pour solde de tout compte</span><span class="val">conseillé</span></div>
           <div class="result-line"><span class="lbl">Dernier bulletin Pajemploi (avec indemnités)</span><span class="val">obligatoire</span></div>
         </div>
-        <div class="legal"><strong>Règle —</strong> Préavis (CCN IDCC 3239) : 8 jours calendaires si moins de 3 mois d'ancienneté, 15 jours de 3 mois à moins d'un an, 1 mois au-delà ; pas de préavis pendant la période d'essai, ni en cas de faute grave ou lourde, ni en cas de retrait d'agrément. Si les parents dispensent de préavis, ils le paient (indemnité compensatrice). Congés non pris : indemnité au montant le plus favorable (art. L3141-24 du Code du travail). <u>Année incomplète</u> : la régularisation (salaire mensualisé versé comparé aux heures réellement effectuées) est obligatoire en fin de contrat ; s'il y a eu des avenants, chaque sous-période est calculée avec ses propres heures et son propre taux. <u>Année complète</u> : pas de régularisation de principe, sauf cas particuliers (rythmes variables, avenant appliqué en retard). Une somme versée en trop se récupère par petites retenues, dans la limite de la part saisissable du salaire, après information écrite de la salariée ; un accord écrit sur l'échéancier évite les litiges. Indemnité de rupture : 1/80ᵉ du total des salaires bruts du contrat (hors entretien, repas, km), due par l'employeur qui retire l'enfant après 9 mois d'ancienneté, sauf faute grave ou lourde ; elle n'est pas soumise à cotisations ni à l'impôt dans les limites légales.</div>
+        <div class="legal"><strong>Règle —</strong> Préavis (CCN IDCC 3239) : 8 jours calendaires si moins de 3 mois d'ancienneté, 15 jours de 3 mois à moins d'un an, 1 mois au-delà ; pas de préavis pendant la période d'essai, ni en cas de faute grave ou lourde, ni en cas de retrait d'agrément. Si les parents dispensent de préavis, ils le paient (indemnité compensatrice). Congés non pris : indemnité au montant le plus favorable (art. L3141-24 du Code du travail). <u>Année incomplète</u> : la régularisation (salaire mensualisé versé comparé aux heures réellement effectuées) est obligatoire en fin de contrat ; s'il y a eu des avenants, chaque sous-période est calculée avec ses propres heures et son propre taux. <u>Année complète</u> : pas de régularisation de principe, sauf cas particuliers (rythmes variables, avenant appliqué en retard). Une somme versée en trop se récupère par petites retenues, dans la limite de la part saisissable du salaire, après information écrite de la salariée ; un accord écrit sur l'échéancier évite les litiges. Indemnité de rupture : 1/<span data-reg="ruptureDiviseur" data-fmt="num">80</span>ᵉ du total des salaires bruts du contrat (hors entretien, repas, km), due par l'employeur qui retire l'enfant après <span data-reg="ruptureAnciennete" data-fmt="num">9</span> mois d'ancienneté, sauf faute grave ou lourde ; elle n'est pas soumise à cotisations ni à l'impôt dans les limites légales.</div>
         <button class="btn primary block" onclick="askPrintChoice('fin','Fin de contrat — Récapitulatif')">📄 Récapitulatif PDF (enregistrer ou imprimer)</button>
       </div>
     </div>
@@ -896,7 +897,7 @@
       <div class="hint">Plus il y a d'enfants à charge, plus l'aide est élevée. Chaque enfant qui touche l'AEEH (gardé ou non) fait appliquer le taux de la tranche suivante : comptez-le deux fois.</div></div>
     <div class="toggle-row"><span class="q">Famille monoparentale ?</span>
       <div class="seg" id="cmg-monoparental"><button class="on">Non</button><button>Oui</button></div>
-      <div class="hint">L'aide est alors versée jusqu'aux 12 ans de l'enfant (au lieu de 6 ans). Le plafond de ressources reste de 8 500 € par mois.</div>
+      <div class="hint">L'aide est alors versée jusqu'aux 12 ans de l'enfant (au lieu de 6 ans). Le plafond de ressources reste de <span data-reg="cmgPlafond" data-fmt="eur0">8 500 €</span> par mois.</div>
       <div class="hint"><b>Résidence alternée</b> (depuis le 1er décembre 2025) : chaque parent touche sa propre aide, qui n'est pas partagée. Faites le calcul pour chaque parent, avec ses ressources, ses enfants à charge et seulement les heures d'accueil à sa charge.</div></div>
     <div class="field"><label>Ressources mensuelles du foyer (€)</label><input type="number" step="0.01" id="cmg-revenu" placeholder="ex. 3000">
       <div class="hint">Revenu net catégoriel de l'avant-dernière année (avis d'imposition) divisé par 12.</div></div>
@@ -915,7 +916,7 @@
         <div class="result-line"><span class="lbl">CMG « rémunération » estimé</span><span class="val" id="out-cmg-total">—</span></div>
         <div class="result-line total"><span class="lbl">Reste à payer par les parents chaque mois</span><span class="val" id="out-cmg-reste-total">—</span></div>
         <div class="net-hint">Les cotisations sociales sont en plus prises en charge par la CAF/MSA (dans la limite du plafond horaire) : elles ne sont pas comptées ici.</div>
-        <div class="legal"><strong>Règle —</strong> depuis la réforme du 1er septembre 2025 : CMG = coût mensuel de la garde (salaire net + indemnités d'entretien et de repas, plafonné par heure) × [1 − (ressources mensuelles × taux d'effort ÷ coût horaire de référence)]. Les ressources sont comptées entre un plancher et un plafond ; le taux d'effort baisse avec le nombre d'enfants à charge. Le coût au-delà du plafond horaire reste à la charge des parents. Il n'y a plus de reste à charge minimum ni de minimum d'heures, et les cotisations sociales de l'assistante maternelle sont prises en charge à 100 %. Valeurs vérifiées sur urssaf.fr (mise à jour du 24/04/2026) : plancher 814,02 €, plafond 8 500 €, coût horaire de référence 4,91 €, plafond horaire 8,09 €. Estimation indicative : seule la CAF ou la MSA fixe le montant exact. Vérifiez avec le simulateur officiel de l'Urssaf.</div>
+        <div class="legal"><strong>Règle —</strong> depuis la réforme du 1er septembre 2025 : CMG = coût mensuel de la garde (salaire net + indemnités d'entretien et de repas, plafonné par heure) × [1 − (ressources mensuelles × taux d'effort ÷ coût horaire de référence)]. Les ressources sont comptées entre un plancher et un plafond ; le taux d'effort baisse avec le nombre d'enfants à charge. Le coût au-delà du plafond horaire reste à la charge des parents. Il n'y a plus de reste à charge minimum ni de minimum d'heures, et les cotisations sociales de l'assistante maternelle sont prises en charge à 100 %. Valeurs en vigueur aujourd'hui (vérifiées sur urssaf.fr le 24/04/2026, mises à jour avec la réglementation) : plancher <span data-reg="cmgPlancher" data-fmt="eur">814,02 €</span>, plafond <span data-reg="cmgPlafond" data-fmt="eur0">8 500 €</span>, coût horaire de référence <span data-reg="cmgCHR" data-fmt="eur">4,91 €</span>, plafond horaire <span data-reg="cmgPlafondH" data-fmt="eur">8,09 €</span>. Estimation indicative : seule la CAF ou la MSA fixe le montant exact. Vérifiez avec le simulateur officiel de l'Urssaf.</div>
         <button class="btn primary block" onclick="askPrintChoice('cmg','Aide CMG — Récapitulatif')">📄 Récapitulatif PDF (enregistrer ou imprimer)</button>
       </div>
     </div>

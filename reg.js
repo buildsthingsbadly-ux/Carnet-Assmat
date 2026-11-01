@@ -12,7 +12,7 @@
    ===================================================================================== */
 const REG_DEFAULT = {
   schema: 1,
-  version: '2026-11-01',
+  version: '2026-11-02',
   categories: {
     salaire:     'Salaire et heures',
     cotisations: 'Cotisations (brut → net)',
@@ -55,8 +55,9 @@ const REG_DEFAULT = {
       values:[ {du:'2019-01-01', v:0.0315} ] },
     cotCEG: { cat:'cotisations', label:'Contribution d\'équilibre général, tranche 1 (salarié)', unit:'ratio',
       values:[ {du:'2019-01-01', v:0.0086} ] },
-    cotPrevoyance: { cat:'cotisations', label:'Prévoyance IRCEM (salarié)', unit:'ratio',
-      note:'Taux relevé sur les bulletins types 2026 (1,04 %) ; 2025 déduit du taux global publié alors. À vérifier sur un bulletin Pajemploi.',
+    cotPrevoyance: { cat:'cotisations', label:'Prévoyance IRCEM, indemnité de départ à la retraite, Fived, paritarisme (salarié)', unit:'ratio',
+      note:'1,04 % au 1er janvier 2026 : vérifié sur urssaf.fr (taux et barèmes assistant maternel, mise à jour du 01/06/2026). Valeur 2025 déduite du taux global publié alors.',
+      src:'https://www.urssaf.fr/accueil/outils-documentation/taux-baremes/taux-baremes-assistant-maternel.html',
       values:[ {du:'2025-01-01', v:0.0093}, {du:'2026-01-01', v:0.0104} ] },
     cotCsgDed: { cat:'cotisations', label:'CSG déductible (sur 98,25 % du brut)', unit:'ratio',
       values:[ {du:'2018-01-01', v:0.068} ] },
@@ -80,6 +81,10 @@ const REG_DEFAULT = {
       values:[ {du:'2018-01-01', v:0.9825} ] },
     hsExoPlafond: { cat:'cotisations', label:'Plafond annuel d\'exonération d\'impôt des heures complémentaires et majorées', unit:'€/an',
       values:[ {du:'2022-01-01', v:7500} ] },
+    pss: { cat:'cotisations', label:'Plafond mensuel de la Sécurité sociale (limite de la vieillesse plafonnée et de la retraite complémentaire tranche 1)', unit:'€/mois',
+      note:'Au-delà, par employeur, d\'autres taux s\'appliquent : le carnet le signale et le net estimé devient moins précis.',
+      src:'https://www.urssaf.fr/accueil/outils-documentation/taux-baremes/taux-baremes-assistant-maternel.html',
+      values:[ {du:'2025-01-01', v:3925}, {du:'2026-01-01', v:4005} ] },
 
     /* ---------------- Indemnités d'entretien ---------------- */
     mg: { cat:'entretien', label:'Minimum garanti (MG)', unit:'€',
@@ -130,6 +135,9 @@ const REG_DEFAULT = {
       values:[ {du:'2022-01-01', v:[3,5]} ] },
 
     /* ---------------- Fin de contrat ---------------- */
+    cpDixieme: { cat:'conges', label:'Méthode du dixième : part des salaires de la période versée en congés payés', unit:'ratio',
+      note:'Code du travail, art. L3141-24 (et 1/12ᵉ chaque mois en année incomplète, soit 10 % du salaire du mois).',
+      values:[ {du:'2000-01-01', v:0.10} ] },
     ruptureDiviseur: { cat:'fin', label:'Indemnité de rupture : fraction du total des salaires bruts', unit:'1/x',
       values:[ {du:'2022-01-01', v:80} ] },
     retraiteBareme: { cat:'fin', label:'Indemnité conventionnelle de départ volontaire à la retraite, versée par l\'IRCEM [10, 15, 20, 30 ans dans le secteur → mois de salaire brut]', unit:'mois',
@@ -152,6 +160,14 @@ const REG_DEFAULT = {
     abatMult24: { cat:'fiscal', label:'Abattement pour un accueil continu de 24 heures', unit:'× SMIC',
       note:'5 × SMIC si l\'enfant accueilli 24 h est aussi handicapé, malade ou inadapté.',
       values:[ {du:'2000-01-01', v:4} ] },
+    creditGardeTaux: { cat:'fiscal', label:'Crédit d\'impôt des parents pour frais de garde : taux', unit:'ratio',
+      src:'https://www.service-public.fr/particuliers/vosdroits/F8',
+      values:[ {du:'2005-01-01', v:0.50} ] },
+    creditGardePlafond: { cat:'fiscal', label:'Crédit d\'impôt des parents pour frais de garde : plafond des frais par enfant (divisé par deux en résidence alternée)', unit:'€/an',
+      src:'https://www.service-public.fr/particuliers/vosdroits/F8',
+      values:[ {du:'2022-01-01', v:3500} ] },
+    creditGardeAgeMax: { cat:'fiscal', label:'Crédit d\'impôt des parents pour frais de garde : enfant de moins de … ans au 1er janvier', unit:'ans',
+      values:[ {du:'2005-01-01', v:6} ] },
     abatHeuresJour: { cat:'fiscal', label:'Journée complète pour l\'abattement', unit:'h',
       values:[ {du:'2000-01-01', v:8} ] },
     repasAvantage: { cat:'fiscal', label:'Valeur d\'un repas fourni par les parents (avantage en nature)', unit:'€/repas',
@@ -177,6 +193,7 @@ const REG_DEFAULT = {
       values:[ {du:'2025-09-01', v:12} ] }
   },
   changelog: [
+    { date:'2026-11-02', cats:['cotisations','fiscal','conges'], text:'Taux salariaux 2026 vérifiés sur urssaf.fr (mise à jour du 01/06/2026) : prévoyance IRCEM 1,04 % confirmée, comme la vieillesse (6,90 % et 0,40 %), la CSG-CRDS (6,80 % et 2,90 %), la retraite complémentaire (3,15 %) et la CEG (0,86 %). Nouvelles valeurs modifiables par mise à jour : plafond de la Sécurité sociale (4 005 €), méthode du dixième (10 %), crédit d\'impôt des parents (50 %, 3 500 €, moins de 6 ans).' },
     { date:'2026-11-01', cats:['cmg'], text:'CMG : plancher de ressources corrigé à 814,02 € par mois (valeur publiée par l\'Urssaf, mise à jour du 24/04/2026) ; plafond de 8 500 €, le même pour un parent seul.' },
     { date:'2026-06-01', cats:['salaire','entretien','fiscal'], text:'SMIC 12,31 €/h ; minimum garanti 4,35 € (indemnité d\'entretien de 9 h : 3,92 €) ; salaire minimum assistant maternel 4,20 € brut/h (4,37 € avec titre AM-AP).' },
     { date:'2026-04-01', cats:['cmg'], text:'CMG : coût horaire de référence 4,91 €, plafond horaire 8,09 €.' },
