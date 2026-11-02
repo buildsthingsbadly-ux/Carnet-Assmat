@@ -245,12 +245,12 @@
       <div class="toggle-row"><span class="q">Avez-vous le titre professionnel d'assistant maternel / garde d'enfants (AM-AP) ?</span>
         <div class="seg" id="ct-titre"><button class="on">Non</button><button>Oui</button></div>
         <div class="hint">Avec ce titre, le salaire horaire minimum est plus élevé.</div></div>
-      <details class="help" id="ct-rep-wrap" style="display:none"><summary>🔁 Contrat déjà commencé : reprendre les compteurs (facultatif)</summary><div>
+      <details class="help" id="ct-rep-wrap" style="display:none"><summary>🔁 Contrat déjà commencé : reprendre les compteurs (important pour les congés et la fin de contrat)</summary><div>
         <p style="margin:0 0 10px">Si ce contrat a commencé avant que vous utilisiez le carnet, indiquez ce qui s'est passé avant. Les calculs (congés, fin de contrat, absences) en tiendront compte. Tout est facultatif : laissez vide ce que vous ne savez pas.</p>
         <div class="field"><label>Date à partir de laquelle vous suivez ce contrat dans le carnet</label><input type="date" id="ct-rep-date"><div class="hint">En général le 1er du mois en cours. Les jours d'avant ne vous seront pas demandés.</div></div>
         <div class="field"><label>Total des salaires bruts versés avant cette date (€)</label><input type="number" step="0.01" id="ct-rep-cumulBrut" placeholder="cumul Pajemploi"><div class="hint">Sert à l'indemnité de rupture (1/<span data-reg="ruptureDiviseur" data-fmt="num">80</span>ᵉ). Il figure sur les bulletins Pajemploi.</div></div>
         <div class="grid2">
-          <div class="field"><label>Jours de congés restants des périodes précédentes</label><input type="number" step="0.5" id="ct-rep-cpReliquat" placeholder="0"></div>
+          <div class="field"><label>Jours de congés restants des périodes précédentes (acquis jusqu'au dernier 31 mai, pas encore pris)</label><input type="number" step="0.5" id="ct-rep-cpReliquat" placeholder="0"></div>
           <div class="field"><label>Jours de congés déjà pris depuis le 1er juin</label><input type="number" step="0.5" id="ct-rep-cpPrisN" placeholder="0"></div>
         </div>
         <div class="field"><label>Jours d'absence pour maladie de l'enfant déjà déduits depuis la dernière date anniversaire du contrat</label><input type="number" step="1" id="ct-rep-mal" placeholder="0"></div>
@@ -259,7 +259,7 @@
           <div class="field"><label>Heures réellement effectuées sur cette même période</label><input type="number" step="0.25" id="ct-rep-regulHeures"></div>
         </div></div></details>
       <div class="field"><label>Période d'adaptation <span class="hint">(facultatif)</span></label><input type="text" id="ct-adaptation" placeholder="ex. du 1er au 12 septembre, 2 h puis 4 h puis journées complètes" autocomplete="off">
-        <div class="hint">30 jours calendaires au plus, comprise dans la période d'essai. Le 1er mois se calcule avec « Mois incomplet & absences ».</div></div>
+        <div class="hint">30 jours calendaires au plus, comprise dans la période d'essai. Ce texte est repris dans le contrat, mais <b>il ne change pas les calculs</b>. Pour le salaire du 1er mois : notez chaque jour d'adaptation dans le suivi (choix « Adaptation »), ou faites le calcul dans « Mois incomplet » (motif « Premier mois avec période d'adaptation »).</div></div>
     </div>
 
     <div class="step" data-step="2">
@@ -293,7 +293,7 @@
     <div class="step" data-step="3">
       <div class="section-label" style="margin-top:0;padding-top:0;border-top:none">4 · Le tarif et les frais</div>
       <div class="field"><label>Salaire horaire brut prévu au contrat (€)</label>
-        <input type="number" step="0.01" id="ct-taux" placeholder="ex. 4.50">
+        <input type="number" step="0.01" id="ct-taux" placeholder="ex. 4,50">
         <div class="hint" id="ct-taux-hint">—</div></div>
       <div class="field" id="ct-maj-wrap" style="display:none"><label>Majoration des heures au-delà de <span data-reg="seuilMaj" data-fmt="num">45</span> h par semaine (%)</label>
         <input type="number" step="1" id="ct-maj" placeholder="10"><div class="hint">10 % minimum.</div></div>
@@ -303,10 +303,10 @@
       <div class="field subblock" id="ct-ieMontant-wrap" style="display:none"><label id="ct-ieMontant-label">Montant par jour d'accueil (€)</label><input type="number" step="0.01" id="ct-ieMontant" placeholder="ex. 4.00"></div>
       <div class="toggle-row"><span class="q">Qui fournit les repas et goûters ?</span>
         <div class="seg" id="ct-repasMode"><button class="on">Les parents</button><button>Moi (je suis payée pour)</button><button>Pas de repas</button></div></div>
-      <div class="field subblock" id="ct-repasPrix-wrap" style="display:none"><label>Prix des repas et goûters par jour d'accueil (€)</label><input type="number" step="0.01" id="ct-repasPrix" placeholder="ex. 4.50"></div>
+      <div class="field subblock" id="ct-repasPrix-wrap" style="display:none"><label>Prix des repas et goûters par jour d'accueil (€)</label><input type="number" step="0.01" id="ct-repasPrix" placeholder="ex. 4,50"></div>
       <div class="grid2">
-        <div class="field"><label>Frais kilométriques habituels par mois (€) <span class="hint">(facultatif)</span></label><input type="number" step="0.01" id="ct-km" placeholder="0"></div>
-        <div class="field"><label>Indemnité par kilomètre (€/km) <span class="hint">(facultatif)</span></label><input type="number" step="0.001" id="ct-kmTaux" placeholder="ex. 0.40"><div class="hint">Pour le suivi au jour le jour des trajets.</div></div>
+        <div class="field"><label>Transport de l'enfant : montant fixe par mois prévu au contrat (€) <span class="hint">(facultatif)</span></label><input type="number" step="0.01" id="ct-km" placeholder="0"><div class="hint">Remplissez soit ce montant fixe, soit le tarif au kilomètre ci-dessous (pas les deux). Laissez vide si vous ne transportez pas l'enfant.</div></div>
+        <div class="field"><label>Ou tarif au kilomètre (€/km) <span class="hint">(facultatif)</span></label><input type="number" step="0.001" id="ct-kmTaux" placeholder="ex. 0,40"><div class="hint">Les kilomètres se notent alors jour par jour dans le suivi.</div></div>
       </div>
       <div class="field"><label>Jour du mois où le salaire est payé <span class="hint">(facultatif)</span></label><input type="number" step="1" min="1" max="31" id="ct-paiementJour" placeholder="ex. 5">
         <div class="hint">Demandé par Pajemploi (« date de paiement ») et à écrire dans le contrat.</div></div>
@@ -352,7 +352,7 @@
       <div class="field" id="mensu-jB-wrap" style="display:none"><label>Jours d'accueil de la semaine 2</label><input type="number" step="0.5" id="mensu-jB" placeholder="ex. 4"></div>
     </div>
     <div class="grid2">
-      <div class="field"><label>Salaire horaire brut (€)</label><input type="number" step="0.01" id="mensu-taux" placeholder="ex. 4.50"></div>
+      <div class="field"><label>Salaire horaire brut (€)</label><input type="number" step="0.01" id="mensu-taux" placeholder="ex. 4,50"></div>
       <div class="field"><label>Majoration au-delà de <span data-reg="seuilMaj" data-fmt="num">45</span> h/sem. (%)</label><input type="number" step="1" id="mensu-maj" placeholder="10">
         <div class="hint">Utile seulement si plus de <span data-reg="seuilMaj" data-fmt="num">45</span> h par semaine.</div></div>
     </div>
@@ -414,7 +414,7 @@
     <div class="toggle-row"><span class="q">Une absence à déduire ce mois-ci (début ou fin de contrat, adaptation, maladie…) ?</span>
       <div class="seg" id="mois-incomplet"><button class="on">Non</button><button>Oui</button></div></div>
     <div class="subblock" id="mois-incomplet-wrap" style="display:none">
-      <div class="info-box">Faites d'abord le calcul dans « Mois incomplet &amp; absences » (il dit aussi si l'absence se déduit), puis touchez « Reporter ». <a href="#" onclick="showTheme('ccass');return false;">Ouvrir ce calcul</a></div>
+      <div class="info-box"><b>Le plus simple :</b> <a href="#" onclick="moisNoterAbsences();return false;">noter l'absence sur les jours concernés</a> (calendrier de ce mois) : le carnet sait si elle se retire et recalcule tout, sans report.<br>Ou faites le calcul dans « Mois incomplet » (il dit aussi si l'absence se déduit), puis touchez « Reporter ». <a href="#" onclick="moisOpenCcass();return false;">Ouvrir ce calcul sur ce mois</a></div>
       <div class="field"><label>Montant brut déduit (€)</label><input type="number" step="0.01" id="mois-deduction" placeholder="0"><input type="hidden" id="mois-ded-maj"></div>
       <div class="grid2">
         <div class="field"><label>Jours d'accueil prévus ce mois-ci</label><input type="number" step="1" id="mois-jprev" placeholder="ex. 22"></div>
@@ -485,7 +485,7 @@
     <div class="grid2">
       <div class="field"><label>Salaire mensualisé brut (€)</label><input type="number" step="0.01" id="mois-base" placeholder="ex. 780.00">
         <div class="hint">Le salaire de base habituel, sans les congés payés.</div></div>
-      <div class="field"><label>Salaire horaire brut (€)</label><input type="number" step="0.01" id="mois-taux" placeholder="ex. 4.50"></div>
+      <div class="field"><label>Salaire horaire brut (€)</label><input type="number" step="0.01" id="mois-taux" placeholder="ex. 4,50"></div>
     </div>
     <div class="grid2">
       <div class="field"><label>Heures mensualisées</label><input type="number" step="0.01" id="mois-heures" placeholder="ex. 173.33"></div>
@@ -501,7 +501,7 @@
 
   <!-- ===================================================== 03 MOIS INCOMPLET ===================================================== -->
   <div class="theme" id="theme-ccass" data-persist="1">
-    <h2>Mois incomplet &amp; absences</h2>
+    <h2>Mois incomplet</h2>
     <p class="sub">Début ou fin de contrat en cours de mois, absence, maladie, congé sans solde : ce qui se déduit, avec le calcul officiel (salaire × heures dues ÷ heures prévues du mois), et les chiffres pour Pajemploi.</p>
     <div class="kid-picker" data-for="ccass"></div>
 
@@ -611,7 +611,7 @@
           <div class="result-line" id="row-ccass-hsup-declar" style="display:none"><span class="lbl">Heures majorées</span><span class="val" id="out-ccass-hsup-declar">—</span></div>
           <div class="result-line"><span class="lbl">Total des heures</span><span class="val" id="out-ccass-h-total-declar">—</span></div>
         </div>
-        <button class="btn block" onclick="ccassSendToMois()">➡️ Reporter la déduction dans « Salaire du mois »</button>
+        <button class="btn block" onclick="ccassSendToMois()">➡️ Reporter la déduction dans « Salaire du mois » de <span id="ccass-send-mois">ce mois</span></button>
         <div class="legal"><strong>Règle —</strong> pour un mois incomplet, la Cour de cassation impose de rapporter le salaire mensualisé aux heures réellement prévues au planning de ce mois (et non à un prorata de jours calendaires) : montant déduit = salaire mensualisé × heures non travaillées ÷ heures prévues dans le mois. Les jours et heures à déclarer s'obtiennent avec la même proportion appliquée aux valeurs habituelles : jours arrondis à l'entier supérieur, heures normales à l'heure la plus proche (comme dans « Salaire du mois »), heures majorées au nombre exact. La méthode s'applique à toute absence <u>non rémunérée</u> : arrivée ou départ en cours de mois, premier mois avec période d'adaptation (obligatoire depuis la CCN de 2022), arrêt maladie, accident du travail, maternité ou paternité de l'assistante maternelle (le particulier employeur ne maintient pas le salaire : indemnités CPAM et IRCEM Prévoyance), congé sans solde ou congés payés non acquis, enfant de l'assmat malade, événement familial au-delà des jours prévus par la loi, enfant accueilli malade avec certificat médical (<span data-reg="absMaladieEnfant" data-fmt="num">5</span> jours par période de 12 mois à partir de la date du contrat ; hospitalisation ou maladie d'au moins 14 jours consécutifs non rémunérées). Elle ne s'applique pas aux absences rémunérées ou déjà exclues : enfant absent pour convenance des parents ou fermeture imposée par eux, enfant malade sans certificat ou au-delà des <span data-reg="absMaladieEnfant" data-fmt="num">5</span> jours, congés payés en année complète, semaines non prévues en année incomplète, jours fériés chômés, événements familiaux dans la limite légale. Indemnités d'entretien et de repas : jamais dues les jours où l'enfant n'est pas accueilli.</div>
         <button class="btn primary block" onclick="askPrintChoice('ccass','Mois incomplet — Récapitulatif')">📄 Récapitulatif PDF (enregistrer ou imprimer)</button>
       </div>
@@ -633,7 +633,7 @@
       <div class="toggle-row"><span class="q">Le contrat est-il en année complète ?</span>
         <div class="seg" id="cp-type"><button class="on">Oui (année complète)</button><button>Non (année incomplète)</button></div></div>
       <div class="grid2">
-        <div class="field"><label>Salaire horaire brut (€)</label><input type="number" step="0.01" id="cp-taux" placeholder="ex. 4.50"></div>
+        <div class="field"><label>Salaire horaire brut (€)</label><input type="number" step="0.01" id="cp-taux" placeholder="ex. 4,50"></div>
         <div class="field"><label>Heures par semaine (moyenne)</label><input type="number" step="0.25" id="cp-heures" placeholder="ex. 40"></div>
       </div>
       <div class="field"><label>Total des salaires bruts de la période terminée le 31 mai (1er juin – 31 mai)</label><input type="number" step="0.01" id="cp-total-salaires" placeholder="ex. 9000">
@@ -757,7 +757,7 @@
     <div id="fin-cp-wrap" class="subblock">
       <div class="field"><label>Jours de congés restants dus</label><input type="number" step="0.5" id="fin-jours" placeholder="ex. 3"><div class="hint" id="fin-jours-hint">Voir le thème « Congés payés ».</div></div>
       <div class="grid2">
-        <div class="field"><label>Salaire horaire (€)</label><input type="number" step="0.01" id="fin-taux" placeholder="ex. 4.50"></div>
+        <div class="field"><label>Salaire horaire (€)</label><input type="number" step="0.01" id="fin-taux" placeholder="ex. 4,50"></div>
         <div class="field"><label>Heures par semaine (moyenne)</label><input type="number" step="0.25" id="fin-heures" placeholder="ex. 40"></div>
       </div>
       <div class="field"><label>Salaires bruts qui ont donné droit aux jours de congés restants (€)</label><input type="number" step="0.01" id="fin-total-salaires" placeholder="ex. 6000">
@@ -789,7 +789,7 @@
         <div class="field"><label id="fin-regul-verse-label">Total des salaires mensualisés versés sur la période (€)</label><input type="number" step="0.01" id="fin-regul-verse" placeholder="ex. 9200"></div>
         <div class="grid2">
           <div class="field"><label id="fin-regul-heures-label">Total des heures réellement effectuées sur la période</label><input type="number" step="0.25" id="fin-regul-heures" placeholder="ex. 1520"><div id="fin-regul-semaines"></div></div>
-          <div class="field"><label>Salaire horaire (€)</label><input type="number" step="0.01" id="fin-regul-taux" placeholder="ex. 4.50"></div>
+          <div class="field"><label>Salaire horaire (€)</label><input type="number" step="0.01" id="fin-regul-taux" placeholder="ex. 4,50"></div>
         </div>
         <div id="fin-regul-avs"></div>
       </div>
