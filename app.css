@@ -1,3 +1,8 @@
+/* Polices incluses dans l'application (licence SIL OFL 1.1, voir fonts/LICENCE.txt) : aucune requête vers Google */
+@font-face{font-family:'Fraunces';font-style:normal;font-weight:600;font-display:swap;src:url(fonts/fraunces-600.woff2) format('woff2');}
+@font-face{font-family:'Work Sans';font-style:normal;font-weight:400 600;font-display:swap;src:url(fonts/worksans.woff2) format('woff2');}
+@font-face{font-family:'IBM Plex Mono';font-style:normal;font-weight:500;font-display:swap;src:url(fonts/ibmplexmono-500.woff2) format('woff2');}
+@font-face{font-family:'IBM Plex Mono';font-style:normal;font-weight:600;font-display:swap;src:url(fonts/ibmplexmono-600.woff2) format('woff2');}
 :root{
   --amber-text:#8F5B10;
   --bg:#EEF2EF; --paper:#FFFFFF; --ink:#1E332F; --ink-soft:#5B6D68; --line:#D8E0DC;
@@ -277,6 +282,8 @@ details.help div{font-size:.84rem;line-height:1.55;color:var(--ink-soft);padding
 
 /* ---------- Fenêtres ---------- */
 .overlay{display:none;position:fixed;inset:0;background:rgba(10,20,18,.55);z-index:100;align-items:center;justify-content:center;padding:16px;}
+/* questions et saisies toujours au-dessus des autres fenêtres (y compris l'écran du code) */
+#confirm-overlay, #prompt-overlay{z-index:110;}
 .overlay.show{display:flex;}
 .dlg{background:var(--paper);color:var(--ink);border-radius:12px;max-width:420px;width:100%;padding:20px 20px 16px;
   box-shadow:0 20px 40px -12px var(--shadow);max-height:90vh;overflow:auto;}
@@ -379,6 +386,12 @@ details.fm-chap .fm-rep{margin-top:6px;}
   #print-recap .fm-piege{background:#FBEAEA;padding:6px 10px;} #print-recap .fm-retenir{background:#F6E4C6;padding:6px 10px;}
   #print-recap .fm-outil{display:none;}
 }
+/* Réglages : boutons « modifier » et « source » assez grands pour le doigt (44 px) */
+.reg-row a.reg-ic{display:inline-flex;align-items:center;justify-content:center;min-width:44px;min-height:44px;text-decoration:none;font-size:1.05rem;vertical-align:middle;}
+/* Retour en haut des écrans longs */
+#top-btn{position:fixed;right:14px;bottom:84px;z-index:40;width:48px;height:48px;border-radius:24px;border:1px solid var(--line);background:var(--paper);color:var(--ink);font-size:1.3rem;box-shadow:0 2px 8px var(--shadow);display:none;cursor:pointer;}
+#top-btn.show{display:block;}
+@media print{ #top-btn{display:none !important;} }
 #print-recap{display:none;}
 @media print{
   body.printing > *:not(#print-recap){display:none !important;}

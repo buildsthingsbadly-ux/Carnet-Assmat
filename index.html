@@ -12,8 +12,6 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icons/icon-192.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600&family=Work+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="app.css">
 </head>
 <body>
@@ -74,6 +72,7 @@
     <div class="field"><input type="password" inputmode="numeric" id="lock-input" aria-label="Code de verrouillage" autocomplete="off" style="text-align:center;font-size:22px;letter-spacing:.3em" onkeydown="if(event.key==='Enter')unlock()"></div>
     <button class="btn primary block" onclick="unlock()">Ouvrir</button>
     <p class="hint" id="lock-msg" style="margin-top:10px"></p>
+    <details class="help" style="text-align:left;margin-top:12px"><summary>Code oublié ?</summary><div>Le code ne peut pas être retrouvé. Vous pouvez restaurer une copie de sécurité : les données de ce téléphone seront remplacées par celles de la copie (et le code par celui qu'elle contient, s'il y en a un).<br><button type="button" class="btn small" style="margin-top:8px" onclick="syncImportPick()">⬇️ Restaurer une copie de sécurité</button></div></details>
   </div>
 </div>
 <!-- Fenêtre : définition d'un mot -->
@@ -188,6 +187,7 @@
       <div class="btn-row">
         <button class="btn" onclick="showTheme('reglages')">⚙︎ Réglages</button>
         <button class="btn" onclick="showTheme('aide')">? Aide</button>
+        <button class="btn" onclick="showTheme('apropos')">ⓘ À propos et confidentialité</button>
       </div>
       <p class="hint" id="app-version" style="margin-top:14px"></p>
     </section>
@@ -510,6 +510,7 @@
   <div class="theme" id="theme-ccass" data-persist="1">
     <h2>Mois incomplet</h2>
     <p class="sub">Début ou fin de contrat en cours de mois, absence, maladie, congé sans solde : ce qui se déduit, avec le calcul officiel (salaire × heures dues ÷ heures prévues du mois), et les chiffres pour Pajemploi.</p>
+    <div class="info-box">Pour une simple absence, le plus rapide : dans « Salaire du mois », cochez les jours d'absence, puis touchez « Retirer du salaire les jours d'absence cochés ». Cet écran sert aux cas détaillés (motif, adaptation, arrivée ou départ en cours de mois).<div class="btn-row" style="margin-top:6px"><button type="button" class="btn small" onclick="showTheme('mois')">Ouvrir « Salaire du mois »</button></div></div>
     <div class="kid-picker" data-for="ccass"></div>
 
     <div class="field"><label>Pourquoi le salaire de ce mois ne serait-il pas complet ?</label>
@@ -965,6 +966,7 @@
     <p class="sub">Préférences, réglementation et sauvegarde.</p>
 
     <div class="section-label" style="margin-top:0;padding-top:0;border-top:none">Mon profil (pour les documents)</div>
+    <div class="field"><label>Civilité (pour accorder les documents)</label><select id="prof-civ"><option value="F">Madame (assistante maternelle)</option><option value="M">Monsieur (assistant maternel)</option></select></div>
     <div class="field"><label>Prénom et nom</label><input type="text" id="prof-nom" autocomplete="off"></div>
     <div class="field"><label>Adresse</label><input type="text" id="prof-adresse" autocomplete="off"></div>
     <div class="grid2">
@@ -1010,7 +1012,8 @@
     </div>
     <div class="grid2">
       <div class="field"><label>Code de verrouillage (4 à 8 chiffres, facultatif)</label><input type="password" inputmode="numeric" id="set-pin-new" placeholder="laisser vide = pas de code" autocomplete="new-password">
-        <div class="hint"><a href="#" onclick="setPin();return false;">Enregistrer ce code</a> · <a href="#" onclick="removePin();return false;">Supprimer le code</a>. Protège l'écran ; ce n'est pas un chiffrement.</div></div>
+        <div class="btn-row" style="margin-top:6px"><button type="button" class="btn small" onclick="setPin()">Enregistrer ce code</button><button type="button" class="btn small" onclick="removePin()">Supprimer le code</button></div>
+        <div class="hint">Protège l'écran ; ce n'est pas un chiffrement. <b>Faites une copie de sécurité avant</b> : si vous oubliez le code, la seule issue est de restaurer une copie.</div></div>
       <div class="field"><label>Durée de conservation après la fin d'un contrat (années)</label><input type="number" step="1" min="1" max="10" id="set-conservation" placeholder="5"></div>
     </div>
     <div class="toggle-row"><span class="q">Je note mes journées au quotidien (suivi)</span>
@@ -1048,6 +1051,34 @@
   </div>
 
   <!-- ===================================================== AIDE ===================================================== -->
+  <div class="theme" id="theme-apropos">
+    <h2>À propos et confidentialité</h2>
+    <p class="sub">Qui édite le Carnet Assmat, ce qu'il fait de vos données, et ses limites.</p>
+    <div class="box">
+      <div class="section-label" style="margin-top:0;padding-top:0;border-top:none">Une application indépendante</div>
+      <p>Le Carnet Assmat est un outil gratuit d'aide au calcul, <b>sans lien avec l'Urssaf, Pajemploi, la CAF, la MSA, l'IRCEM ou l'administration fiscale</b>. Les noms de ces organismes sont cités seulement pour vous indiquer où déclarer ou vérifier. Les montants officiels restent ceux de Pajemploi, de la CAF et de vos bulletins.</p>
+      <div class="section-label">Éditeur et hébergeur</div>
+      <p>Application éditée à titre non professionnel par l'auteur du projet public <b>buildsthingsbadly-ux / Carnet-Assmat</b> sur GitHub (contact : <a href="https://github.com/buildsthingsbadly-ux/Carnet-Assmat/issues" target="_blank" rel="noopener">page « Issues » du projet</a>). Conformément à la loi pour la confiance dans l'économie numérique (art. 6, III, 2), l'identité de l'éditeur non professionnel est connue de l'hébergeur.</p>
+      <p>Hébergeur : GitHub, Inc., 88 Colin P. Kelly Jr. Street, San Francisco, CA 94107, États-Unis (service GitHub Pages).</p>
+    </div>
+    <div class="box">
+      <div class="section-label" style="margin-top:0;padding-top:0;border-top:none">Vos données</div>
+      <ul>
+        <li><b>Tout reste sur ce téléphone</b> (stockage du navigateur). Il n'y a ni compte, ni serveur, ni publicité, ni mesure d'audience, ni cookie de suivi. L'éditeur n'a accès à aucune de vos données.</li>
+        <li><b>Ce qui part sur internet</b> : le chargement de l'application depuis GitHub Pages et, si vous l'utilisez, le fichier de réglementation (mêmes serveurs). Comme pour tout site, l'hébergeur voit alors l'adresse IP de l'appareil. Les polices de caractères sont incluses dans l'application : aucune requête vers Google.</li>
+        <li><b>Données des familles</b> : vous enregistrez les coordonnées des parents, des informations sur l'enfant et, si vous le souhaitez, des pièces jointes (certificats, ordonnances). Pour ces données, c'est vous qui êtes responsable vis-à-vis des familles (RGPD) : informez-les (une clause est prévue dans le contrat), n'enregistrez que le nécessaire et supprimez les données à la fin de la durée de conservation choisie dans Réglages.</li>
+        <li><b>Numéro de sécurité sociale</b> : jamais enregistré ; il s'écrit à la main sur les documents.</li>
+        <li><b>Copies de sécurité</b> : protégez-les par un mot de passe (proposé à chaque copie). Une copie sans mot de passe est lisible par toute personne qui obtient le fichier.</li>
+        <li><b>Code de verrouillage</b> : il empêche d'ouvrir le carnet sur le téléphone, mais ne chiffre pas les données. En cas d'oubli, restaurez une copie de sécurité (voir l'écran du code).</li>
+      </ul>
+    </div>
+    <div class="box">
+      <div class="section-label" style="margin-top:0;padding-top:0;border-top:none">Limites</div>
+      <p>Les calculs suivent la convention collective (IDCC 3239), le Code du travail et les barèmes officiels à la date indiquée dans Réglages. Ils sont donnés à titre indicatif et ne remplacent pas un conseil personnalisé (relais petite enfance, Pajemploi, juriste). Les documents sont des modèles à relire et à adapter avant de les signer.</p>
+      <p>Polices : Fraunces, Work Sans et IBM Plex Mono, sous licence libre SIL Open Font License 1.1.</p>
+    </div>
+  </div>
+
   <div class="theme" id="theme-formation">
     <h2>Se former : comprendre mes calculs</h2>
     <p class="sub">Pour bien démarrer : comment se calculent le contrat, la paie de chaque mois et la fin du contrat. Lisez un chapitre à la fois, dans l'ordre.</p>
