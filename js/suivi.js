@@ -31,7 +31,7 @@ const ST = {
   none:     {l:'Pas d\'accueil prévu', g:'Autre', c:'none'}
 };
 const MONTH_ST = ['ouvert','avalider','valide','cloture','declare','paye'];
-const MONTH_ST_L = {ouvert:'Ouvert', avalider:'À valider par le parent', valide:'Validé par le parent', cloture:'Clôturé', declare:'Déclaré sur Pajemploi', paye:'Payé'};
+const MONTH_ST_L = {ouvert:'En cours', avalider:'Récapitulatif envoyé aux parents', valide:'Accord des parents noté', cloture:'Journées verrouillées', declare:'Chiffres du mois validés', paye:'Salaire reçu'};
 let SV = {tab:'jour', date:null, cid:null, ym:null};
 
 function suiviOf(cid){ STATE.suivi = STATE.suivi || {}; return STATE.suivi[cid] = STATE.suivi[cid] || {days:{}, months:{}, regs:[]}; }
@@ -117,13 +117,12 @@ function suiviMonth(c, ym, opts){
     // ne « compense » jamais une heure travaillée en plus). Majorées : au-delà de 45 h réellement
     // travaillées dans la semaine (seuil relevé si le contrat prévoit déjà des heures majorées).
     const Pw = wk.reduce((s,x)=>s+x.P,0), thr = Math.max(seuil, Pw);
-    let cum = 0;
-    wk.forEach(x=>{
-      x.extra = x.acc ? Math.max(0, x.R - x.P) : 0;
-      const cb = cum, ca = cum + x.R; cum = ca;
-      x.maj = Math.min(x.extra, Math.max(0, ca-thr) - Math.max(0, cb-thr));
-      x.compl = x.extra - x.maj;
-    });
+    wk.forEach(x=>{ x.extra = x.acc ? Math.max(0, x.R - x.P) : 0; x.maj = 0; });
+    const Rw = wk.reduce((s,x)=>s+x.R,0), extraW = wk.reduce((s,x)=>s+x.extra,0);
+    // toutes les heures faites au-delà du seuil sont des heures en plus : elles sont majorées
+    let reste = Math.min(extraW, Math.max(0, Rw - thr));
+    for(let i=wk.length-1; i>=0 && reste>0; i--){ const m = Math.min(wk[i].extra, reste); wk[i].maj = m; reste -= m; }
+    wk.forEach(x=>{ x.compl = x.extra - x.maj; });
   }
   const md = days.filter(x=>x.d.getMonth()===m);
   const T = {hPrev:0, hDed:0, hOut:0, compl:0, maj:0, R:0, jAcc:0, jPrev:0, jDed:0, cp:0, cpOuv:0, ie:0, repas:0, nbRepas:0, km:0, kmEur:0, frais:0,
@@ -147,6 +146,8 @@ function suiviMonth(c, ym, opts){
     // absences payées (enfant absent sans déduction, événement familial, formation…) : heures dues, comptées comme
     // effectuées pour la régularisation de l'année incomplète (comme les fériés chômés) ; jamais les congés payés
     else if(x.P && !x.acc && !x.def.cp && x.st!=='avant') T.dueAbsMin += Math.max(0, x.P - x.ded);
+    // journée commencée puis écourtée sans retenue sur le salaire : la part non faite reste due (régularisation)
+    if(x.acc && x.P && x.R < x.P && x.st!=='avant' && x.st!=='todo') T.dueAbsMin += Math.max(0, x.P - x.R - x.ded);
     T.ie += x.ie; T.repas += x.repas; T.nbRepas += x.nbRepas; T.km += x.km; T.kmEur += x.kmEur; T.frais += x.frais;
     if(x.acc && x.ferie && x.R){ if(x.ferie==='1er mai') T.mai1Min += x.R; else T.ferieMin += x.R; }
     if(x.retard) T.retards++;
@@ -247,13 +248,16 @@ function renderJour(list){
     if(x.st==='none' && !x.r) etat = '';
     else if(x.st==='todo'){ nbConf++; etat = '<span class="pill">à renseigner</span>'; }
     else if(x.st==='avant') etat = '<span class="pill off">avant le suivi</span>';
+    else if(x.st==='ferieCh' && !x.r) etat = '<span class="pill st-ferie">Jour férié chômé : payé, pas d\u2019entretien</span>';
+    else if(!x.r && (x.st==='cpAm' || x.st==='absPrev')) etat = '<span class="pill st-'+(x.def.c||'none')+'">'+(x.st==='cpAm' ? 'Mes congés payés (notés dans Réglages)' : 'Absence prévue (notée dans Réglages)')+'</span>';
     else etat = '<span class="pill st-'+(x.def.c||'none')+'">'+esc((ST[x.st]||{}).l||x.st)+'</span>'
       + (x.r && x.r.a ? ' <span class="hint">'+esc(x.r.a)+' – '+esc(x.r.dep||'?')+'</span>' : '') + (x.r && x.r.late ? ' <span class="badge">saisi après coup</span>' : '');
     return '<div class="kid" style="margin-bottom:10px"><div class="kname">'+esc(c.enfant||'Enfant')+'</div>'
       + '<div class="kfam">'+esc(prev)+'</div>'+(etat ? '<div style="margin:6px 0">'+etat+'</div>' : '')
       + (locked ? '<div class="hint">Mois clôturé : modification par régularisation (onglet Mois).</div>' :
         '<div class="kactions">'
-        + (x.P && x.st!=='conf' ? '<button class="btn small primary" onclick="suiviConforme(\''+c.id+'\',\''+k+'\')">✔ Conforme</button>' : '')
+        + (x.ferie && x.P && !x.r ? '<button class="btn small" onclick="suiviFerie(\''+c.id+'\',\''+k+'\',true)">J\u2019ai travaillé ce jour férié</button>'
+          : (x.P && (x.st==='todo' || (x.r && x.st!=='conf')) ? '<button class="btn small primary" onclick="suiviConforme(\''+c.id+'\',\''+k+'\')">✔ Conforme</button>' : ''))
         + '<button class="btn small" onclick="dayEdit(\''+c.id+'\',\''+k+'\')">'+(x.r ? '✎ Modifier' : x.P ? '✎ Noter un changement ou une absence' : '＋ Accueil exceptionnel ce jour-là')+'</button></div>')
       + '</div>';
   }).join('');
@@ -268,11 +272,20 @@ function stampRec(r, k){
   if(k < iso(today())) r.late = true;
   return r;
 }
+function suiviFerie(cid, k, travaille){
+  const c = getContrat(cid), d = parseD(k), pl = plannedDay(c, d), cc = paramsAt(c, d);
+  if(monthLocked(cid, k.slice(0,7))){ toast('Mois clôturé : passez par une régularisation.'); return; }
+  const go = ()=>{ const r = travaille ? {st:'ferieTr', a: pl.s, dep: pl.e} : {st:'ferieCh'}; if(travaille && cc.repasMode===1) r.rep = {dej:true, gou:true};
+    suiviOf(cid).days[k] = stampRec(r, k); saveState(); suiviRefresh(); toast((c.enfant||'Journée')+' : '+(travaille ? 'jour férié travaillé (majoré)' : 'jour férié chômé (payé)')+'.'); };
+  if(travaille) showConfirmDialog('Jour férié travaillé ?', ferieName(d)+' : confirmez que '+(c.enfant||'l\u2019enfant')+' a bien été accueilli ce jour férié. Les heures seront majorées de '+(ferieName(d)==='1er mai' ? R('majPremierMai', d) : R('majFerie', d))+' % et l\u2019entretien sera dû. (Le cas habituel est le jour férié chômé, payé sans accueil.)', go, 'Oui, il a été accueilli', 'Annuler');
+  else go();
+}
 function suiviConforme(cid, k){
   const c = getContrat(cid), d = parseD(k);
   if(monthLocked(cid, k.slice(0,7))){ toast('Mois clôturé : passez par une régularisation.'); return; }
+  if(ferieName(d)){ suiviFerie(cid, k, true); return; }
   const pl = plannedDay(c, d), cc = paramsAt(c, d);
-  const r = {st: ferieName(d) ? 'ferieTr' : 'conf', a: pl.s, dep: pl.e};
+  const r = {st: 'conf', a: pl.s, dep: pl.e};
   if(cc.repasMode===1) r.rep = {dej:true, gou:true};
   suiviOf(cid).days[k] = stampRec(r, k);
   saveState(); suiviRefresh();
@@ -280,7 +293,7 @@ function suiviConforme(cid, k){
 }
 function suiviToutConforme(k){
   const d = parseD(k); let n=0;
-  suiviContrats().forEach(c=>{ if(inContract(c,d) && !dayRec(c.id,k) && plannedDay(c,d).min && !monthLocked(c.id, k.slice(0,7))){ const pl=plannedDay(c,d), cc=paramsAt(c,d); const r={st: ferieName(d)?'ferieTr':'conf', a:pl.s, dep:pl.e}; if(cc.repasMode===1) r.rep={dej:true,gou:true}; suiviOf(c.id).days[k]=stampRec(r,k); n++; } });
+  suiviContrats().forEach(c=>{ if(inContract(c,d) && !dayRec(c.id,k) && plannedDay(c,d).min && !monthLocked(c.id, k.slice(0,7)) && calcDay(c, d, k).st==='todo'){ const pl=plannedDay(c,d), cc=paramsAt(c,d); const r={st:'conf', a:pl.s, dep:pl.e}; if(cc.repasMode===1) r.rep={dej:true,gou:true}; suiviOf(c.id).days[k]=stampRec(r,k); n++; } });
   saveState(); suiviRefresh(); toast(n+' journée(s) enregistrée(s).');
 }
 
@@ -289,11 +302,15 @@ let DE = null;
 function dayEdit(cid, k){
   const c = getContrat(cid), d = parseD(k);
   if(monthLocked(cid, k.slice(0,7))){ toast('Mois clôturé : passez par une régularisation.'); return; }
-  const pl = plannedDay(c, d), r = clone(dayRec(cid, k) || {st: pl.min ? 'conf' : 'exc', a: pl.s, dep: pl.e});
+  const pl = plannedDay(c, d), cc0 = paramsAt(c, d);
+  const r = clone(dayRec(cid, k) || Object.assign({st: pl.min ? (ferieName(d) ? 'ferieCh' : 'conf') : 'exc', a: pl.s, dep: pl.e}, cc0.repasMode===1 ? {rep:{dej:true, gou:true}} : {}));
   DE = {cid, k, r};
   const groups = {};
   Object.keys(ST).forEach(s=>{ (groups[ST[s].g]=groups[ST[s].g]||[]).push(s); });
-  let opts = Object.keys(groups).map(g=>'<optgroup label="'+esc(g)+'">'+groups[g].map(s=>'<option value="'+s+'"'+(r.st===s?' selected':'')+'>'+esc(ST[s].l)+'</option>').join('')+'</optgroup>').join('');
+  const frequents = ['conf','ecart','absPrev','absMalC','absMalS','cpAm'];
+  const opt = s=>'<option value="'+s+'"'+(r.st===s?' selected':'')+'>'+esc(ST[s].l)+'</option>';
+  let opts = '<optgroup label="Le plus courant">'+frequents.map(opt).join('')+'</optgroup>'
+    + Object.keys(groups).map(g=>{ const L = groups[g].filter(s=>!frequents.includes(s)); return L.length ? '<optgroup label="'+esc(g==='Autre' ? 'Autres situations' : g)+'">'+L.map(opt).join('')+'</optgroup>' : ''; }).join('');
   const rep = r.rep||{};
   let h = '<h3>'+esc(c.enfant||'')+' · '+d.toLocaleDateString('fr-FR',{weekday:'long', day:'numeric', month:'long'})+'</h3>'
     + '<p>'+(pl.min ? 'Prévu : '+(pl.s&&pl.e?pl.s+' – '+pl.e+' · ':'')+fmtH(pl.min) : 'Aucun accueil prévu ce jour-là')+(ferieName(d)?' · '+esc(ferieName(d)):'')+'</p>'
@@ -327,6 +344,8 @@ function deVis(){
   const st = val('de-st'), def = ST[st]||{};
   show('de-acc', !!def.acc); show('de-abs', !def.acc && st!=='none');
   const msg = {
+    conf:'Payé comme prévu. Entretien et repas dus.',
+    ecart:'La journée est payée comme prévu. Les heures faites au-delà du planning sont payées en plus (tarif normal jusqu\'à '+R('seuilMaj')+' h dans la semaine, majorées au-delà). Un départ plus tôt voulu par les parents ne se retire pas du salaire. Entretien selon la durée réelle.',
     absMalC:'Déduction possible dans la limite de 5 jours par période de 12 mois (à partir de la date du contrat), avec certificat remis dans les 48 h. Le carnet compte les jours.',
     absMalS:'Sans certificat : le salaire reste dû. Pas d\'entretien ni de repas ce jour-là.',
     absPrev:'Absence voulue ou prévue par les parents : le salaire reste dû. Pas d\'entretien ni de repas.',
