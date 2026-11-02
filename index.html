@@ -130,6 +130,7 @@
 
     <!-- ============ OUTILS (calculs ponctuels, réglages, données) ============ -->
     <section class="tab-panel" id="tab-outils" style="display:none">
+      <div class="info-box" style="margin-bottom:12px"><b>🧮 Vérifier tous les calculs sans créer de fiche enfant</b><br>Du contrat à sa fin, étape par étape, avec les mêmes calculs que pour vos enfants.<br><button class="btn small primary" style="margin-top:6px" onclick="showTheme('calc')">Calcul complet sans fiche</button></div>
       <div class="h-sec">Chaque mois</div>
       <p class="hint" style="margin:-4px 0 10px">Le suivi au jour le jour est facultatif : tous les calculs ci-dessous marchent aussi sans lui. Ils partent alors du planning du contrat (pensez à noter vos semaines de congés dans <a href="#" onclick="showTheme('reglages');setTimeout(()=>{const e=$('conges-wrap');if(e)e.scrollIntoView();},80);return false;">Réglages</a>), et vous pouvez corriger chaque case.</p>
       <div class="index">
@@ -1067,6 +1068,12 @@
   </div>
 
   <!-- ===================================================== AIDE ===================================================== -->
+  <div class="theme" id="theme-calc">
+    <h2>Calcul complet sans fiche</h2>
+    <p class="sub">Tous les calculs d’un contrat, de la signature à la fin, sans créer de fiche enfant.</p>
+    <div id="calc-body"></div>
+  </div>
+
   <div class="theme" id="theme-apropos">
     <h2>À propos et confidentialité</h2>
     <p class="sub">Qui édite le Carnet Assmat, ce qu'il fait de vos données, et ses limites.</p>
