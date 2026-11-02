@@ -156,8 +156,9 @@ function suiviMonth(c, ym, opts){
   // congés en jours ouvrables : une semaine entière de congés compte 6 jours
   for(let w=0; w<days.length; w+=7){
     const wk = days.slice(w,w+7).filter(x=>x.d.getMonth()===m && x.inC);
-    const pl = wk.filter(x=>x.P>0), cp = wk.filter(x=>x.def.cp);
-    if(cp.length && cp.length===pl.length) T.cpOuv += wk.filter(x=>dowIdx(x.d)<6).length;
+    // un jour férié chômé qui tombe un jour d'accueil prévu ne compte pas comme jour de congé
+    const fer = wk.filter(x=>x.P>0 && x.st==='ferieCh'), pl = wk.filter(x=>x.P>0 && x.st!=='ferieCh'), cp = wk.filter(x=>x.def.cp);
+    if(cp.length && cp.length===pl.length) T.cpOuv += wk.filter(x=>dowIdx(x.d)<6).length - fer.filter(x=>dowIdx(x.d)<6).length;
     else T.cpOuv += cp.length;
   }
   // salaire mensualisé dû (méthode Cour de cassation, ventilé par avenant)
@@ -452,7 +453,7 @@ function renderMoisSuivi(c){
     + (M.majPay?'<div class="result-line"><span class="lbl">Heures majorées</span><span class="val">'+fmtEUR(M.majPay)+'</span></div>':'')
     + (M.ferieSup?'<div class="result-line"><span class="lbl">Majoration jours fériés travaillés</span><span class="val">'+fmtEUR(M.ferieSup)+'</span></div>':'')
     + (M.regBrut?'<div class="result-line"><span class="lbl">Régularisations imputées sur ce mois</span><span class="val">'+fmtEUR(M.regBrut)+'</span></div>':'')
-    + (M.cp12?'<div class="result-line"><span class="lbl">Congés payés (1/12ᵉ)</span><span class="val">'+fmtEUR(M.cp12)+'</span></div>':'')
+    + (M.cp12?'<div class="result-line"><span class="lbl">Congés payés (10 % du salaire)</span><span class="val">'+fmtEUR(M.cp12)+'</span></div>':'')
     + '<div class="result-line total"><span class="lbl">Salaire brut estimé</span><span class="val">'+fmtEUR(M.brut)+'</span></div>'
     + '<div class="result-line"><span class="lbl">Salaire net estimé</span><span class="val">'+fmtEUR(M.net)+'</span></div>'
     + '<div class="result-line"><span class="lbl">Indemnités d\'entretien ('+T.jAcc+' jours)</span><span class="val">'+fmtEUR(T.ie)+'</span></div>'

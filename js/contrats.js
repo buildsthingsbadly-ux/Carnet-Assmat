@@ -176,7 +176,7 @@ function finEssai(c){
 
 /* ---------- Navigation (avec le bouton « retour » d'Android) ---------- */
 const THEME_TITLES = { parents:'Pour les parents', contrat:'Enfant & contrat', mensu:'Salaire mensualisé', mois:'Salaire du mois', ccass:'Mois incomplet',
-  cp:'Congés payés', ie:'Indemnités d\'entretien', fin:'Fin de contrat', abattement:'Impôts', cmg:'Aide CMG', reglages:'Réglages', aide:'Aide', docs:'Documents', suivi:'Suivi & paie' };
+  cp:'Congés payés', ie:'Indemnités d\'entretien', fin:'Fin de contrat', abattement:'Impôts', cmg:'Aide CMG', reglages:'Réglages', aide:'Aide', docs:'Documents', suivi:'Suivi & paie', formation:'Se former' };
 let CURRENT = 'home';
 function showTheme(id, opts){
   opts = opts||{};
@@ -330,6 +330,33 @@ function noterSemaineOff(cid){
     toast('Semaine du lundi '+fmtDate(k)+' : '+(avant ? 'accueil rétabli.' : 'sans accueil (pas d\u2019entretien ni de repas).')+(b && b.aPlacer ? ' Encore '+b.aPlacer+' semaine(s) sans accueil à noter cette année.' : ''));
   }, {type:'date'});
 }
+/* Année complète : congés pris (ou notés à venir) au-delà des jours acquis à la date du dernier jour de congé.
+   Les jours en plus ne sont pas payés par le salaire mensualisé, sauf accord des parents (congé sans solde). */
+function cpAuDelaAcquis(c){
+  const t = today();
+  if(!c || c.type===1 || !contratActif(c, t)) return null;
+  const startN = new Date(t.getMonth()>=5 ? t.getFullYear() : t.getFullYear()-1, 5, 1), finN = new Date(startN.getFullYear()+1, 4, 31);
+  const sN = iso(startN), fN = iso(finN), days = ((STATE.suivi||{})[c.id]||{}).days || {};
+  const derniers = ((STATE.settings||{}).conges||[]).filter(p=>p && p.du && p.au && p.du<=fN && p.au>=sN).map(p=>p.au<fN ? p.au : fN)
+    .concat(Object.keys(days).filter(k=>k>=sN && k<=fN && (ST[days[k].st]||{}).cp)).sort();
+  if(!derniers.length) return null;
+  let H = parseD(derniers[derniers.length-1]);
+  const deb = parseD(c.debut), fin = parseD(c.fin);
+  if(fin && fin < H) H = fin;
+  if(H < addDays(t, -62)) return null;                  // congés anciens : déjà réglés avec les salaires de l'époque
+  let d = new Date(startN), pris = parseFloat((c.rep||{}).cpPrisN)||0;
+  while(d <= H){
+    const last = new Date(d.getFullYear(), d.getMonth()+1, 0);
+    if(!(deb && deb > last) && !(fin && fin < d)) pris += suiviMonth(c, isoMonth(d), {sansCP:true}).T.cpOuv || 0;
+    d = new Date(d.getFullYear(), d.getMonth()+1, 1);
+  }
+  const PP = cpRefPeriods(Object.assign({}, c, {fin: iso(H)}), H), P1 = PP.find(x=>x.k==='n1'), Pn = PP.find(x=>x.k==='n');
+  const rp = c.rep || {}, rel = (rp.cpReliquat!==undefined && rp.cpReliquat!=='') ? (parseFloat(rp.cpReliquat)||0) : null;
+  const acq1 = rel!==null ? rel : (P1 && P1.s ? joursAcquisCP(iso(P1.s), iso(P1.e), 0, false, c) : 0);
+  const acqN = Pn && Pn.s ? joursAcquisCP(iso(Pn.s), iso(Pn.e), 0, true, c) : 0;
+  const trop = Math.floor(pris - acq1 - acqN + 1e-9);
+  return trop > 0 ? {trop, pris, acquis: Math.floor((acq1 + acqN)*10)/10, jusqua: H} : null;
+}
 function computeAlerts(){
   const out = [], now = today(), mNow = now.getMonth();
   const actifs = STATE.contrats.filter(c=>contratActif(c, now));
@@ -337,6 +364,9 @@ function computeAlerts(){
     const nom = '<b>'+esc(c.enfant||'Enfant')+'</b>';
     const dv = derive(c, now);
     if(!contratActif(c, now) && parseD(c.fin) && parseD(c.fin) < now) return;
+    const cpTrop = cpAuDelaAcquis(c);
+    if(cpTrop) out.push({lvl:'warn', html:nom+' : '+cpTrop.pris+' jours de congés payés pris ou prévus depuis le 1er juin, pour environ '+fmtNum(cpTrop.acquis, 1)+' jours acquis au '+fmtDate(iso(cpTrop.jusqua))+'. Les <b>'+cpTrop.trop+' jour(s) en plus</b> ne sont pas payés par le salaire mensualisé, sauf accord écrit des parents : ils se retirent comme un congé sans solde.',
+      act:'<button class="btn small" onclick="showTheme(\'ccass\')">Mois incomplet</button> <button class="btn small" onclick="showTheme(\'cp\')">Congés payés</button>'});
     // Année incomplète : semaines sans accueil pas encore notées, ou accueil au-delà du contrat
     if(c.type===1 && contratActif(c, now) && (parseFloat(c.semaines)||0) > 0){
       const b = bilanSemaines(c);
@@ -637,7 +667,7 @@ function ctRecap(dv){
   ];
   let h = '';
   lines.forEach(l=>{ h+='<div class="result-line"><span class="lbl">'+l[0]+'</span><span class="val">'+l[1]+'</span></div>'; });
-  if(dv.cp12) h+='<div class="result-line"><span class="lbl">dont congés payés (1/12ᵉ chaque mois)</span><span class="val">'+fmtEUR(dv.cp12)+'</span></div>';
+  if(dv.cp12) h+='<div class="result-line"><span class="lbl">dont congés payés (10 % chaque mois)</span><span class="val">'+fmtEUR(dv.cp12)+'</span></div>';
   h+='<div class="result-line total"><span class="lbl">Salaire mensuel brut</span><span class="val">'+fmtEUR(dv.brut)+'</span></div>';
   h+='<div class="result-line"><span class="lbl">Salaire mensuel net (estimation)</span><span class="val">'+fmtEUR(dv.net)+'</span></div>';
   h+='<div class="result-line"><span class="lbl">Indemnité d\'entretien moyenne par jour</span><span class="val">'+fmtEUR(dv.ieJour)+'</span></div>';

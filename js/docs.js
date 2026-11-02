@@ -108,7 +108,7 @@ function printDoc(id){
       + row('Salaire horaire brut', fmtEUR(dv.tauxEff)) + row('Salaire horaire net (estimation)', fmtEUR(toNet(dv.tauxEff, c.debut||null)))
       + row('Heures normales mensualisées (à déclarer chaque mois)', Math.round(dv.hMensu)+' h ('+fmtNum(dv.hMensu,2)+' h)')
       + row('Jours d\'activité mensualisés (à déclarer chaque mois)', Math.ceil(dv.joursMensu-1e-9)+' j ('+fmtNum(dv.joursMensu,2)+' j)')
-      + row('Salaire mensuel brut / net estimé', fmtEUR(dv.brut)+' / '+fmtEUR(dv.net)+(dv.cp12?' (dont 1/12ᵉ de congés payés)':''))
+      + row('Salaire mensuel brut / net estimé', fmtEUR(dv.brut)+' / '+fmtEUR(dv.net)+(dv.cp12?' (dont 10 % de congés payés)':''))
       + row('Indemnité d\'entretien par jour de présence', c.ieMode===1 ? fmtEUR(ieContrat(c))+' (montant fixe, jamais sous le minimum légal du jour)' : c.ieMode===2 ? fmtEUR(ieContrat(c))+' pour une journée de 9 h ou plus, au prorata en dessous (jamais sous le minimum légal)' : 'minimum légal, soit '+fmtEUR(dv.ieJour)+' en moyenne')
       + row('Repas', c.repasMode===1 ? fmtEUR(parseFloat(c.repasPrix)||0)+' par jour' : c.repasMode===0 ? 'fournis par les parents' : 'aucun')
       + row('Date de paiement du salaire', c.paiementJour ? 'le '+esc(c.paiementJour)+' du mois suivant' : BL) + '</table>'
@@ -116,7 +116,7 @@ function printDoc(id){
   }
   else if(id==='contrat'){
     const fe = finEssai(c), essaiMois = Math.max(dv.jA,dv.jB) >= 4 ? (R('essai')||[3,2])[1] : (R('essai')||[3,2])[0];
-    const cpMode = ['par 12ᵉ chaque mois (10 % du salaire brut)','en une seule fois en juin','lors de la prise principale des congés'][c.cpMode];
+    const cpMode = ['chaque mois, 10 % du salaire brut du mois (en juin, complément si le maintien de salaire est plus favorable)','en une seule fois en juin','lors de la prise principale des congés'][c.cpMode];
     h = docHead('Contrat de travail à durée indéterminée — assistant(e) maternel(le) agréé(e)', c)
       + '<p>Contrat régi par la convention collective nationale des particuliers employeurs et de l\'emploi à domicile (IDCC 3239 : socle commun et socle spécifique assistant maternel), le Code de l\'action sociale et des familles et les dispositions du Code du travail applicables aux assistants maternels.</p>'
       + '<h3>Article 1 — Les parties</h3><table>'
@@ -135,7 +135,7 @@ function printDoc(id){
       + '<h3>Article 5 — Rémunération</h3><table>'
       + row('Salaire horaire brut', fmtEUR(dv.tauxEff)+' (net estimé '+fmtEUR(toNet(dv.tauxEff, c.debut||null))+')')
       + row('Heures mensualisées', fmtNum(dv.hMensu,2)+' h = '+fmtNum(dv.moyH,2)+' h × '+dv.semaines+' semaines ÷ 12')
-      + row('Salaire mensuel brut', fmtEUR(dv.brutBase)+(dv.cp12?' + congés payés 1/12ᵉ : '+fmtEUR(dv.cp12):''))
+      + row('Salaire mensuel brut', fmtEUR(dv.brutBase)+(dv.cp12?' + congés payés (10 %) : '+fmtEUR(dv.cp12):''))
       + row('Heures au-delà de 45 h par semaine', 'majorées de '+dv.majPct+' %') + row('Heures complémentaires (jusqu\'à 45 h)', 'payées au salaire horaire normal')
       + row('Date de paiement', c.paiementJour ? 'le '+esc(c.paiementJour)+' de chaque mois, pour le mois écoulé' : BL) + row('Déclaration', 'par l\'employeur sur Pajemploi, chaque mois') + '</table>'
       + '<p>Le salaire horaire ne peut être inférieur au minimum conventionnel en vigueur ; en cas de revalorisation de ce minimum, il est relevé d\'office.</p>'

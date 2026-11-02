@@ -13,6 +13,7 @@ function onThemeOpen(id){
   if(id==='contrat'){ ctRefresh(); return; }
   if(id==='reglages'){ renderSettings(); return; }
   if(id==='aide'){ renderAide(); return; }
+  if(id==='formation'){ renderFormation(); return; }
   if(id==='docs'){ renderDocs(); return; }
   if(id==='suivi'){ renderSuivi(); return; }
   loadThemeForm(id);
@@ -757,9 +758,10 @@ CALC.cp = ()=>{
   } else {
     p += '<div class="result-line"><span class="lbl">Indemnité de congés payés de la période (la plus favorable)</span><span class="val">'+fmtEUR(iN1)+'</span></div>'
       +  '<div class="result-line"><span class="lbl">• Paiement en une fois en juin</span><span class="val">'+fmtEUR(iN1)+'</span></div>'
-      +  '<div class="result-line"><span class="lbl">• Paiement par 12ᵉ chaque mois (≈ 10 % du salaire)</span><span class="val">'+fmtEUR(iN1/12)+' / mois</span></div>'
+      +  '<div class="result-line"><span class="lbl">• Un peu chaque mois : '+fmtNum((R('cpDixieme')||0.10)*100, 0)+' % du salaire brut de chaque mois, versés avec lui (déjà compris dans l\u2019onglet Mois). Sur la période, cela fait</span><span class="val">'+fmtEUR(dixieme)+'</span></div>'
+      +  '<div class="result-line'+(mN1 > dixieme ? ' warn' : '')+'"><span class="lbl">&nbsp;&nbsp;↳ Vérification de juin : complément à verser si le maintien de salaire est plus favorable</span><span class="val">'+fmtEUR(Math.max(0, mN1 - dixieme))+'</span></div>'
       +  '<div class="result-line"><span class="lbl">• Paiement à la prise des congés, par jour pris</span><span class="val">'+(A.n1?fmtEUR(iN1/A.n1)+' / jour':'—')+'</span></div>'
-      +  '<div class="net-hint">Année incomplète : l\'indemnité de congés s\'ajoute au salaire mensualisé, selon le mode prévu au contrat. En cas de paiement par 12ᵉ, une vérification est faite en fin de période (maintien ou 10 %, le plus favorable).</div>';
+      +  '<div class="net-hint">Année incomplète : l\'indemnité de congés s\'ajoute au salaire mensualisé, selon le mode prévu au contrat. Payés un peu chaque mois : les 10 % sont ajoutés au salaire de chaque mois ; en juin, si le maintien de salaire donne plus, la différence est versée en plus.</div>';
   }
   setHTML('cp-paiement', p);
 };
@@ -860,8 +862,8 @@ VIS.fin = ()=>{
   setTxt('fin-salaire-label', avant ? 'Salaire mensuel brut prévu au contrat (€)' : 'Salaire du dernier mois, hors indemnités d\'entretien (€)');
   setTxt('fin-salaire-hint', avant ? 'Sert à calculer l\'indemnité forfaitaire : la moitié de ce montant.' : 'Si le dernier mois est incomplet, utilisez le thème « Mois incomplet ».');
   show('fin-retraite-wrap', quiV===7);
-  setTxt('fin-notif-label', deces ? 'Date du décès' : quiV===7 ? 'Date d\'envoi / de remise de votre lettre de départ' : 'Date d\'envoi / de remise de la lettre');
-  setTxt('fin-notif-hint', deces ? 'Le contrat s\'arrête ce jour-là. Un proche (ayant droit) doit vous prévenir par écrit ; les documents de fin de contrat sont à remettre sous 30 jours.' : 'Le préavis commence le jour de la première présentation de la lettre.');
+  setTxt('fin-notif-label', deces ? 'Date du décès' : quiV===7 ? 'Date de remise de votre lettre de départ (ou de sa première présentation par La Poste)' : 'Date de remise de la lettre en main propre (ou de sa première présentation par La Poste)');
+  setTxt('fin-notif-hint', deces ? 'Le contrat s\'arrête ce jour-là. Un proche (ayant droit) doit vous prévenir par écrit ; les documents de fin de contrat sont à remettre sous 30 jours.' : 'Pas la date d\'envoi : le préavis commence le jour où la lettre est remise ou présentée pour la première fois (voir l\'avis de réception). L\'ancienneté se compte à cette date.');
   const pr = finPreavis();
   show('fin-preavis-row', seg('fin-qui')===0 && !pr.motifSans && (pr.jours||pr.moisP), 'flex');
   show('fin-entretien-wrap', seg('fin-entretien')===1); show('row-fin-entretien', seg('fin-entretien')===1, 'flex');
