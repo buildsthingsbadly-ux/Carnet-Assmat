@@ -252,7 +252,7 @@ CALC.mois = ()=>{
   else if(!r.ieAuto && r.ieSaisie && !r.hj) w.push('Durée des journées non indiquée : '+fmtEUR(r.ieSaisie)+' par jour est retenu sans contrôle. Il est sous le minimum légal pour les journées de plus de '+fmtH(Math.floor(ieSeuilHeures(r.ieSaisie, d)*60))+' : indiquez la durée moyenne pour le vérifier.');
   else if(!r.ieAuto && r.ieSaisie && r.ieSaisie < r.ieLeg-1e-9) w.push('⚠️ L\'indemnité d\'entretien saisie ('+fmtEUR(r.ieSaisie)+') est sous le minimum légal pour une journée de '+fmtNum(r.hj||9,2)+' h ('+fmtEUR(r.ieLeg)+') : le minimum est appliqué.');
   if(!r.ieAuto && r.jours && !r.hj && !r.ieSaisie) w.push('Durée des journées non indiquée : le minimum d\'entretien est calculé pour '+(R('ieHeuresRef', d)||9)+' h.');
-  if(seg('mois-incomplet')===1 && !num('mois-deduction')) w.push('Indiquez le montant déduit (calcul « Mois incomplet & absences », bouton « Reporter »).');
+  if(seg('mois-incomplet')===1 && !num('mois-deduction')) w.push('Indiquez le montant déduit (calcul « Mois incomplet », bouton « Reporter »).');
   if(!r.inc && num('mois-cpmontant')) w.push('Année complète : pas d’indemnité de congés à ajouter, elle est déjà dans le salaire mensualisé.');
   const c = moisContrat();
   if(c && journalOf(c.id)[r.m]) w.push('ℹ️ Ce mois est déjà validé : valider à nouveau remplacera l\'enregistrement.');
@@ -459,6 +459,7 @@ PREFILL.ccass = c=>{
 };
 function buildCcassCalendar(){
   const m = val('ccass-cal-mois') || curMonth();
+  if($('ccass-send-mois')) setTxt('ccass-send-mois', fmtMonth(m));
   const base = parseD(m), y = base.getFullYear(), mo = base.getMonth(), nb = daysInMonth(y, mo);
   const hasSup = seg('ccass-hassup')===1;
   const prevN = {}, prevS = {};
@@ -559,7 +560,34 @@ CALC.ccass = ()=>{
   const r = ccassHelper();
   if(r){ const id = {enfmal:'ccass-mal-result', evt:'ccass-evt-result', enfassmat:'ccass-ea-result', adapt:'ccass-adapt-result'}[mo.id]; setHTML(id, r.txt); }
 };
+/* Depuis « Salaire du mois » : ouvrir « Mois incomplet » sur le même enfant et le MÊME mois */
+function moisOpenCcass(){
+  const m = val('mois-mois') || curMonth(), key = selKey('mois');
+  if(key) STATE.sel.ccass = key;
+  showTheme('ccass');
+  if(val('ccass-cal-mois') !== m){
+    setVal('ccass-cal-mois', m);
+    if(key && key!=='libre' && getContrat(key)) ccassPrefillCalendar(true); else buildCcassCalendar();
+    CALC.ccass(); persistTheme('ccass');
+  }
+  toast('Calcul ouvert sur '+fmtMonth(m)+'.');
+}
+/* Chemin court : noter les absences sur les jours du mois (calendrier du suivi), sans report */
+function moisNoterAbsences(){
+  const m = val('mois-mois') || curMonth(), key = selKey('mois');
+  if(!key || key==='libre' || !getContrat(key)){ toast('Choisissez d\'abord un enfant enregistré.'); return; }
+  openSuivi('cal', key, m);
+  toast('Touchez chaque jour d\'absence et choisissez ce qui s\'est passé.');
+}
 function ccassSendToMois(){
+  const m = val('ccass-cal-mois'), key = selKey('ccass'), f = ((STATE.forms||{}).mois||{})[key], avant = f && (f.i||{})['mois-mois'];
+  if(m && avant && avant !== m){
+    showConfirmDialog('Sur quel mois reporter ?', 'Ce calcul porte sur '+fmtMonth(m)+', mais « Salaire du mois » était ouvert sur '+fmtMonth(avant)+'. Reporter la déduction sur '+fmtMonth(m)+' ? (Pour '+fmtMonth(avant)+', changez d\'abord le mois en haut de ce calcul.)', ccassSendToMoisGo, 'Oui, sur '+fmtMonth(m), 'Annuler');
+    return;
+  }
+  ccassSendToMoisGo();
+}
+function ccassSendToMoisGo(){
   const sup = seg('ccass-hassup')===1;
   const sal = num('ccass-base-normal')+(sup?num('ccass-base-sup'):0);
   if(!sal){ toast('Faites d\'abord le calcul.'); return; }

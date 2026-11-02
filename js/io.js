@@ -2,7 +2,7 @@
    IMPRESSION / PDF · SAUVEGARDE · RÉGLAGES · MISES À JOUR RÉGLEMENTAIRES · AIDE · DÉMARRAGE
    ===================================================================================== */
 'use strict';
-const APP_VERSION = '3.15.1';
+const APP_VERSION = '3.16.0';
 
 /* ---------------------------------- Impression / PDF ---------------------------------- */
 let _pc = null;
@@ -365,6 +365,7 @@ function regClearManual(){
 
 /* ---------------------------------- Aide ---------------------------------- */
 const AIDE = [
+  ['Je débute : comprendre les calculs', 'La rubrique <b>Outils ▸ Se former</b> explique pas à pas, avec des exemples chiffrés, le contrat, le salaire mensualisé, la paie de chaque mois, les absences, les congés et la fin du contrat. Comptez environ une heure en tout, chapitre par chapitre. <a href="#" onclick="showTheme(\'formation\');return false;">Ouvrir la formation</a>'],
   ['Comment commencer ?', 'Sur l\'accueil, touchez <b>« Ajouter un enfant »</b> et répondez aux questions (prénom, dates, planning, tarif). Recommencez pour chaque enfant (4 en cours au maximum). Ensuite, chaque calcul se remplit tout seul : choisissez l\'enfant en haut de l\'écran. Pour un calcul ponctuel, choisissez « Saisie libre ». Renseignez aussi une fois « Mon profil » (Réglages) pour les documents.'],
   ['Chaque mois : 3 étapes', 'Dans l\'onglet <b>Mois</b>, chaque enfant a sa carte avec 3 étapes, à faire dans l\'ordre :<br>1. <b>Vérifier et valider les chiffres</b> : le résultat et le bloc orange « Ce que les parents recopient sur Pajemploi » sont en haut ; ne corrigez en dessous que ce qui a changé (absence, heures en plus, jour férié, congés). Touchez « Valider ce mois » : le mois est gardé et sert ensuite aux congés, à la fin de contrat et aux impôts.<br>2. <b>Envoyer aux parents</b> : le récapitulatif part par SMS ou mail. Ce sont les parents qui déclarent sur Pajemploi, entre le 25 et le 5.<br>3. <b>Salaire reçu</b> : notez la date du paiement.<br>Si le bulletin Pajemploi donne un autre net, corrigez le mois et validez-le à nouveau.'],
   ['Année incomplète : semaines sans accueil pas encore connues', 'Souvent, les parents ne connaissent pas à l\'avance toutes leurs dates de vacances. Dans la fiche de l\'enfant, répondez « Pas encore » : le contrat indique seulement le <b>nombre</b> de semaines d\'accueil par an, et c\'est lui qui fixe le salaire mensualisé (juste dès le premier mois). Ensuite, à chaque fois que les parents vous donnent une semaine sans accueil, touchez <b>📅 Semaine sans accueil</b> (onglet Enfants, ou sur la carte du mois) : l\'entretien et les repas de ce mois sont recalculés. En attendant, le carnet compte les congés avec le nombre de semaines du contrat (jamais plus) et vous rappelle combien de semaines restent à noter avant la date anniversaire. En fin de contrat, il vous prévient si des semaines semblent manquer, car la régularisation serait sinon trop élevée. Bon à savoir : prévoyez dans le contrat un délai pour que les parents vous préviennent (par exemple un mois).'],

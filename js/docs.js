@@ -7,6 +7,7 @@
 let DOCS_ID = null;
 const DOCS = [
   {id:'pajemploi', g:'Embauche', t:'Fiche d\'embauche : ce qu\'il faut saisir (CAF, Pajemploi)', d:'Toutes les informations que les parents doivent entrer pour la demande de CMG et sur Pajemploi.'},
+  {id:'engagement', g:'Embauche', t:'Engagement réciproque (avant le début de l\'accueil)', d:'Promesse d\'embauche signée par les deux parties, avec l\'indemnité due si l\'une d\'elles renonce.'},
   {id:'contrat', g:'Embauche', t:'Contrat de travail (CDI)', d:'Pré-rempli avec le planning, le salaire, les indemnités, les congés, les absences et la rupture.'},
   {id:'autorisations', g:'Embauche', t:'Autorisations et fiche de renseignements', d:'Personnes autorisées, sorties, transport, photos, santé et urgences.'},
   {id:'avenant', g:'Vie du contrat', t:'Avenant au contrat', d:'Changement d\'horaires, de salaire ou d\'indemnités (valeurs actuelles pré-remplies).'},
@@ -197,6 +198,22 @@ function printDoc(id){
     h += blocs.join('') || '<p>Aucun mois de contrat passé.</p>';
     h += '<p class="legal-p">Montants du carnet (le net et le net imposable sont des estimations). Les montants officiels sont ceux des bulletins et de l\'attestation fiscale Pajemploi.</p>';
   }
+  else if(id==='engagement'){
+    const dv = derive(c, c.debut || undefined), demi = (dv.brut||0)/2;
+    h = docHead('Engagement réciproque', c)
+      + '<p>Entre '+employeurs(c)+', demeurant '+v(c.adresse)+', futurs particuliers employeurs,</p>'
+      + '<p>et '+assmatNom()+', assistante maternelle agréée (agrément n° '+v((STATE.profil||{}).agrementNum)+'), demeurant '+v((STATE.profil||{}).adresse)+'.</p>'
+      + '<p>Les parties s\'engagent à conclure un contrat de travail pour l\'accueil de l\'enfant <b>'+esc(c.enfant||'')+' '+esc(c.enfantNom||'')+'</b>, à compter du <b>'+v(fmtDate(c.debut))+'</b>, aux conditions suivantes :</p><table>'
+      + row('Type d\'accueil', c.type===1 ? 'Année incomplète, '+v(c.semaines)+' semaines par an' : 'Année complète (52 semaines)')
+      + row('Durée d\'accueil', fmtNum(dv.moyH||0, 2)+' h par semaine en moyenne')
+      + row('Salaire horaire brut', fmtEUR(dv.tauxEff||0))
+      + row('Salaire mensuel brut prévu', fmtEUR(dv.brut||0))
+      + row('Indemnité d\'entretien', 'au moins le minimum légal, par jour de présence') + '</table>'
+      + planningTable(c)
+      + '<p>Si l\'une des parties renonce à conclure le contrat, elle verse à l\'autre une <b>indemnité forfaitaire égale à un demi-mois de salaire brut prévu</b>, soit <b>'+fmtEUR(demi)+'</b>. Cette indemnité n\'est pas due en cas de décès de l\'enfant, ou de retrait, suspension ou non-renouvellement de l\'agrément de l\'assistante maternelle (sur justificatif).</p>'
+      + '<p>Le contrat de travail écrit sera signé au plus tard le premier jour de l\'accueil.</p>'
+      + lieuDate() + sign('Les parents employeurs', 'L\'assistante maternelle');
+  }
   else if(id==='retrait' || id==='demission'){
     const f = finValues(c);
     const parParents = id==='retrait';
@@ -209,9 +226,9 @@ function printDoc(id){
       + (parParents
         ? '<p>Madame,</p><p>Nous vous informons de notre décision de retirer notre enfant '+esc(c.enfant||'')+', accueilli(e) chez vous depuis le '+v(fmtDate(c.debut))+', et de mettre ainsi fin à votre contrat de travail.</p>'
         : '<p>Madame, Monsieur,</p><p>Je vous informe de ma décision de '+(qui===7?'partir à la retraite et de mettre fin à':'démissionner de')+' mon poste d\'assistante maternelle pour l\'accueil de votre enfant '+esc(c.enfant||'')+', que j\'accueille depuis le '+v(fmtDate(c.debut))+'.</p>')
-      + '<p>'+esc(f.preavisTxt)+'</p><p>Le préavis commence à la date de première présentation de cette lettre. '+(parParents?'Les documents de fin de contrat (certificat de travail, attestation France Travail, reçu pour solde de tout compte) vous seront remis à son terme, avec les sommes dues.':'Je vous remercie de me remettre, à la fin du préavis, le certificat de travail, l\'attestation France Travail et le reçu pour solde de tout compte.')+'</p>'
+      + '<p>'+lettrePreavis(c, qui)+'</p><p>Le préavis commence à la date de première présentation de cette lettre (ou de sa remise en main propre). '+(parParents?'Les documents de fin de contrat (certificat de travail, attestation France Travail, reçu pour solde de tout compte) vous seront remis à son terme, avec les sommes dues.':'Je vous remercie de me remettre, à la fin du préavis, le certificat de travail, l\'attestation France Travail et le reçu pour solde de tout compte.')+'</p>'
       + '<p>'+(parParents?'Nous vous prions d\'agréer, Madame, nos salutations distinguées.':'Je vous prie d\'agréer, Madame, Monsieur, mes salutations distinguées.')+'</p>'
-      + '<p>Le '+(f.notif?fmtDate(f.notif):today().toLocaleDateString('fr-FR'))+'</p><p>Signature : <br><br><br></p>';
+      + '<p>Le '+today().toLocaleDateString('fr-FR')+'</p><p>Signature : <br><br><br></p>';
   }
   else if(id==='certificat'){
     h = docHead('Certificat de travail', c)
@@ -244,5 +261,13 @@ function printDoc(id){
       + '<p class="legal-p">Montants repris du calcul « Fin de contrat » du carnet : vérifiez-les avec la dernière déclaration Pajemploi.</p>';
   }
   doPrint('<div class="doc">'+h+'</div>');
+}
+/* Lettre de fin : durée du préavis (pas de date de fin : elle dépend du jour où la lettre sera présentée) */
+function lettrePreavis(c, qui){
+  const deb = parseD(c.debut), t = today(), fe = finEssai(c);
+  if(fe && t <= fe) return 'Le contrat étant en période d\'essai (jusqu\'au '+fe.toLocaleDateString('fr-FR')+'), il prend fin sans préavis.';
+  const anc = deb ? monthsBetween(deb, t) : 0, P = R('preavis', t) || [{jours:8},{jours:15},{mois:1}], p = anc < 3 ? P[0] : anc < 12 ? P[1] : P[2];
+  const dur = p.mois ? p.mois+' mois' : p.jours+' jours calendaires';
+  return 'Compte tenu de l\'ancienneté ('+ancienneteTxt(c.debut, iso(t))+'), le préavis prévu par la convention collective est de <b>'+dur+'</b>.';
 }
 function fournisPar(qui, c){ return fmtEUR(parseFloat(c.repasPrix)||0)+' par jour de présence, repas fournis par l\'assistante maternelle'; }

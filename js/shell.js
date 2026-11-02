@@ -36,6 +36,7 @@ function renderAccueil(){
   // Premiers pas, tant que l'essentiel n'est pas fait
   const steps = [
     {ok: !!(STATE.ui||{}).demoVue, t:'Découvrir avec un exemple (sans risque)', a:'STATE.ui.demoVue=1;startDemo()', opt:true},
+    {ok: Object.keys(((STATE.formation||{}).lu)||{}).length>0, t:'Comprendre mes calculs : la formation pas à pas', a:"showTheme('formation')", opt:true},
     {ok: !!p.nom, t:'Renseigner mon profil (nom, agrément)', a:"showTheme('reglages')"},
     {ok: STATE.contrats.length>0, t:'Ajouter mon premier enfant', a:"editContrat(null)"},
     {ok: ((STATE.settings||{}).conges||[]).length>0, t:'Noter mes semaines de congés', a:"showTheme('reglages');setTimeout(()=>{const e=$('conges-wrap');if(e)e.scrollIntoView();},80)", opt:true},

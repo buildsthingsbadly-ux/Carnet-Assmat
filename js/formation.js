@@ -247,6 +247,11 @@ function fmChapitres(){
   ];
 }
 
+/* Ouvrir la formation sur un chapitre (lien depuis un autre écran) */
+function fmOuvrir(id){
+  showTheme('formation');
+  setTimeout(()=>{ const d = $('fm-'+id); if(!d) return; document.querySelectorAll('.fm-chap').forEach(x=>{ if(x!==d) x.open = false; }); d.open = true; d.scrollIntoView({block:'start'}); }, 60);
+}
 /* Affichage */
 function fmProgress(){ STATE.formation = STATE.formation || {lu:{}}; return STATE.formation; }
 function renderFormation(){

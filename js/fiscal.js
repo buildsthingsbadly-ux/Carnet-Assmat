@@ -205,7 +205,7 @@ function buildCmg(){
     h += '<div class="ab-child-block box" id="cmg-child-'+i+'"'+(i>1?' style="display:none"':'')+'>'
       + '<div class="ab-child-head"><span class="ab-child-num">Enfant '+i+'</span><select id="cmg-c'+i+'-from" class="btn small" style="flex:1;max-width:240px" aria-label="Remplir cet enfant depuis un contrat"></select></div>'
       + '<div class="grid2"><div class="field"><label>Heures d\'accueil dans le mois</label><input type="number" step="0.25" id="cmg-c'+i+'-heures" placeholder="ex. 160"></div>'
-      + '<div class="field"><label>Salaire horaire brut (€)</label><input type="number" step="0.01" id="cmg-c'+i+'-taux" placeholder="ex. 4.50"></div></div>'
+      + '<div class="field"><label>Salaire horaire brut (€)</label><input type="number" step="0.01" id="cmg-c'+i+'-taux" placeholder="ex. 4,50"></div></div>'
       + '<div class="field"><label>Salaire net du mois (€)</label><input type="number" step="0.01" id="cmg-c'+i+'-net" placeholder="calculé"><div class="hint">Laissez vide : calculé d\'après les heures et le salaire horaire.</div></div>'
       + '<div class="grid2"><div class="field"><label>Indemnités d\'entretien du mois (€)</label><input type="number" step="0.01" id="cmg-c'+i+'-entretien" placeholder="0"></div>'
       + '<div class="field"><label>Repas du mois (€)</label><input type="number" step="0.01" id="cmg-c'+i+'-repas" placeholder="0"></div></div>'

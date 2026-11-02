@@ -234,7 +234,7 @@ function renderHome(){
     html += '<div class="kid'+(actif?'':' inactive')+'">'
       + '<div class="kname">'+esc(c.enfant||'Sans prénom')+'</div>'
       + '<div class="kfam">'+esc(c.famille||'Famille ?')+' · '+pill+'</div>'
-      + '<div class="kline"><span>Planning</span><b>'+fmtNum(dv.moyH,2)+' h/sem · '+fmtNum(dv.moyJ,1)+' j</b></div>'
+      + '<div class="kline"><span>Planning</span><b>'+fmtNum(dv.moyH,2)+' h/sem · '+fmtNum(dv.moyJ, Math.abs(dv.moyJ - Math.round(dv.moyJ)) < 0.05 ? 0 : 1)+' j/sem</b></div>'
       + '<div class="kline"><span>Salaire mensuel brut</span><b>'+(dv.brut?fmtEUR(dv.brut):'—')+'</b></div>'
       + '<div class="kline"><span>Salaire net estimé</span><b>'+(dv.net?fmtEUR(dv.net):'—')+'</b></div>'
       + '<div class="kline"><span>Entretien (moyenne/mois)</span><b>'+(dv.ieMois?fmtEUR(dv.ieMois):'—')+'</b></div>'
@@ -248,7 +248,7 @@ function renderHome(){
   });
   const max = placesMax();
   if(enCours.length < max){
-    html += '<button class="kid add" onclick="editContrat(null)"><span style="font-size:1.6rem">＋</span>Ajouter un enfant<span class="hint">'+(enCours.length? 'Agrément : '+(parseInt(STATE.settings.agrement)||R('agrementMax'))+' enfants en même temps' : 'Commencez par là')+'</span></button>';
+    html += '<button class="kid add" onclick="editContrat(null)"><span style="font-size:1.6rem">＋</span>Ajouter un enfant<span class="hint">'+(enCours.length? (parseInt(STATE.settings.agrement) ? 'Agrément : '+parseInt(STATE.settings.agrement)+' enfants en même temps' : 'Agrément : à renseigner (Réglages)') : 'Commencez par là')+'</span></button>';
   }
   wrap.innerHTML = html;
   // Contrats terminés : rangés automatiquement, données conservées
@@ -330,6 +330,19 @@ function noterSemaineOff(cid){
     toast('Semaine du lundi '+fmtDate(k)+' : '+(avant ? 'accueil rétabli.' : 'sans accueil (pas d\u2019entretien ni de repas).')+(b && b.aPlacer ? ' Encore '+b.aPlacer+' semaine(s) sans accueil à noter cette année.' : ''));
   }, {type:'date'});
 }
+/* Contrat commencé bien avant sa saisie dans le carnet, sans aucun compteur repris */
+function contratCreeLe(c){ const t = parseInt(String(c.id||'').slice(1), 36); return t > 1.5e12 && t < 4e12 ? new Date(t) : null; }
+function repriseAFaire(c){
+  if(!c || c.repVu || !contratActif(c, today())) return false;
+  if(REP_KEYS.some(k=>(c.rep||{})[k]!==undefined && (c.rep||{})[k]!=='' && (c.rep||{})[k]!==null)) return false;
+  const deb = parseD(c.debut), cree = contratCreeLe(c);   // date de saisie inconnue (contrat ancien, exemple) : pas de rappel
+  return !!(deb && cree && (cree - deb)/86400000 > 45);
+}
+function repriseOuvrir(cid){
+  editContrat(cid);
+  setTimeout(()=>{ if(CURRENT!=='contrat') return; ctStep(1); const d = $('ct-rep-wrap'); if(d){ d.open = true; d.scrollIntoView({block:'start'}); } }, 120);
+}
+function repriseRien(cid){ const c = getContrat(cid); if(!c) return; c.repVu = 1; saveState(); renderHome(); toast('Noté : rien à reprendre pour '+(c.enfant||'cet enfant')+'.'); }
 /* Année complète : congés pris (ou notés à venir) au-delà des jours acquis à la date du dernier jour de congé.
    Les jours en plus ne sont pas payés par le salaire mensualisé, sauf accord des parents (congé sans solde). */
 function cpAuDelaAcquis(c){
@@ -364,6 +377,8 @@ function computeAlerts(){
     const nom = '<b>'+esc(c.enfant||'Enfant')+'</b>';
     const dv = derive(c, now);
     if(!contratActif(c, now) && parseD(c.fin) && parseD(c.fin) < now) return;
+    if(repriseAFaire(c)) out.push({lvl:'warn', html:nom+' : le contrat a commencé le '+fmtDate(c.debut)+', avant que vous utilisiez le carnet. Indiquez ce qui s\u2019est passé avant (congés restants ou déjà pris, jours d\u2019enfant malade déjà retirés) : sinon le solde de congés et la fin de contrat seront faux.',
+      act:'<button class="btn small" onclick="repriseOuvrir(\''+c.id+'\')">Compléter</button> <button class="btn small" onclick="repriseRien(\''+c.id+'\')">Rien à reprendre</button>'});
     const cpTrop = cpAuDelaAcquis(c);
     if(cpTrop) out.push({lvl:'warn', html:nom+' : '+cpTrop.pris+' jours de congés payés pris ou prévus depuis le 1er juin, pour environ '+fmtNum(cpTrop.acquis, 1)+' jours acquis au '+fmtDate(iso(cpTrop.jusqua))+'. Les <b>'+cpTrop.trop+' jour(s) en plus</b> ne sont pas payés par le salaire mensualisé, sauf accord écrit des parents : ils se retirent comme un congé sans solde.',
       act:'<button class="btn small" onclick="showTheme(\'ccass\')">Mois incomplet</button> <button class="btn small" onclick="showTheme(\'cp\')">Congés payés</button>'});
@@ -457,7 +472,7 @@ function computeAlerts(){
   if(STATE.contrats.length && (!STATE.lastExport || (Date.now()-new Date(STATE.lastExport))/86400000 > 60))
     out.push({lvl:'info', html:'Pensez à faire une copie de sécurité de vos données (en cas de perte ou de changement de téléphone).', act:'<button class="btn small" onclick="syncExport()">Faire une copie</button>'});
   if(!STATE.regCheckedAt || (Date.now()-new Date(STATE.regCheckedAt))/86400000 > 45)
-    out.push({lvl:'info', html:'La réglementation n\'a pas été vérifiée depuis longtemps.', act:'<button class="btn small" onclick="regCheckUpdates(false)">Rechercher les mises à jour</button>'});
+    out.push({lvl:'info', html: STATE.regCheckedAt ? 'La réglementation n\'a pas été vérifiée depuis plus de 45 jours.' : 'Le carnet contient la réglementation de sa dernière version. Vérifiez s\'il existe des valeurs plus récentes (une seconde, avec internet).', act:'<button class="btn small" onclick="regCheckUpdates(false)">Rechercher les mises à jour</button>'});
   return out;
 }
 function renderAlerts(){
@@ -522,7 +537,7 @@ function editContrat(id, force){
   }
   if(!id && contratsEnCours().length >= placesMax()){ toast(placesMax()+' enfants en cours au maximum. Un contrat terminé libère sa place automatiquement.'); return; }
   CT_IS_NEW = !id;
-  CT = id ? clone(getContrat(id)) : newContrat();
+  CT = id ? clone(getContrat(id)) : Object.assign(newContrat(), {horaires:1});
   setTxt('ct-title', CT_IS_NEW ? 'Nouvel enfant' : 'Modifier : '+(CT.enfant||'enfant'));
   CT_TEXT.forEach(k=>setVal('ct-'+k, CT[k]));
   setSegVal('ct-handicap', CT.handicap); setSegVal('ct-type', CT.type); setSegVal('ct-titre', CT.titre);
@@ -574,6 +589,7 @@ function ctRefresh(){
   setTxt('ct-type-hint', CT.type===1
     ? '« Une partie de l\'année » = l\'enfant ne vient pas certaines semaines en plus de vos congés (ex. vacances scolaires). Le salaire est calculé sur les seules semaines d\'accueil.'
     : '« Toute l\'année » = l\'enfant vient toutes les semaines, sauf pendant vos 5 semaines de congés payés (année complète, 52 semaines payées).');
+  if($('ct-type-hint')) $('ct-type-hint').insertAdjacentHTML('beforeend', ' <a href="#" onclick="fmOuvrir(\'contrat\');return false;">Comprendre la différence</a>');
   show('ct-wB-wrap', CT.alterne===1); show('ct-alterneRef-row', CT.alterne===1, 'flex');
   if(CT.alterne===1){
     const t0 = today(), wk = isoWeek(t0), nxt = addDays(mondayOf(t0), 7);
@@ -589,7 +605,9 @@ function ctRefresh(){
   }
   $('ct-wA').classList.toggle('with-times', CT.horaires===1); $('ct-wB').classList.toggle('with-times', CT.horaires===1);
   for(let i=0;i<7;i++){ ['A','B'].forEach(w=>{ const inp=$('ct-w'+w+i); if(inp) inp.readOnly = CT.horaires===1; }); }
-  const debD = parseD(CT.debut); show('ct-rep-wrap', !!(debD && (today()-debD)/86400000 > 20));
+  const debD = parseD(CT.debut), repVisible = !!(debD && (today()-debD)/86400000 > 20); show('ct-rep-wrap', repVisible);
+  if(repVisible && !$('ct-rep-wrap').dataset.vu){ $('ct-rep-wrap').dataset.vu = '1'; if(!REP_KEYS.some(k=>(CT.rep||{})[k])) $('ct-rep-wrap').open = true; }
+  if(!repVisible) delete $('ct-rep-wrap').dataset.vu;
   show('ct-rep-regul', CT.type===1);
   setTxt('ct-wA-label', CT.alterne ? 'Semaine 1 : heures d\u2019accueil de chaque jour' : 'Nombre d\'heures d\'accueil pour chaque jour de la semaine');
   show('ct-ieMontant-wrap', CT.ieMode===1 || CT.ieMode===2);
