@@ -153,6 +153,11 @@
         <button class="card" onclick="openDocs()"><span class="num">DOCUMENTS</span><h2>Documents</h2><p>Contrat, avenant, lettres, certificat, solde.</p></button>
       </div>
 
+      <div class="h-sec">🎓 Se former</div>
+      <div class="index">
+        <button class="card" onclick="showTheme('formation')"><span class="num">FORMATION</span><h2>Comprendre mes calculs</h2><p>Du contrat à la fin du contrat, pas à pas, avec des exemples chiffrés et des quiz.</p></button>
+      </div>
+
       <div class="h-sec">📢 Réglementation</div>
       <div class="box">
         <div id="reg-home-status" class="hint" style="margin:0 0 10px;">—</div>
@@ -306,7 +311,7 @@
       <div class="field"><label>Jour du mois où le salaire est payé <span class="hint">(facultatif)</span></label><input type="number" step="1" min="1" max="31" id="ct-paiementJour" placeholder="ex. 5">
         <div class="hint">Demandé par Pajemploi (« date de paiement ») et à écrire dans le contrat.</div></div>
       <div class="toggle-row" id="ct-cpMode-row" style="display:none"><span class="q">Comment vos congés payés sont-ils payés pour cet enfant ? (année incomplète)</span>
-        <div class="seg" id="ct-cpMode"><button class="on">Un peu chaque mois (1/12ᵉ)</button><button>En une fois en juin</button><button>Quand je prends mes congés</button></div>
+        <div class="seg" id="ct-cpMode"><button class="on">Un peu chaque mois (10 % du salaire)</button><button>En une fois en juin</button><button>Quand je prends mes congés</button></div>
         <div class="hint">C'est ce qui est écrit dans le contrat. En cas de doute : « en juin ».</div></div>
     </div>
 
@@ -364,7 +369,7 @@
         <div class="result-line"><span class="lbl">Jours d'accueil par mois (moyenne)</span><span class="val" id="out-mensu-jours">—</span></div>
         <div class="result-line total"><span class="lbl">Salaire mensuel brut</span><span class="val" id="out-mensu-salaire">—</span></div>
         <div class="result-line"><span class="lbl">Salaire mensuel net (estimation)</span><span class="val" id="out-mensu-net">—</span></div>
-        <div class="result-line" id="row-mensu-cp12" style="display:none"><span class="lbl">Si les congés sont payés chaque mois (1/12ᵉ, année incomplète) : + 10 %, soit un salaire brut de</span><span class="val" id="out-mensu-cp12">—</span></div>
+        <div class="result-line" id="row-mensu-cp12" style="display:none"><span class="lbl">Si les congés sont payés chaque mois (année incomplète) : + 10 %, soit un salaire brut de</span><span class="val" id="out-mensu-cp12">—</span></div>
         <div class="net-hint" id="mensu-net-hint">—</div>
         <div class="legal"><strong>Règle —</strong> CCN des particuliers employeurs et de l'emploi à domicile (IDCC 3239), socle assistant maternel : salaire mensualisé = heures par semaine × 52 (année complète) ou × nombre de semaines d'accueil (année incomplète) ÷ 12 × salaire horaire. Les heures au-delà de <span data-reg="seuilMaj" data-fmt="num">45</span> h par semaine sont payées avec la majoration prévue au contrat (<span data-reg="majMin" data-fmt="num">10</span> % minimum). Le salaire horaire ne peut pas être inférieur au minimum conventionnel en vigueur. Les jours par mois sont indicatifs (repère pour l'entretien et les repas).</div>
         <button class="btn primary block" onclick="askPrintChoice('mensu','Salaire mensualisé — Récapitulatif')">📄 Récapitulatif PDF (enregistrer ou imprimer)</button>
@@ -443,7 +448,7 @@
       <div class="hint" id="mois-jcp-hint">En jours ouvrables (une semaine de congés = 6 jours). Sert à votre compteur de congés et à la fin de contrat.</div></div>
     <div id="mois-cp-complete" class="info-box">Année complète : rien à ajouter au salaire, vos congés sont déjà payés dans le salaire mensualisé. Sur Pajemploi, ne remplissez <b>pas</b> la case « congés payés » : les jours notés ci-dessus servent seulement à votre suivi.</div>
     <div id="mois-cp-incomplete" style="display:none">
-      <div class="toggle-row"><span class="q">Ajouter le 1/12ᵉ de congés payés (si votre contrat prévoit un paiement chaque mois) ?</span>
+      <div class="toggle-row"><span class="q">Ajouter les 10 % de congés payés (si votre contrat prévoit un paiement chaque mois) ?</span>
         <div class="seg" id="mois-cp12"><button class="on">Non</button><button>Oui</button></div>
         <div class="hint">10 % du salaire brut du mois.</div></div>
       <div class="field"><label>Indemnité de congés payés versée ce mois-ci (€ brut)</label><input type="number" step="0.01" id="mois-cpmontant" placeholder="0"><div class="hint">Paiement en juin ou à la prise des congés : voir « Congés payés ». Ce montant et les jours pris se déclarent sur Pajemploi.</div></div>
@@ -723,7 +728,7 @@
       <div class="seg" id="fin-faute"><button class="on">Non</button><button>Oui</button></div></div>
     <div class="grid2">
       <div class="field"><label>Date de début du contrat</label><input type="date" id="fin-debut"></div>
-      <div class="field"><label id="fin-notif-label">Date d'envoi / de remise de la lettre</label><input type="date" id="fin-notif"><div class="hint" id="fin-notif-hint">Le préavis commence le jour de la première présentation de la lettre.</div></div>
+      <div class="field"><label id="fin-notif-label">Date de remise de la lettre en main propre (ou de sa première présentation par La Poste)</label><input type="date" id="fin-notif"><div class="hint" id="fin-notif-hint">Pas la date d'envoi : le préavis commence le jour où la lettre est remise ou présentée pour la première fois (voir l'avis de réception). L'ancienneté se compte à cette date.</div></div>
     </div>
     <div class="subblock" id="fin-retraite-wrap" style="display:none">
       <div class="info-box">Pour chaque famille, votre départ suit les règles de la démission : vous devez le préavis, et il n'y a pas d'indemnité de rupture. L'indemnité de départ à la retraite est versée par l'<b>IRCEM Prévoyance</b> (et non par les parents), sur demande, le lendemain de votre départ. Estimation :</div>
@@ -1034,6 +1039,12 @@
   </div>
 
   <!-- ===================================================== AIDE ===================================================== -->
+  <div class="theme" id="theme-formation">
+    <h2>Se former : comprendre mes calculs</h2>
+    <p class="sub">Pour bien démarrer : comment se calculent le contrat, la paie de chaque mois et la fin du contrat. Lisez un chapitre à la fois, dans l'ordre.</p>
+    <div id="formation-content"></div>
+  </div>
+
   <div class="theme" id="theme-aide">
     <h2>Aide et mots utiles</h2>
     <p class="sub">Les notions essentielles, expliquées simplement.</p>
@@ -1060,6 +1071,7 @@
 <script src="js/io.js"></script>
 <script src="js/plus.js"></script>
 <script src="js/fiche.js"></script>
+<script src="js/formation.js"></script>
 <script src="js/shell.js"></script>
 </body>
 </html>
