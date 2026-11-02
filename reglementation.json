@@ -360,6 +360,28 @@
         }
       ]
     },
+    "kmBaremeAdmin": {
+      "cat": "entretien",
+      "label": "Indemnité kilométrique minimale : barème de l'administration (petite voiture, jusqu'à 2 000 km par an ; convention collective, art. 57 et 113)",
+      "unit": "€/km",
+      "values": [
+        {
+          "du": "2022-03-14",
+          "v": 0.32
+        }
+      ]
+    },
+    "kmBaremeFiscal": {
+      "cat": "entretien",
+      "label": "Indemnité kilométrique maximale : barème fiscal (7 CV et plus, jusqu'à 5 000 km par an)",
+      "unit": "€/km",
+      "values": [
+        {
+          "du": "2024-01-01",
+          "v": 0.697
+        }
+      ]
+    },
     "iePctPM": {
       "cat": "entretien",
       "label": "Part du MG si l'employeur est une personne morale (hors CCN)",
@@ -810,6 +832,15 @@
     }
   },
   "changelog": [
+    {
+      "date": "2026-11-03",
+      "cats": [
+        "entretien",
+        "cotisations",
+        "fiscal"
+      ],
+      "text": "Barèmes kilométriques ajoutés (minimum : barème de l'administration ; maximum : barème fiscal) pour contrôler le tarif du contrat. Prélèvement à la source estimé avec le taux de Mon profil (0 % par défaut : non imposable)."
+    },
     {
       "date": "2026-11-02",
       "cats": [

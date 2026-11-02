@@ -402,9 +402,13 @@
         <div class="result-line"><span class="lbl">Repas et goûters</span><span class="val" id="out-mois-repas-r">—</span></div>
         <div class="result-line"><span class="lbl">Frais kilométriques</span><span class="val" id="out-mois-km-r">—</span></div>
         <div class="result-line total"><span class="lbl">Total à verser par la famille</span><span class="val" id="out-mois-net">—</span></div>
+        <div class="result-line" id="row-mois-pas" style="display:none"><span class="lbl" id="lbl-mois-pas">Impôt sur le revenu retenu par Pajemploi</span><span class="val" id="out-mois-pas">—</span></div>
+        <div class="result-line total" id="row-mois-apres" style="display:none"><span class="lbl">À verser à l'assistante maternelle (salaire après impôt + indemnités)</span><span class="val" id="out-mois-apres">—</span></div>
+        <div class="hint" id="mois-pas-hint"></div>
         <div class="result-line" id="row-mois-reste" style="display:none"><span class="lbl">Reste à verser après l'acompte</span><span class="val" id="out-mois-reste">—</span></div>
         <div class="result-line"><span class="lbl">Salaire net imposable (estimation, pour vos impôts)</span><span class="val" id="out-mois-netimp">—</span></div>
-        <div class="net-hint">Le net exact est celui du bulletin Pajemploi. Les heures complémentaires et majorées ont des cotisations réduites et sont exonérées d'impôt (dans la limite annuelle) : c'est pris en compte dans l'estimation.</div>
+        <div class="result-line"><span class="lbl">Montant net social (estimation, pour le RSA et la prime d'activité)</span><span class="val" id="out-mois-netsocial">—</span></div>
+        <div class="net-hint">Le net exact est celui du bulletin Pajemploi. Les heures complémentaires et majorées ont des cotisations réduites et sont exonérées d'impôt (dans la limite annuelle) : c'est pris en compte dans l'estimation ; leur CSG et leur CRDS restent imposables. Le montant net social figure aussi sur chaque bulletin Pajemploi.</div>
         <div class="pajemploi-block">
           <div class="pajemploi-title">Ce que les parents recopient sur Pajemploi (déclaration de cet enfant)</div>
           <div id="pj-lines"></div>
@@ -484,6 +488,7 @@
     <div class="grid2">
       <div class="field"><label>Date de paiement du salaire</label><input type="date" id="mois-datepaie"></div>
       <div class="field"><label>Acompte déjà versé (€ net)</label><input type="number" step="0.01" id="mois-acompte" placeholder="0"></div>
+      <div class="field"><label>Impôt retenu indiqué sur le bulletin Pajemploi (€, facultatif)</label><input type="number" step="0.01" id="mois-pas" placeholder="estimé avec votre taux"><div class="hint">Remplace l'estimation faite avec le taux de Mon profil.</div></div>
     </div>
     <div class="field"><label>Heures réellement effectuées ce mois-ci</label><input type="number" step="0.25" id="mois-hreel" placeholder="auto">
       <div class="hint" id="mois-hreel-hint">Gardées dans l'historique pour la régularisation de fin de contrat (année incomplète). Laissez vide : calculé d'après le planning.</div></div>
@@ -793,7 +798,7 @@
       <div id="fin-regul-details" style="display:none">
         <div class="grid2">
           <div class="field"><label>Période concernée : début</label><input type="date" id="fin-regul-debut"></div>
-          <div class="field"><label>Période concernée : fin</label><input type="date" id="fin-regul-fin"><div class="hint">En général les 12 derniers mois (ou depuis le début s'il y a moins d'un an).</div></div>
+          <div class="field"><label>Période concernée : fin</label><input type="date" id="fin-regul-fin"><div class="hint">Depuis le début du contrat (ou depuis la dernière régularisation) : heures réellement faites comparées aux heures payées. Chaque avenant est calculé à part.</div></div>
         </div>
         <div class="toggle-row"><span class="q">Y a-t-il eu un ou plusieurs avenants pendant cette période (heures, salaire horaire ou mensualisé modifiés) ?</span>
           <div class="seg" id="fin-regul-avenants"><button class="on">Non</button><button>Oui</button></div></div>
@@ -841,6 +846,8 @@
         </div>
         <div class="result-line"><span class="lbl">Total des sommes dues (salaire en brut, indemnités telles quelles)</span><span class="val" id="out-fin-total">—</span></div>
         <div class="result-line total"><span class="lbl">À verser au total (estimation en net)</span><span class="val" id="out-fin-net">—</span></div>
+        <div class="result-line" id="row-fin-pas" style="display:none"><span class="lbl">Impôt sur le revenu retenu par Pajemploi (estimation)</span><span class="val" id="out-fin-pas">—</span></div>
+        <div class="result-line total" id="row-fin-apres" style="display:none"><span class="lbl">À verser après impôt</span><span class="val" id="out-fin-apres">—</span></div>
         <div class="net-hint">Net estimé sur la part soumise à cotisations (salaire, préavis, congés, régularisation) ; entretien et indemnité de rupture ajoutés tels quels.</div>
         <div class="pajemploi-block">
           <div class="pajemploi-title">Documents à remettre à la fin du contrat</div>
@@ -890,6 +897,7 @@
           <div class="result-line"><span class="lbl">Case 1AJ (ou 1BJ pour le déclarant 2) : corriger le montant pré-rempli et mettre</span><span class="val" id="out-ab-1aj">—</span></div>
           <div class="result-line"><span class="lbl">Case 1GA (ou 1HA) : total de l’abattement, à reporter obligatoirement</span><span class="val" id="out-ab-1ga">—</span></div>
           <div class="result-line"><span class="lbl">Case 1GH (ou 1HH) : heures complémentaires/majorées exonérées</span><span class="val" id="out-ab-1gh">montant de l'attestation Pajemploi</span></div>
+          <div class="result-line"><span class="lbl">Impôt déjà retenu à la source par Pajemploi (mois validés, estimation)</span><span class="val" id="out-ab-pas">—</span></div>
         </div>
         <div class="legal"><strong>Règle —</strong> régime fiscal spécial des assistants maternels (art. 80 sexies du CGI ; BOI-RSA-CHAMP-20-40-20) : on part du total des sommes perçues (salaire net imposable + indemnités d'entretien, de repas, de déplacement + avantages en nature), puis on retire, pour chaque enfant et chaque jour de présence, 3 fois le SMIC horaire en vigueur au 1er janvier de l'année (4 fois pour un enfant handicapé, malade ou inadapté). Une journée de moins de 8 h donne un abattement proportionnel (heures ÷ 8). L'abattement ne peut pas dépasser les sommes perçues. Le montant pré-rempli par l'administration ne tient pas compte de l'abattement : il faut le corriger vous-même (1AJ/1BJ) avec le montant net d'abattement ; la case 1GA/1HA est seulement informative. La déduction de 10 % pour frais professionnels s'applique ensuite automatiquement. Le régime ordinaire (salaires seuls, indemnités non imposées) est parfois plus avantageux : comparez avant de choisir. Ce calcul est indicatif ; en cas de doute, appelez votre centre des impôts.</div>
         <button class="btn primary block" onclick="askPrintChoice('abattement','Abattement fiscal — Récapitulatif')">📄 Récapitulatif PDF (enregistrer ou imprimer)</button>
@@ -985,6 +993,8 @@
     </div>
     <div class="field"><label>Assurance responsabilité civile professionnelle (compagnie, n° de contrat)</label><input type="text" id="prof-assurance" autocomplete="off"></div>
     <div class="field"><label>Assurance du véhicule pour le transport d'enfants (si besoin)</label><input type="text" id="prof-assuranceAuto" autocomplete="off"></div>
+    <div class="field"><label for="prof-pasTaux">Taux de prélèvement à la source (impôt sur le revenu, %)</label><input type="text" inputmode="decimal" id="prof-pasTaux" placeholder="0" autocomplete="off">
+      <div class="hint">Laissez vide ou 0 si vous n'êtes pas imposable : c'est le réglage par défaut et le cas le plus fréquent, grâce à l'abattement des assistantes maternelles. Sinon, recopiez le taux de votre dernier bulletin Pajemploi (ex. 2,5) : Pajemploi retient cet impôt sur le salaire net et le prélève chez les parents.</div></div>
     <div class="hint" style="margin:-6px 0 14px">Restent sur ce téléphone. Votre numéro de sécurité sociale n'est jamais enregistré : il s'écrit à la main sur les documents.</div>
 
     <div class="section-label">Mon activité</div>
