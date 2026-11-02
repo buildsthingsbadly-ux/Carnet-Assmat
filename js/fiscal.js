@@ -71,6 +71,7 @@ function abFillFromContracts(silent){
     const s=parseD(c.debut), e=parseD(c.fin);
     return !(s && s > new Date(a,11,31)) && !(e && e < new Date(a-1,11,1));
   }).slice(0,AB_MAX);
+  if(!list.length && !STATE.contrats.length && STATE.calc) list.push(STATE.calc);   // pas encore de fiche : le calcul sans fiche sert d'exemple
   if(!list.length){ if(!silent) toast('Aucun enfant enregistré pour cette année.'); return; }
   setSegVal('ab-nbenfants', list.length-1);
   list.forEach((c,idx)=>{
@@ -226,7 +227,7 @@ function buildCmg(){
 function cmgFillSelects(){
   for(let i=1;i<=4;i++){
     const s = $('cmg-c'+i+'-from'); if(!s) continue;
-    s.innerHTML = '<option value="">Remplir depuis…</option>' + STATE.contrats.map(c=>'<option value="'+c.id+'">'+esc(contratLabel(c))+'</option>').join('');
+    s.innerHTML = '<option value="">Remplir depuis…</option>' + STATE.contrats.concat(STATE.calc ? [STATE.calc] : []).map(c=>'<option value="'+c.id+'">'+esc(contratLabel(c))+'</option>').join('');
     s.value = '';
   }
 }

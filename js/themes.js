@@ -11,6 +11,7 @@ function recalc(theme){ if(CALC[theme]) CALC[theme](); }
 function refreshVisibility(theme){ if(VIS[theme]) VIS[theme](); }
 function onThemeOpen(id){
   if(id==='contrat'){ ctRefresh(); return; }
+  if(id==='calc'){ renderCalc(); return; }
   if(id==='reglages'){ renderSettings(); return; }
   if(id==='aide'){ renderAide(); return; }
   if(id==='formation'){ renderFormation(); return; }

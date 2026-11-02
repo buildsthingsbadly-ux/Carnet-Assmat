@@ -58,7 +58,7 @@ function renderAccueil(){
   show('todo-wrap', shown.length>0);
   // La journée : suivi (par défaut) ou résumé des enfants
   const list = suiviContrats().filter(c=>contratActif(c, t) || parseD(c.debut)>t);
-  if(!STATE.contrats.length){ setHTML('home-today', '<div class="info-box">Aucun enfant enregistré. <a href="#" onclick="editContrat(null);return false;">Ajouter un enfant</a></div>'); return; }
+  if(!STATE.contrats.length){ setHTML('home-today', '<div class="info-box">Aucun enfant enregistré. <a href="#" onclick="editContrat(null);return false;">Ajouter un enfant</a>, ou <a href="#" onclick="showTheme(\'calc\');return false;">vérifier tous les calculs sans créer de fiche</a>.</div>'); return; }
   if(STATE.settings.suivi !== 0){
     setTxt('today-title', '🗓️ La journée');
     if(!SV.date) SV.date = iso(t);

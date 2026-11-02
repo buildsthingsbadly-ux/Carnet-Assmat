@@ -14,8 +14,10 @@ function newContrat(){
     enfantNom:'', parent1:'', parent2:'', adresse:'', tel:'', email:'', adaptation:'', paiementJour:'',
     kmTaux:'', horaires:0, feriesTr:0, tA:[], tB:[], semOff:[], hist:[], rep:null };
 }
-function getContrat(id){ return STATE.contrats.find(c=>c.id===id) || null; }
-function contratLabel(c){ return (c.enfant||'Enfant sans nom') + (c.famille ? ' ('+c.famille+')' : '') + (contratTermine(c) ? ' — terminé' : ''); }
+/* « Calcul sans fiche » : un contrat complet (id 'calc') qui sert à tous les outils, sans apparaître dans les enfants,
+   les alertes, l'onglet Mois ni les impôts. */
+function getContrat(id){ return id==='calc' ? (STATE.calc || null) : (STATE.contrats.find(c=>c.id===id) || null); }
+function contratLabel(c){ if(c && c.id==='calc') return '🧮 Calcul sans fiche'+(c.enfant ? ' ('+c.enfant+')' : ''); return (c.enfant||'Enfant sans nom') + (c.famille ? ' ('+c.famille+')' : '') + (contratTermine(c) ? ' — terminé' : ''); }
 /* Un contrat dont la date de fin est passée se range tout seul dans « Contrats terminés » :
    il ne compte plus parmi les 4 places, mais toutes ses données restent conservées. */
 function contratTermine(c, when){ const fin = parseD(c.fin); return !!(fin && fin < (when ? parseD(when) : today())); }
@@ -175,7 +177,7 @@ function finEssai(c){
 }
 
 /* ---------- Navigation (avec le bouton « retour » d'Android) ---------- */
-const THEME_TITLES = { parents:'Pour les parents', contrat:'Enfant & contrat', mensu:'Salaire mensualisé', mois:'Salaire du mois', ccass:'Mois incomplet',
+const THEME_TITLES = { calc:'Calcul sans fiche', parents:'Pour les parents', contrat:'Enfant & contrat', mensu:'Salaire mensualisé', mois:'Salaire du mois', ccass:'Mois incomplet',
   cp:'Congés payés', ie:'Indemnités d\'entretien', fin:'Fin de contrat', abattement:'Impôts', cmg:'Aide CMG', reglages:'Réglages', aide:'Aide', docs:'Documents', suivi:'Suivi & paie', formation:'Se former', apropos:'À propos' };
 let CURRENT = 'home';
 function showTheme(id, opts){
@@ -538,15 +540,16 @@ function buildWeek(containerId, prefix){
 }
 function editContrat(id, force){
   const dr = STATE.ui && STATE.ui.ctDraft;
-  if(!force && dr && ((dr.isNew && !id) || (!dr.isNew && dr.ct && dr.ct.id===id))){
+  if(!force && dr && dr.ct && ((dr.isNew && !id && dr.ct.id!=='calc') || (dr.ct.id===id && (id==='calc' || !dr.isNew)))){
     _confirmNoCb = ()=>{ delete STATE.ui.ctDraft; saveState(); editContrat(id, true); };
     showConfirmDialog('Reprendre la saisie ?', 'Une fiche commencée pour « '+(dr.ct.enfant||'un enfant')+' » n\'a pas été enregistrée. Voulez-vous la reprendre là où vous l\'aviez laissée ?', ()=>restoreContratDraft(dr), 'Oui, reprendre', 'Non, repartir de zéro');
     return;
   }
+  const calc = id==='calc';
   if(!id && contratsEnCours().length >= placesMax()){ toast(placesMax()+' enfants en cours au maximum. Un contrat terminé libère sa place automatiquement.'); return; }
-  CT_IS_NEW = !id;
-  CT = id ? clone(getContrat(id)) : Object.assign(newContrat(), {horaires:1});
-  setTxt('ct-title', CT_IS_NEW ? 'Nouvel enfant' : 'Modifier : '+(CT.enfant||'enfant'));
+  CT_IS_NEW = calc ? !STATE.calc : !id;
+  CT = calc ? (STATE.calc ? clone(STATE.calc) : Object.assign(newContrat(), {id:'calc', horaires:1})) : id ? clone(getContrat(id)) : Object.assign(newContrat(), {horaires:1});
+  setTxt('ct-title', calc ? 'Calcul sans fiche (aucun enfant créé)' : CT_IS_NEW ? 'Nouvel enfant' : 'Modifier : '+(CT.enfant||'enfant'));
   CT_TEXT.forEach(k=>setVal('ct-'+k, CT[k]));
   setSegVal('ct-handicap', CT.handicap); setSegVal('ct-type', CT.type); setSegVal('ct-titre', CT.titre);
   setSegVal('ct-semConnues', CT.semOffAVenir ? 1 : 0); if(CT.hAn) { const d=$('ct-irreg-wrap'); if(d) d.open = true; }
@@ -751,7 +754,7 @@ function ctRecap(dv){
 function ctStep(dir){
   ctRead();
   if(dir>0){
-    if(CT_STEP===0 && !CT.enfant){ toast('Indiquez au moins le prénom de l\'enfant.'); $('ct-enfant').focus(); return; }
+    if(CT_STEP===0 && !CT.enfant && CT.id!=='calc'){ toast('Indiquez au moins le prénom de l\'enfant.'); $('ct-enfant').focus(); return; }
     if(CT_STEP===1 && !parseD(CT.debut)){ toast('Indiquez la date de début du contrat : elle sert à tous les calculs.'); $('ct-debut').focus(); return; }
     if(CT_STEP===1 && parseD(CT.fin) && parseD(CT.fin) < parseD(CT.debut)){ toast('La date de fin est avant la date de début.'); $('ct-fin').focus(); return; }
     if(CT_STEP===1 && CT.type===1 && !(parseFloat(CT.semaines)>0)){ toast('Indiquez le nombre de semaines d\'accueil par an.'); $('ct-semaines').focus(); return; }
@@ -772,10 +775,10 @@ function ctTauxManquant(suite){
 }
 function ctSave(){
   ctRead();
-  if(!CT.enfant){ toast('Indiquez au moins le prénom de l\'enfant.'); CT_STEP=0; ctRefresh(); return; }
+  if(!CT.enfant && CT.id!=='calc'){ toast('Indiquez au moins le prénom de l\'enfant.'); CT_STEP=0; ctRefresh(); return; }
   if(!parseD(CT.debut)){ toast('Indiquez la date de début du contrat.'); CT_STEP=1; ctRefresh(); return; }
   if(!(parseFloat(CT.taux)>0)){ CT_STEP=3; ctRefresh(); ctTauxManquant(()=>ctSave()); return; }
-  const exist = STATE.contrats.find(c=>c.id===CT.id);
+  const exist = CT.id==='calc' ? STATE.calc : STATE.contrats.find(c=>c.id===CT.id);
   if(exist && CT._orig && JSON.stringify(paramsOf(CT)) !== JSON.stringify(CT._orig) && !CT._avenantDone){
     _confirmNoCb = ()=>{ CT._avenantDone = true; auditLog(CT.id, 'Correction du contrat (sans date d\'effet)'); ctSave(); };
     showConfirmDialog('Avenant ou correction ?', 'Vous avez changé le planning, le salaire ou les indemnités. Est-ce un AVENANT (changement à partir d\'une date : les mois d\'avant gardent les anciennes valeurs) ou la CORRECTION d\'une erreur de saisie (tout est recalculé avec les nouvelles valeurs) ?', ()=>{
@@ -800,6 +803,13 @@ function ctSave(){
     return;
   }
   delete CT._orig; delete CT._avenantDone;
+  if(CT.id==='calc'){
+    STATE.calc = CT;
+    Object.keys(STATE.forms).forEach(t=>{ if(STATE.forms[t] && t!=='abattement' && t!=='cmg') delete STATE.forms[t].calc; });
+    if(STATE.ui) delete STATE.ui.ctDraft;
+    saveState(); toast('Contrat de calcul enregistré (aucune fiche enfant créée).');
+    CT = null; showTheme('calc'); return;
+  }
   const i = STATE.contrats.findIndex(c=>c.id===CT.id);
   if(i>=0){
     STATE.contrats[i] = CT;
@@ -812,6 +822,63 @@ function ctSave(){
 }
 
 /* =====================================================================================
+   CALCUL SANS FICHE : toutes les étapes d'un contrat, de la signature à la fin
+   ===================================================================================== */
+function calcGo(t){ STATE.sel[t] = 'calc'; saveState(); showTheme(t); }
+function calcCmg(){ cmgOuvrir('calc', val('calc-mois') || curMonth()); }
+function calcDoc(id){ DOCS_ID = 'calc'; printDoc(id); }
+function calcEffacer(){
+  showConfirmDialog('Effacer ce calcul ?', 'Le contrat de calcul, ses mois validés et ses saisies seront effacés. Vos fiches enfants ne sont pas touchées.', ()=>{
+    delete STATE.calc; if(STATE.journal) delete STATE.journal.calc; if(STATE.suivi) delete STATE.suivi.calc;
+    Object.keys(STATE.forms||{}).forEach(t=>{ if(STATE.forms[t]) delete STATE.forms[t].calc; });
+    Object.keys(STATE.sel||{}).forEach(t=>{ if(STATE.sel[t]==='calc') STATE.sel[t] = 'libre'; });
+    STATE.settings.absEnf = (STATE.settings.absEnf||[]).filter(p=>p.cid!=='calc');
+    saveState(); renderCalc(); toast('Calcul effacé.');
+  }, 'Oui, effacer', 'Annuler');
+}
+function renderCalc(){
+  const el = $('calc-body'); if(!el) return;
+  const c = STATE.calc;
+  if(!c){
+    el.innerHTML = `<div class="info-box">Pour vérifier <b>tous</b> les calculs d’un contrat sans créer de fiche enfant : salaire mensualisé, salaire de chaque mois et chiffres Pajemploi, absences, entretien, congés payés, aide CMG, récapitulatif aux parents, fin de contrat et documents. Idéal pour s’entraîner, préparer un devis pour une famille ou revérifier une paie. Rien n’apparaît dans vos enfants, vos alertes, l’onglet Mois ni vos impôts.</div>
+      <button class="btn primary" onclick="editContrat('calc')">Commencer : décrire le contrat (5 étapes)</button>
+      <p class="hint">Prénoms et noms facultatifs. Sans suivi au jour le jour : tout part du planning du contrat, des jours fériés, de vos semaines de congés (Réglages) et des absences que vous cochez.</p>`;
+    return;
+  }
+  const dv = derive(c), fe = finEssai(c), nbV = Object.keys(journalOf('calc')).length;
+  const L = [
+    ['Contrat', (c.type===1 ? 'Année incomplète ('+esc(c.semaines||'?')+' semaines)' : 'Année complète')+(c.debut ? ', du '+fmtDate(c.debut) : '')+(c.fin ? ' au '+fmtDate(c.fin) : '')],
+    ['Heures par semaine (moyenne)', fmtNum(dv.moyH||0, 2)+' h'], ['Heures payées chaque mois', fmtNum(dv.hMensu||0, 2)+' h'],
+    ['Salaire mensuel brut / net estimé', fmtEUR(dv.brut||0)+' / '+fmtEUR((dv.brut||0)*netRatio())], ['Salaire horaire', fmtEUR(dv.tauxEff||0)],
+    ['Fin de la période d’essai', fe ? fe.toLocaleDateString('fr-FR') : '—'], ['Mois validés pour ce calcul', String(nbV)]];
+  const card = (num, h2, p, on)=>`<button class="card" onclick="${on}"><span class="num">${num}</span><h2>${h2}</h2><p>${p}</p></button>`;
+  el.innerHTML = `<div class="result-box">${L.map(x=>'<div class="result-line"><span class="lbl">'+x[0]+'</span><span class="val">'+x[1]+'</span></div>').join('')}
+      <div style="margin-top:8px"><button class="btn small" onclick="editContrat('calc')">✎ Modifier le contrat de calcul</button> <button class="btn small" onclick="calcEffacer()">🗑️ Effacer ce calcul</button></div></div>
+    <div class="h-sec">1. À la signature</div><div class="index">
+      ${card('CONTRAT', 'Salaire mensualisé', 'Heures × semaines ÷ 12, minimum légal, net estimé.', "calcGo('mensu')")}
+      ${card('DOCUMENT', 'Contrat imprimé', 'Le modèle rempli avec ces chiffres, pour le relire.', "calcDoc('contrat')")}
+      ${card('DOCUMENT', 'Engagement réciproque', 'Indemnité si l’une des parties renonce.', "calcDoc('engagement')")}
+      ${card('CAF', 'Aide CMG des parents', 'Aide versée et reste à charge, pour présenter le tarif.', 'calcCmg()')}
+    </div>
+    <div class="h-sec">2. Chaque mois</div><div class="index">
+      ${card('PAJEMPLOI', 'Salaire du mois', 'Mois choisi : salaire, entretien, repas, chiffres à déclarer. Cochez les absences, puis « Valider ce mois ».', "calcGo('mois')")}
+      ${card('ABSENCES', 'Mois incomplet', 'Absences détaillées, début ou fin en cours de mois, adaptation.', "calcGo('ccass')")}
+      ${card('FRAIS', 'Indemnités d’entretien', 'Minimum légal jour par jour et vérification d’un montant convenu.', "calcGo('ie')")}
+      ${card('PARENTS', 'Récapitulatif aux parents', 'Ce qu’ils déclarent, ce qu’ils versent, l’année pour leurs impôts.', "calcGo('parents')")}
+    </div>
+    <div class="h-sec">3. Une fois par an</div><div class="index">
+      ${card('CONGÉS', 'Congés payés', 'Jours acquis et restants, maintien ou 10 %, paiement.', "calcGo('cp')")}
+      ${card('IMPÔTS', 'Abattement fiscal', STATE.contrats.length ? 'Se calcule avec vos vrais enfants (le calcul sans fiche n’y entre pas).' : 'Abattement de ce calcul (vous n’avez pas encore de fiche enfant).', "showTheme('abattement')")}
+    </div>
+    <div class="h-sec">4. La fin du contrat</div><div class="index">
+      ${card('FIN', 'Fin de contrat', 'Préavis, dernier salaire, congés restants, régularisation, indemnité de rupture.', "calcGo('fin')")}
+      ${card('DOCUMENT', 'Certificat de travail', 'Daté de la fin du préavis.', "calcDoc('certificat')")}
+      ${card('DOCUMENT', 'Reçu pour solde de tout compte', 'Reprend les montants de « Fin de contrat ».', "calcDoc('solde')")}
+    </div>
+    <p class="hint">Astuce : validez plusieurs mois dans « Salaire du mois » ; les congés payés, la régularisation et l’indemnité de rupture reprennent alors ces mois. Les absences prévues de l’enfant se notent dans Réglages (choisissez « Calcul sans fiche »). Pour tester un avenant, modifiez le contrat de calcul et choisissez « C’est un avenant ».</p>`;
+}
+
+/* =====================================================================================
    SÉLECTEUR D'ENFANT DANS CHAQUE CALCUL + MÉMOIRE DES SAISIES
    ===================================================================================== */
 const PICKER_THEMES = ['mensu','mois','ccass','cp','ie','fin','parents'];
@@ -821,10 +888,12 @@ function renderPicker(theme){
   const k = selKey(theme);
   let h = '<span class="q">Pour quel enfant ?</span><div class="chips">';
   STATE.contrats.forEach(c=>{ h+='<button type="button" class="chip'+(k===c.id?' on':'')+'" onclick="pickKid(\''+theme+'\',\''+c.id+'\')">'+esc(c.enfant||'Enfant')+'</button>'; });
+  h += STATE.calc ? '<button type="button" class="chip'+(k==='calc'?' on':'')+'" onclick="pickKid(\''+theme+'\',\'calc\')">🧮 Calcul sans fiche</button>'
+    : '<button type="button" class="chip" onclick="showTheme(\'calc\')">🧮 Calcul sans fiche…</button>';
   h += '<button type="button" class="chip'+(k==='libre'?' on':'')+'" onclick="pickKid(\''+theme+'\',\'libre\')">Saisie libre</button></div>';
   h += '<div class="kp-hint">'+(k==='libre'
       ? 'Calcul ponctuel : remplissez les cases vous-même. Vos saisies restent mémorisées.'
-      : 'Cases remplies d\'après le contrat de '+esc(getContrat(k).enfant)+'. Vous pouvez les modifier : vos changements sont mémorisés. <br><button type="button" class="btn small" style="margin-top:6px" onclick="refillFromContract(\''+theme+'\')">↺ Revenir aux valeurs du contrat</button>')+'</div>';
+      : 'Cases remplies d\'après '+(k==='calc' ? 'votre calcul sans fiche (<a href="#" onclick="showTheme(\'calc\');return false;">voir toutes les étapes</a>)' : 'le contrat de '+esc(getContrat(k).enfant))+'. Vous pouvez les modifier : vos changements sont mémorisés. <br><button type="button" class="btn small" style="margin-top:6px" onclick="refillFromContract(\''+theme+'\')">↺ Revenir aux valeurs du contrat</button>')+'</div>';
   el.innerHTML = h;
 }
 function pickKid(theme, key){

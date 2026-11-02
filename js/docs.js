@@ -19,11 +19,12 @@ const DOCS = [
 ];
 function openDocs(id){ DOCS_ID = id || DOCS_ID; showTheme('docs'); }
 function renderDocs(){
-  if(!DOCS_ID || !getContrat(DOCS_ID)) DOCS_ID = STATE.contrats[0] ? STATE.contrats[0].id : null;
+  if(!DOCS_ID || !getContrat(DOCS_ID)) DOCS_ID = STATE.contrats[0] ? STATE.contrats[0].id : (STATE.calc ? 'calc' : null);
   let h = '<div class="kid-picker"><span class="q">Pour quel enfant ?</span><div class="chips">';
   STATE.contrats.forEach(c=>{ h += '<button type="button" class="chip'+(c.id===DOCS_ID?' on':'')+'" onclick="DOCS_ID=\''+c.id+'\';renderDocs()">'+esc(c.enfant||'Enfant')+(contratTermine(c)?' (terminé)':'')+'</button>'; });
+  if(STATE.calc) h += '<button type="button" class="chip'+(DOCS_ID==='calc'?' on':'')+'" onclick="DOCS_ID=\'calc\';renderDocs()">🧮 Calcul sans fiche</button>';
   h += '</div>';
-  if(!STATE.contrats.length) h += '<div class="kp-hint">Enregistrez d\'abord un enfant (accueil ▸ « Ajouter un enfant »).</div>';
+  if(!STATE.contrats.length && !STATE.calc) h += '<div class="kp-hint">Enregistrez d\'abord un enfant (accueil ▸ « Ajouter un enfant »), ou faites un <a href="#" onclick="showTheme(\'calc\');return false;">calcul sans fiche</a>.</div>';
   h += '</div>';
   const p = STATE.profil||{}, miss = [];
   if(!p.nom) miss.push('votre nom'); if(!p.agrementNum) miss.push('votre numéro d\'agrément'); if(!p.adresse) miss.push('votre adresse');
