@@ -12,7 +12,7 @@ function newContrat(){
     taux:'', maj:'', ieMode:0, ieMontant:'', repasMode:0, repasPrix:'', km:'', cpMode:1,
     // coordonnées (facultatives, servent aux documents)
     enfantNom:'', parent1:'', parent2:'', adresse:'', tel:'', email:'', adaptation:'', paiementJour:'',
-    kmTaux:'', horaires:0, tA:[], tB:[], semOff:[], hist:[], rep:null };
+    kmTaux:'', horaires:0, feriesTr:0, tA:[], tB:[], semOff:[], hist:[], rep:null };
 }
 function getContrat(id){ return STATE.contrats.find(c=>c.id===id) || null; }
 function contratLabel(c){ return (c.enfant||'Enfant sans nom') + (c.famille ? ' ('+c.famille+')' : '') + (contratTermine(c) ? ' — terminé' : ''); }
@@ -548,7 +548,7 @@ function editContrat(id, force){
   CT_TEXT.forEach(k=>setVal('ct-'+k, CT[k]));
   setSegVal('ct-handicap', CT.handicap); setSegVal('ct-type', CT.type); setSegVal('ct-titre', CT.titre);
   setSegVal('ct-semConnues', CT.semOffAVenir ? 1 : 0); if(CT.hAn) { const d=$('ct-irreg-wrap'); if(d) d.open = true; }
-  setSegVal('ct-alterne', CT.alterne); setSegVal('ct-alterneRef', CT.alterneRef||0); setSegVal('ct-ieMode', CT.ieMode); setSegVal('ct-repasMode', CT.repasMode); setSegVal('ct-cpMode', CT.cpMode); setSegVal('ct-pjPlus', CT.pjPlus||0);
+  setSegVal('ct-alterne', CT.alterne); setSegVal('ct-alterneRef', CT.alterneRef||0); setSegVal('ct-ieMode', CT.ieMode); setSegVal('ct-repasMode', CT.repasMode); setSegVal('ct-cpMode', CT.cpMode); setSegVal('ct-pjPlus', CT.pjPlus||0); setSegVal('ct-feriesTr', CT.feriesTr||0);
   for(let i=0;i<7;i++){ setVal('ct-wA'+i, CT.wA[i]); setVal('ct-wB'+i, CT.wB[i]);
     ['A','B'].forEach(w=>{ const t=(CT['t'+w]||[])[i]||[]; setVal('ct-w'+w+i+'s', t[0]||''); setVal('ct-w'+w+i+'e', t[1]||''); }); }
   setSegVal('ct-horaires', CT.horaires||0);
@@ -563,7 +563,7 @@ function ctRead(){
   CT_TEXT.forEach(k=>CT[k]=val('ct-'+k).trim());
   CT.handicap=seg('ct-handicap'); CT.type=seg('ct-type'); CT.titre=seg('ct-titre'); CT.alterne=seg('ct-alterne'); CT.alterneRef=seg('ct-alterneRef');
   CT.semOffAVenir = CT.type===1 && seg('ct-semConnues')===1 ? 1 : 0;
-  CT.ieMode=seg('ct-ieMode'); CT.repasMode=seg('ct-repasMode'); CT.cpMode=seg('ct-cpMode'); CT.pjPlus=seg('ct-pjPlus');
+  CT.ieMode=seg('ct-ieMode'); CT.repasMode=seg('ct-repasMode'); CT.cpMode=seg('ct-cpMode'); CT.pjPlus=seg('ct-pjPlus'); CT.feriesTr=seg('ct-feriesTr');
   CT.horaires = seg('ct-horaires');
   CT.tA = CT.tA||[]; CT.tB = CT.tB||[];
   for(let i=0;i<7;i++){
@@ -672,6 +672,25 @@ function ctRenderWeeks(){
     + (off || vides ? '<a href="#" onclick="setVal(\'ct-semaines\','+prog+');ctRefresh();return false;">Utiliser '+prog+' comme nombre de semaines</a>. ' : '')
     + 'Ce calendrier sert à compter les vrais jours d\'accueil de chaque mois (entretien, repas, impôts, régularisation).');
 }
+/* Semaines où l'enfant vient, d'après le calendrier des semaines sans accueil (52 semaines depuis le début du contrat) */
+function ctSemProg(C){
+  C = C || CT; const semOff = Array.isArray(C.semOff) ? C.semOff : [];
+  const deb = parseD(C.debut) || today(), recent = (today()-deb)/86400000 <= 330;
+  let start = mondayOf(deb); if(!recent) start = mondayOf(new Date(today().getFullYear() - (today().getMonth()<7?1:0), 8, 1));
+  const A = wNums(C.wA), B = C.alterne ? wNums(C.wB) : A, sA = A.reduce((s,x)=>s+x,0), sB = B.reduce((s,x)=>s+x,0);
+  let off = 0, vides = 0;
+  for(let i=0;i<52;i++){ const w = addDays(start, 7*i); if(semOff.includes(iso(w))) off++; else if(C.alterne && !(weekIsB(C, w) ? sB : sA)) vides++; }
+  return {prog: 52-off-vides, off, vides, fiable: recent && !C.semOffAVenir && (off+vides)>0};
+}
+/* Année incomplète, congés payés en juin : estimation (le plus favorable entre maintien de salaire et 10 %) */
+function cpJuinEstime(c){
+  const dv = derive(c), vj = (dv.moyH||0)/6*(dv.tauxEff||0), dix = R('cpDixieme')||0.10;
+  const an = Math.max(30*vj, 12*(dv.brut||0)*dix);
+  const deb = parseD(c.debut); if(!deb) return {an, premier: an, juin: today().getFullYear()};
+  const y = deb.getMonth()>=5 ? deb.getFullYear()+1 : deb.getFullYear(), e = new Date(y, 4, 31);
+  const acq = Math.min(30, joursAcquisCP(iso(deb), iso(e), 0, false, c)), mois = ((e-deb)/86400000+1)/30.4375;
+  return {an, premier: Math.max(acq*vj, mois*(dv.brut||0)*dix), juin: y};
+}
 function ctToggleWeek(k){
   ctRead();
   if(!Array.isArray(CT.semOff)) CT.semOff = [];
@@ -691,6 +710,11 @@ function ctRecap(dv){
   ];
   let h = '';
   lines.forEach(l=>{ h+='<div class="result-line"><span class="lbl">'+l[0]+'</span><span class="val">'+l[1]+'</span></div>'; });
+  if(CT.type===1){
+    const P = ctSemProg(CT);
+    if(P.fiable && P.prog !== (parseFloat(CT.semaines)||0)) h += '<div class="warn-box">⚠️ Vous avez indiqué <b>'+esc(CT.semaines||'?')+' semaines</b> d’accueil, mais le calendrier des semaines en compte <b>'+P.prog+'</b>. Le contrat doit dire la même chose partout : le salaire et la régularisation de fin de contrat en dépendent. <a href="#" onclick="setVal(\'ct-semaines\','+P.prog+');ctRead();ctRecap(derive(CT));return false;">Utiliser '+P.prog+' semaines</a>, ou corrigez le calendrier (étape 2).</div>';
+    if(CT.cpMode===1){ const E = cpJuinEstime(CT); h += '<div class="result-line"><span class="lbl">Congés payés versés en juin, en plus du salaire (estimation)</span><span class="val">'+fmtEUR(E.premier)+' en juin '+E.juin+', puis environ '+fmtEUR(E.an)+' par an</span></div><p class="hint">À dire aux parents dès la signature : le mois de juin coûte nettement plus que les autres.</p>'; }
+  }
   if(dv.cp12) h+='<div class="result-line"><span class="lbl">dont congés payés (10 % chaque mois)</span><span class="val">'+fmtEUR(dv.cp12)+'</span></div>';
   h+='<div class="result-line total"><span class="lbl">Salaire mensuel brut</span><span class="val">'+fmtEUR(dv.brut)+'</span></div>';
   h+='<div class="result-line"><span class="lbl">Salaire mensuel net (estimation)</span><span class="val">'+fmtEUR(dv.net)+'</span></div>';

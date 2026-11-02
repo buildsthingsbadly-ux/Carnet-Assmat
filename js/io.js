@@ -2,7 +2,7 @@
    IMPRESSION / PDF · SAUVEGARDE · RÉGLAGES · MISES À JOUR RÉGLEMENTAIRES · AIDE · DÉMARRAGE
    ===================================================================================== */
 'use strict';
-const APP_VERSION = '3.19.0';
+const APP_VERSION = '3.20.0';
 
 /* ---------------------------------- Impression / PDF ---------------------------------- */
 let _pc = null;
@@ -183,7 +183,7 @@ function applyTheme(){
   if(t===1) document.documentElement.dataset.theme='light'; else if(t===2) document.documentElement.dataset.theme='dark'; else delete document.documentElement.dataset.theme;
 }
 function renderSettings(){
-  setSegVal('set-am', STATE.settings.am); setSegVal('set-theme', STATE.settings.theme); setSegVal('set-autoreg', STATE.settings.autoreg);
+  setSegVal('set-am', STATE.settings.am); setVal('set-drom', STATE.settings.drom||''); setSegVal('set-theme', STATE.settings.theme); setSegVal('set-autoreg', STATE.settings.autoreg);
   setVal('set-agrement', STATE.settings.agrement); setVal('set-regurl', STATE.settings.regUrl);
   PROFIL_FIELDS.forEach(k=>setVal('prof-'+k, (STATE.profil||{})[k] || (k==='civ' ? 'F' : '')));
   setVal('set-zone', STATE.settings.zone||''); setVal('set-rappel', STATE.settings.rappel||'18:30'); setVal('set-conservation', STATE.settings.conservation||5);
@@ -229,10 +229,10 @@ function congesDel(i){
   L.splice(i,1); auditLog('', 'Congés retirés ('+fmtDate(p.du)+' – '+fmtDate(p.au)+')'); saveState(); congesRender();
 }
 function settingsChanged(){
-  const amBefore = STATE.settings.am;
+  const amBefore = STATE.settings.am, dromBefore = STATE.settings.drom||'';
   STATE.settings.am = seg('set-am'); STATE.settings.theme = seg('set-theme'); STATE.settings.autoreg = seg('set-autoreg');
-  STATE.settings.agrement = parseInt(val('set-agrement')) || 4; STATE.settings.regUrl = val('set-regurl').trim();
-  if(amBefore !== STATE.settings.am) Object.keys(_feriesCache).forEach(k=>delete _feriesCache[k]);
+  STATE.settings.agrement = parseInt(val('set-agrement')) || ''; STATE.settings.drom = val('set-drom'); STATE.settings.regUrl = val('set-regurl').trim();
+  if(amBefore !== STATE.settings.am || dromBefore !== STATE.settings.drom) Object.keys(_feriesCache).forEach(k=>delete _feriesCache[k]);
   STATE.profil = STATE.profil || {};
   PROFIL_FIELDS.forEach(k=>STATE.profil[k] = val('prof-'+k).trim());
   const z = val('set-zone'); if(z !== STATE.settings.zone){ STATE.settings.zone = z; if(z) loadVacances(z, true); }
@@ -423,7 +423,7 @@ const AIDE = [
   ['Les indemnités d\'entretien', 'Elles remboursent vos frais (eau, chauffage, jouets, produits…). Elles sont dues pour chaque jour où l\'enfant est présent, au minimum 90 % du « minimum garanti » pour 9 h d\'accueil, calculé selon la durée de la journée, jamais moins de 2,65 € par jour. Ce n\'est pas du salaire : pas de cotisations.'],
   ['Les congés payés', 'Vous gagnez 2,5 jours ouvrables par mois d\'accueil (30 jours par an au maximum), du 1er juin au 31 mai. Un arrêt maladie donne aussi des congés (2 jours par mois). On prend d\'abord les jours les plus anciens. Le montant payé est le plus avantageux pour vous entre le « maintien de salaire » et 10 % des salaires de l\'année. Si vous ne notez pas vos journées, indiquez vos périodes de congés dans <b>Réglages ▸ Mes congés payés</b> : elles sont décomptées automatiquement et l\'entretien n\'est pas compté ces jours-là.'],
   ['Absences et mois incomplet', 'La méthode de la Cour de cassation sert à retirer du salaire mensualisé les heures d\'une absence <b>non payée</b> :<br>✅ arrivée ou départ en cours de mois, premier mois avec adaptation (obligatoire depuis 2022) ;<br>✅ votre arrêt maladie, accident du travail, maternité ou paternité (vous êtes indemnisée par la CPAM et l\'IRCEM) ;<br>✅ congé sans solde ou congés payés pas encore acquis, votre enfant malade, autre absence non payée ;<br>✅ événement familial, seulement pour les jours pris au-delà de ceux prévus par la loi ;<br>✅ enfant accueilli malade avec certificat : 5 jours au plus par période de 12 mois (plus en cas d\'hospitalisation ou de maladie de 14 jours et plus).<br>⛔ On ne déduit <b>jamais</b> : l\'absence de l\'enfant voulue par les parents ou une fermeture qu\'ils imposent, l\'enfant malade sans certificat ou au-delà des 5 jours, vos congés payés en année complète, les semaines non prévues en année incomplète, les jours fériés chômés, les événements familiaux dans la limite légale.<br>Le thème « Mois incomplet &amp; absences » vous guide motif par motif.'],
-  ['Jours fériés', 'Un jour férié non travaillé qui tombe un jour d\'accueil prévu est payé (dès le début du contrat, si les jours d\'accueil prévus juste avant et juste après sont travaillés ou l\'absence autorisée). Le 1er mai travaillé est payé double ; un autre jour férié travaillé est majoré de 10 %. Le carnet connaît tous les jours fériés (y compris ceux d\'Alsace-Moselle si vous l\'activez dans les Réglages).'],
+  ['Jours fériés', 'Un jour férié non travaillé qui tombe un jour d\'accueil prévu est payé (dès le début du contrat, si les jours d\'accueil prévus juste avant et juste après sont travaillés ou l\'absence autorisée). Le 1er mai travaillé est payé double ; un autre jour férié travaillé est majoré de 10 %. Le contrat dit si les fériés (sauf le 1er mai) sont chômés ou travaillés : le carnet applique ce choix tout seul. Pas d\'entretien ni de repas un férié chômé. Pendant vos congés, un férié chômé ne compte pas comme jour de congé, même s\'il tombe un samedi. Un férié pendant votre arrêt maladie n\'est pas payé par les parents. Année incomplète : un férié pendant une semaine sans accueil ne change rien (déjà compris dans la mensualisation). Le carnet connaît tous les jours fériés, y compris ceux d\'Alsace-Moselle (Vendredi saint, 26 décembre) et des départements d\'outre-mer (abolition de l\'esclavage), à activer dans les Réglages. Lundi de Pentecôte : travaillé sans supplément seulement s\'il a été fixé par écrit comme journée de solidarité.'],
   ['Fin de contrat', 'Préavis : 8 jours si moins de 3 mois d\'ancienneté, 15 jours jusqu\'à 1 an, 1 mois au-delà. Les parents qui retirent l\'enfant après 9 mois doivent l\'indemnité de rupture (1/80ᵉ de tous les salaires bruts du contrat), sauf faute grave. Il faut aussi payer les congés non pris et, en année incomplète, faire la régularisation. Documents : certificat de travail, attestation France Travail, solde de tout compte.'],
   ['Impôts : l\'abattement', 'Vous avez droit à un régime spécial : on déduit, pour chaque enfant et chaque jour de présence, 3 fois le SMIC horaire (4 fois pour un enfant handicapé). <b>Attention</b> : le montant pré-rempli sur votre déclaration ne tient pas compte de cet abattement. Il faut le corriger vous-même. Le carnet vous donne les chiffres à mettre et vérifie si le régime ordinaire n\'est pas plus avantageux.'],
   ['L\'aide CMG des parents', 'La CAF (ou la MSA) aide les parents à vous payer : c\'est le complément de libre choix du mode de garde (CMG). Il dépend de leurs revenus, du nombre d\'enfants et des heures d\'accueil. Le carnet l\'estime pour vous aider à présenter votre tarif. Les cotisations sociales sont aussi prises en charge.'],

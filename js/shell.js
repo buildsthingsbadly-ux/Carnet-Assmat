@@ -68,7 +68,7 @@ function renderAccueil(){
     setHTML('home-today', list.filter(c=>contratActif(c,t)).map(c=>{
       const pl = plannedDay(c, t), fer = ferieName(t);
       const etat = !pl.min ? 'Pas d\'accueil prévu aujourd\'hui'
-        : fer ? 'Jour férié ('+fer+') : pas d\'accueil, payé'
+        : fer ? (paramsAt(c, t).feriesTr===1 && fer!=='1er mai' && !enConges(t) && !absEnfant(c, t) ? 'Jour férié ('+fer+') travaillé selon le contrat : heures majorées de 10 %' : 'Jour férié ('+fer+') : pas d\'accueil, payé')
         : enConges(t) ? '🏖️ Vous êtes en congés payés aujourd\'hui'
         : absEnfant(c, t) ? 'Absent aujourd\'hui (vacances de la famille) : salaire dû, pas d\'entretien'
         : 'Prévu aujourd\'hui : '+(pl.s&&pl.e?pl.s+' – '+pl.e+' · ':'')+fmtH(pl.min);
@@ -125,6 +125,7 @@ function renderMoisDash(){
       + '<div class="kline"><span>Indemnités d\'entretien'+(jIE ? ' ('+jIE+' j)' : '')+'</span><b>'+fmtEUR(ieM)+'</b></div>'
       + '<div class="kline"><span>Repas et km</span><b>'+fmtEUR(frais)+'</b></div>'
       + '<a href="#" class="hint" style="display:inline-block;margin-top:4px;min-height:32px" onclick="ficheMoisPour(\''+c.id+'\',\''+ym+'\');return false;">🧾 Comprendre ces chiffres</a>'
+      + (adaptationAFaire(c, ym) ? '<div class="warn-box" style="margin-top:6px">'+adaptationTxt(c)+' <a href="#" onclick="openSuivi(\'cal\',\''+c.id+'\',\''+ym+'\');return false;">Ouvrir le calendrier du mois</a></div>' : '')
       + (c.type===1 && !J && ym <= curMonth() && !useSuivi ? '<div class="hint" style="margin-top:4px">Une semaine sans accueil ce mois-ci (vacances, absence prévue) ? <a href="#" onclick="noterSemaineOff(\''+c.id+'\');return false;">📅 Notez-la</a> : l\u2019entretien et les repas seront ajustés.</div>' : '')
       + (next && next.a ? '<button class="btn small primary" style="margin-top:8px" onclick="'+next.a+'">'+esc(next.b)+' →</button>' : (next?'':'<div class="hint" style="margin-top:6px">✔ Mois terminé pour cet enfant.</div>'))
       + '</div>';

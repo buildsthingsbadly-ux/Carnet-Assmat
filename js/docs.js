@@ -150,8 +150,8 @@ function printDoc(id){
       + row('Indemnités kilométriques', (parseFloat(c.km)||0) ? fmtEUR(parseFloat(c.km))+' par mois en moyenne, selon les déplacements autorisés' : 'selon les déplacements autorisés par écrit, au barème convenu : '+BL) + '</table>'
       + '<h3>Article 7 — Congés payés</h3>'
       + '<p>La salariée acquiert 2,5 jours ouvrables par mois d\'accueil (30 jours au plus) du 1er juin au 31 mai. Les dates sont fixées d\'un commun accord au plus tard le 1er mars ; à défaut d\'accord pour une salariée ayant plusieurs employeurs, elle fixe elle-même 4 semaines en été et 1 semaine en hiver. '
-      + (c.type===1 ? 'En année incomplète, l\'indemnité de congés payés (la plus favorable entre 10 % des salaires et le maintien de salaire) est versée en plus du salaire mensualisé, <b>'+cpMode+'</b>.' : 'En année complète, les congés sont compris dans le salaire mensualisé ; en fin de période de référence, la différence éventuelle en faveur de la règle des 10 % est versée.')+'</p>'
-      + '<h3>Article 8 — Jours fériés</h3><p>Le 1er mai est chômé et payé (s\'il est travaillé : majoration de 100 %). Les autres jours fériés sont : ☐ chômés et payés (dès le début du contrat, si les jours d\'accueil prévus avant et après sont travaillés) ☐ travaillés, avec une majoration de 10 %. Jours fériés travaillés convenus : '+BL+'</p>'
+      + (c.type===1 ? 'En année incomplète, l\'indemnité de congés payés (la plus favorable entre 10 % des salaires et le maintien de salaire) est versée en plus du salaire mensualisé, <b>'+cpMode+'</b>'+(c.cpMode===1 ? (()=>{ const E = cpJuinEstime(c); return ' (estimation : environ '+fmtEUR(E.premier)+' brut en juin '+E.juin+', puis environ '+fmtEUR(E.an)+' brut par année entière d\'accueil)'; })() : '')+'.' : 'En année complète, les congés sont compris dans le salaire mensualisé ; en fin de période de référence, la différence éventuelle en faveur de la règle des 10 % est versée.')+'</p>'
+      + '<h3>Article 8 — Jours fériés</h3><p>Le 1er mai est chômé et payé (s\'il est travaillé : majoration de 100 %). '+(c.feriesTr===1 ? 'Les autres jours fériés qui tombent un jour d\'accueil prévu sont <b>travaillés</b>, avec une majoration de 10 % des heures ; un férié chômé d\'un commun accord reste payé.' : c.feriesTr===0 ? 'Les autres jours fériés qui tombent un jour d\'accueil prévu sont <b>chômés et payés</b> (dès le début du contrat, si les jours d\'accueil prévus juste avant et juste après sont travaillés, ou l\'absence autorisée) ; un férié travaillé d\'un commun accord est majoré de 10 %.' : 'Les autres jours fériés sont : ☐ chômés et payés (dès le début du contrat, si les jours d\'accueil prévus avant et après sont travaillés) ☐ travaillés, avec une majoration de 10 %. Jours fériés travaillés convenus : '+BL)+((STATE.settings||{}).am ? ' En Alsace-Moselle, le Vendredi saint et le 26 décembre sont aussi fériés.' : '')+'</p>'
       + '<h3>Article 9 — Absences</h3><p>Absence de l\'enfant : le salaire est maintenu, sauf maladie justifiée par un certificat médical remis dans les 48 heures, dans la limite de 5 jours par période de 12 mois à compter de la date d\'effet du contrat ; une hospitalisation ou une maladie d\'au moins 14 jours consécutifs ne sont pas rémunérées. Absences de la salariée non rémunérées (maladie, congé sans solde…) : déduites selon la méthode de la Cour de cassation. Les congés pour événements familiaux prévus par la loi sont rémunérés.</p>'
       + '<h3>Article 10 — Rupture du contrat</h3><p>Hors période d\'essai, préavis : 8 jours calendaires si l\'ancienneté est inférieure à 3 mois, 15 jours de 3 mois à moins d\'un an, un mois au-delà. Le retrait de l\'enfant par l\'employeur est notifié par lettre recommandée avec accusé de réception ou remise en main propre contre décharge ; après 9 mois d\'ancienneté, il ouvre droit à une indemnité de rupture égale à 1/80ᵉ du total des salaires bruts perçus pendant le contrat (sauf faute grave ou lourde). La suspension ou le retrait d\'agrément entraîne la rupture sans préavis ni indemnité. En fin de contrat, l\'employeur remet le certificat de travail, l\'attestation France Travail et le reçu pour solde de tout compte ; en année incomplète, une régularisation du salaire est calculée.</p>'
       + '<h3>Article 11 — Dispositions diverses</h3><p>Les parents fournissent le carnet de santé (vaccinations), les autorisations écrites (personnes habilitées à reprendre l\'enfant, sorties, transport, photos) et signalent tout changement de situation. La salariée respecte la confidentialité des informations concernant la famille.</p>'
@@ -161,6 +161,8 @@ function printDoc(id){
       + '<p>Clauses particulières : '+BL+BL+'</p>'
       + lieuDate() + sign('L\'employeur', 'La salariée')
       + (c.type===1 ? '<h3>Annexe — Semaines d\'accueil programmées (année incomplète)</h3><p>Nombre de semaines d\'accueil par an : <b>'+esc(c.semaines||'__')+'</b>.</p>'
+        + (()=>{ const P = ctSemProg(c); return P.fiable && P.prog!==(parseFloat(c.semaines)||0) ? '<p><b>⚠ À mettre en accord avant signature :</b> le calendrier ci-dessous compte '+P.prog+' semaines d\'accueil.</p>' : ''; })()
+        + ''
         + ((c.semOff||[]).length ? '<p>Semaines <b>sans accueil</b> (du lundi au dimanche) : '+(c.semOff||[]).slice().sort().map(k=>{ const d=parseD(k); return 'S'+isoWeek(d)+' ('+d.toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit'})+' – '+addDays(d,6).toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric'})+')'; }).join(', ')+'.</p>'
            : '<p>Semaines sans accueil (hors congés payés de la salariée) : '+BL+BL+'</p>')
         + '<p>Toute modification de ces semaines fait l\'objet d\'un accord écrit.</p>' : '')
@@ -217,7 +219,9 @@ function printDoc(id){
       + row('Durée d\'accueil', fmtNum(dv.moyH||0, 2)+' h par semaine en moyenne')
       + row('Salaire horaire brut', fmtEUR(dv.tauxEff||0))
       + row('Salaire mensuel brut prévu', fmtEUR(dv.brut||0))
-      + row('Indemnité d\'entretien', 'au moins le minimum légal, par jour de présence') + '</table>'
+      + row('Indemnité d\'entretien', 'au moins le minimum légal, par jour de présence')
+      + (c.type===1 ? row('Congés payés', ['10 % du salaire chaque mois','en une fois en juin, en plus du salaire','lors de la prise des congés, en plus du salaire'][c.cpMode||0]
+          + (c.cpMode===1 ? (()=>{ const E = cpJuinEstime(c); return ' : environ '+fmtEUR(E.premier)+' brut en juin '+E.juin+', puis environ '+fmtEUR(E.an)+' brut chaque juin pour une année entière'; })() : '')) : '') + '</table>'
       + planningTable(c)
       + '<p>Si l\'une des parties renonce à conclure le contrat, elle verse à l\'autre une <b>indemnité forfaitaire égale à un demi-mois de salaire brut prévu</b>, soit <b>'+fmtEUR(demi)+'</b>. Cette indemnité n\'est pas due en cas de décès de l\'enfant, ou de retrait, suspension ou non-renouvellement de l\'agrément de l\'assistante maternelle (sur justificatif).</p>'
       + '<p>Le contrat de travail écrit sera signé au plus tard le premier jour de l\'accueil.</p>'
@@ -254,7 +258,7 @@ function printDoc(id){
   else if(id==='solde'){
     const f = finValues(c);
     h = docHead('Reçu pour solde de tout compte', c)
-      + '<p>Je soussignée '+assmatNom()+', assistante maternelle, reconnais avoir reçu de '+employeurs(c)+', pour solde de tout compte, les sommes suivantes au titre de mon contrat de travail du '+v(fmtDate(c.debut))+' au '+v(fmtDate(c.fin))+' :</p><table>'
+      + '<p>Je soussignée '+assmatNom()+', assistante maternelle, reconnais avoir reçu de '+employeurs(c)+', pour solde de tout compte, les sommes suivantes au titre de mon contrat de travail du '+v(fmtDate(c.debut))+' au '+v(fmtDate(c.fin || certFinCalculee(c)))+' :</p><table>'
       + (f.salaire ? row('Salaire du dernier mois (brut)', esc(f.salaire)) : '')
       + (f.qui===4 ? row('Indemnité forfaitaire d\'engagement réciproque (½ mois de salaire brut)', esc(($('out-fin-engag')||{}).textContent||'')) : '')
       + (f.preavis?row('Indemnité compensatrice de préavis (brut)', esc(f.preavis)):'')
@@ -262,7 +266,7 @@ function printDoc(id){
       + (f.regul?row('Rappel de salaire (régularisation)', esc(f.regul)):'')
       + (f.entretien?row('Indemnités d\'entretien', esc(f.entretien)):'')
       + (f.rupture?row('Indemnité de rupture', esc(f.rupture)):'')
-      + '<tr class="tot"><td>Total (brut, frais et indemnité de rupture compris)</td><td>'+esc(f.total)+'</td></tr>'
+      + '<tr class="tot"><td>Total (salaires en brut, indemnités d\'entretien et de rupture telles quelles)</td><td>'+esc(f.total)+'</td></tr>'
       + row('Montant net estimé versé', esc(f.net)) + row('Mode de paiement', BL) + '</table>'
       + (f.tropPercu ? '<p>Note : la régularisation fait apparaître un trop-perçu de '+esc(f.tropPercu)+'. Il n\'est pas retenu sur les sommes ci-dessus. S\'il est réclamé, il se récupère par petites retenues dans la limite de la part saisissable, après information écrite de la salariée ; un accord écrit sur l\'échéancier évite les litiges.</p>' : '')
       + '<p>Ce reçu, établi en deux exemplaires, peut être dénoncé dans les six mois qui suivent sa signature, après quoi il devient libératoire pour les sommes qui y sont mentionnées.</p>'

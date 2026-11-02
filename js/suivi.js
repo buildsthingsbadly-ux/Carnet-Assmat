@@ -69,7 +69,7 @@ function calcDay(c, d, k){
   const pl = plannedDay(c, d), inC = inContract(c, d), r = dayRec(c.id, k);
   const sd = suiviDebut(c);
   // un jour férié prévu au planning et non renseigné est réputé chômé (payé, sans accueil ni indemnité d'entretien)
-  let st = r ? r.st : (!inC ? 'hors' : (sd && d < sd) ? 'avant' : (pl.min ? (ferieName(d) ? 'ferieCh' : (enConges(d) ? 'cpAm' : absEnfant(c, d) ? 'absPrev' : 'todo')) : 'none'));
+  let st = r ? r.st : (!inC ? 'hors' : (sd && d < sd) ? 'avant' : (pl.min ? (ferieName(d) ? (paramsAt(c, d).feriesTr===1 && ferieName(d)!=='1er mai' && !enConges(d) && !absEnfant(c, d) ? 'ferieTr' : 'ferieCh') : (enConges(d) ? 'cpAm' : absEnfant(c, d) ? 'absPrev' : 'todo')) : 'none'));
   const def = ST[st] || {};
   const P = inC ? pl.min : 0;
   let real = 0;
@@ -156,8 +156,8 @@ function suiviMonth(c, ym, opts){
   // congés en jours ouvrables : une semaine entière de congés compte 6 jours
   for(let w=0; w<days.length; w+=7){
     const wk = days.slice(w,w+7).filter(x=>x.d.getMonth()===m && x.inC);
-    // un jour férié chômé qui tombe un jour d'accueil prévu ne compte pas comme jour de congé
-    const fer = wk.filter(x=>x.P>0 && x.st==='ferieCh'), pl = wk.filter(x=>x.P>0 && x.st!=='ferieCh'), cp = wk.filter(x=>x.def.cp);
+    // un jour férié chômé qui tombe un jour ouvrable (même un samedi non travaillé) ne compte pas comme jour de congé
+    const fer = wk.filter(x=>x.ferie && (x.P>0 ? x.st==='ferieCh' : !x.acc)), pl = wk.filter(x=>x.P>0 && x.st!=='ferieCh'), cp = wk.filter(x=>x.def.cp);
     if(cp.length && cp.length===pl.length) T.cpOuv += wk.filter(x=>dowIdx(x.d)<6).length - fer.filter(x=>dowIdx(x.d)<6).length;
     else T.cpOuv += cp.length;
   }
@@ -204,6 +204,14 @@ function suiviChecks(M){
     if((r.frais||[]).some(f=>!f.pj)) out.push({ok:false, t:fmtDate(x.k)+' : frais sans justificatif'});
     if(x.km && !(parseFloat(paramsAt(c,x.d).kmTaux)>0)) out.push({ok:false, t:fmtDate(x.k)+' : kilomètres notés mais pas de tarif au kilomètre dans le contrat'});
   });
+  // jour férié chômé : payé si les jours d'accueil prévus juste avant et juste après sont travaillés (ou l'absence autorisée)
+  M.days.filter(x=>x.st==='ferieCh' && x.inC && x.ferie && x.ferie!=='1er mai').forEach(x=>{
+    const voisin = dir=>{ for(let i=1;i<=10;i++){ const d = addDays(x.d, dir*i); if(!inContract(c, d)) return null; const y = calcDay(c, d, iso(d)); if(y.P > 0 && y.st!=='ferieCh' && y.st!=='none') return y; } return null; };
+    const av = voisin(-1), ap = voisin(1);
+    if(av && ap && av.st==='malAm' && ap.st==='malAm') out.push({ok:false, t:fmtDate(x.k)+' ('+x.ferie+') tombe pendant votre arrêt maladie : il n’est pas payé par les parents. Notez ce jour « arrêt maladie » (fiche du jour).'});
+    else { const pb = [av, ap].filter(y=>y && (y.st==='sansSolde' || y.st==='fermeture'));
+      if(pb.length) out.push({ok:false, t:fmtDate(x.k)+' ('+x.ferie+') : '+pb.map(y=>fmtDate(y.k)+' « '+ST[y.st].l.toLowerCase()+' »').join(' et ')+' juste avant ou après. Un férié chômé n’est payé que si ces jours sont travaillés ou l’absence autorisée : vérifiez avec les parents (il reste payé dans le calcul).'}); }
+  });
   if(M.T.retards >= 3) out.push({ok:false, t:M.T.retards+' dépassements de l\'heure de départ ce mois-ci : pensez à en parler (ou à un avenant)'});
   for(let w=0; w<M.days.length; w++){ /* durée hebdomadaire contrôlée dans les alertes globales */ }
   if(M.versions>1) out.push({ok:true, t:'Avenant en cours de mois : salaire ventilé sur les deux périodes'});
@@ -249,6 +257,7 @@ function renderJour(list){
     if(x.st==='none' && !x.r) etat = '';
     else if(x.st==='todo'){ nbConf++; etat = '<span class="pill">à renseigner</span>'; }
     else if(x.st==='avant') etat = '<span class="pill off">avant le suivi</span>';
+    else if(x.st==='ferieTr' && !x.r) etat = '<span class="pill st-ecart">Jour férié travaillé (prévu au contrat) : heures majorées</span>';
     else if(x.st==='ferieCh' && !x.r) etat = '<span class="pill st-ferie">Jour férié chômé : payé, pas d\u2019entretien</span>';
     else if(!x.r && (x.st==='cpAm' || x.st==='absPrev')) etat = '<span class="pill st-'+(x.def.c||'none')+'">'+(x.st==='cpAm' ? 'Mes congés payés (notés dans Réglages)' : 'Absence prévue (notée dans Réglages)')+'</span>';
     else etat = '<span class="pill st-'+(x.def.c||'none')+'">'+esc((ST[x.st]||{}).l||x.st)+'</span>'
@@ -257,7 +266,8 @@ function renderJour(list){
       + '<div class="kfam">'+esc(prev)+'</div>'+(etat ? '<div style="margin:6px 0">'+etat+'</div>' : '')
       + (locked ? '<div class="hint">Mois clôturé : modification par régularisation (onglet Mois).</div>' :
         '<div class="kactions">'
-        + (x.ferie && x.P && !x.r ? '<button class="btn small" onclick="suiviFerie(\''+c.id+'\',\''+k+'\',true)">J\u2019ai travaillé ce jour férié</button>'
+        + (x.ferie && x.P && !x.r && x.st==='ferieTr' ? '<button class="btn small" onclick="suiviFerie(\''+c.id+'\',\''+k+'\',false)">Ce jour férié a été chômé</button>'
+          : x.ferie && x.P && !x.r ? '<button class="btn small" onclick="suiviFerie(\''+c.id+'\',\''+k+'\',true)">J\u2019ai travaillé ce jour férié</button>'
           : (x.P && (x.st==='todo' || (x.r && x.st!=='conf')) ? '<button class="btn small primary" onclick="suiviConforme(\''+c.id+'\',\''+k+'\')">✔ Conforme</button>' : ''))
         + '<button class="btn small" onclick="dayEdit(\''+c.id+'\',\''+k+'\')">'+(x.r ? '✎ Modifier' : x.P ? '✎ Noter un changement ou une absence' : '＋ Accueil exceptionnel ce jour-là')+'</button></div>')
       + '</div>';
@@ -304,7 +314,7 @@ function dayEdit(cid, k){
   const c = getContrat(cid), d = parseD(k);
   if(monthLocked(cid, k.slice(0,7))){ toast('Mois clôturé : passez par une régularisation.'); return; }
   const pl = plannedDay(c, d), cc0 = paramsAt(c, d);
-  const r = clone(dayRec(cid, k) || Object.assign({st: pl.min ? (ferieName(d) ? 'ferieCh' : 'conf') : 'exc', a: pl.s, dep: pl.e}, cc0.repasMode===1 ? {rep:{dej:true, gou:true}} : {}));
+  const r = clone(dayRec(cid, k) || Object.assign({st: pl.min ? (ferieName(d) ? (cc0.feriesTr===1 && ferieName(d)!=='1er mai' ? 'ferieTr' : 'ferieCh') : 'conf') : 'exc', a: pl.s, dep: pl.e}, cc0.repasMode===1 ? {rep:{dej:true, gou:true}} : {}));
   DE = {cid, k, r};
   const groups = {};
   Object.keys(ST).forEach(s=>{ (groups[ST[s].g]=groups[ST[s].g]||[]).push(s); });
@@ -727,6 +737,14 @@ function downloadICS(){
   toast('Ouvrez le fichier téléchargé : votre agenda proposera d\'ajouter les rappels.');
 }
 
+/* Premier mois avec période d'adaptation : rappeler de noter les heures réellement faites */
+function adaptationAFaire(c, ym){
+  if(!c || !String(c.adaptation||'').trim() || !c.debut || c.debut.slice(0,7)!==ym || journalOf(c.id)[ym]) return false;
+  const S = (STATE.suivi||{})[c.id];
+  return !(S && Object.keys(S.days||{}).some(k=>k.slice(0,7)===ym && S.days[k].st==='adapt'));
+}
+function adaptationTxt(c){ return 'Adaptation prévue au contrat (« '+esc(String(c.adaptation).trim())+' ») : notez les heures réellement faites ces jours-là (fiche du jour, choix « Adaptation »). Les heures non faites se retirent du salaire, comme le prévoit le contrat ; sinon ces jours sont payés comme des journées entières.'; }
+
 /* ---------------------------------- Vacances scolaires (données officielles) ---------------------------------- */
 function isVacances(d){
   const z = STATE.settings.zone; if(!z) return false;
@@ -751,9 +769,10 @@ async function loadVacances(zone, quiet){
   }catch(e){ if(!quiet) toast('Vacances scolaires indisponibles (connexion ?).'); return false; }
 }
 /* Dans l'assistant de contrat (année incomplète) : cocher d'un coup les semaines de vacances scolaires */
-async function ctCocherVacances(){
+async function ctCocherVacances(zone){
+  if(zone){ STATE.settings.zone = zone; saveState(); show('ct-zone-pick', false); }
   const z = STATE.settings.zone;
-  if(!z){ toast('Indiquez votre zone de vacances scolaires dans les Réglages.'); return; }
+  if(!z){ show('ct-zone-pick', true); toast('Choisissez votre zone de vacances scolaires (elle sera gardée dans les Réglages).'); return; }
   if(!((STATE.vacances||{})[z]||[]).length){ const ok = await loadVacances(z); if(!ok) return; }
   ctRead(); CT.semOff = CT.semOff||[];
   const deb = parseD(CT.debut)||today();

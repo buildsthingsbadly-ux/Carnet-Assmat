@@ -64,8 +64,8 @@ function easter(y){
 }
 const _feriesCache = {};
 function feries(y){
-  const am = !!(STATE && STATE.settings && STATE.settings.am);
-  const key = y+(am?'am':'');
+  const am = !!(STATE && STATE.settings && STATE.settings.am), drom = (STATE && STATE.settings && STATE.settings.drom) || '';
+  const key = y+(am?'am':'')+drom;
   if(_feriesCache[key]) return _feriesCache[key];
   const e = easter(y), f = {};
   const add=(d,n)=>{ f[iso(d)]=n; };
@@ -74,6 +74,9 @@ function feries(y){
   add(new Date(y,6,14),'14 juillet'); add(new Date(y,7,15),'Assomption'); add(new Date(y,10,1),'Toussaint');
   add(new Date(y,10,11),'11 novembre'); add(new Date(y,11,25),'Noël');
   if(am){ add(addDays(e,-2),'Vendredi saint'); add(new Date(y,11,26),'Saint-Étienne'); }
+  // départements d'outre-mer : abolition de l'esclavage (date propre à chaque département)
+  const DROM = {GP:[4,27], MQ:[4,22], GF:[5,10], RE:[11,20], YT:[3,27]};
+  if(DROM[drom]) add(new Date(y, DROM[drom][0], DROM[drom][1]), 'Abolition de l\'esclavage');
   _feriesCache[key]=f; return f;
 }
 function ferieName(d){ return feries(d.getFullYear())[iso(d)] || ''; }
@@ -116,7 +119,7 @@ async function idbPreload(){
 }
 const STATE_DEFAULT = {
   v: 2,
-  settings: { am:0, agrement:4, theme:0, autoreg:1, regUrl:'', zone:'', pin:'', rappel:'18:30', conservation:5, suivi:1, font:0 },
+  settings: { am:0, drom:'', agrement:'', theme:0, autoreg:1, regUrl:'', zone:'', pin:'', rappel:'18:30', conservation:5, suivi:1, font:0 },
   contrats: [],                 // 4 au maximum
   forms: {},                    // forms[theme][cléEnfant] = {i:{id:valeur}, s:{id:index}}
   sel: {},                      // sel[theme] = clé de l'enfant sélectionné

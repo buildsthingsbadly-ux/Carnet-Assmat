@@ -135,7 +135,7 @@ function startDemo(){
     uiSnapshot(); saveNow();
     const t = today(), S = clone(STATE_DEFAULT);
     S.profil = {nom:'Marie Exemple', adresse:'1 rue des Tilleuls, 44000 Nantes', agrementNum:'EX-0001', agrementDate:iso(new Date(t.getFullYear()-2, 2, 1)), agrementDuree:'5', assurance:'Assurance Exemple n° 123'};
-    S.settings.zone = STATE.settings.zone || 'B'; S.lastExport = new Date().toISOString(); S.ui = {onboardingDone:1};
+    S.settings.zone = STATE.settings.zone || 'B'; S.settings.agrement = 4; S.lastExport = new Date().toISOString(); S.ui = {onboardingDone:1};
     const deb1 = iso(new Date(t.getFullYear()-1, t.getMonth(), 1)), deb2 = iso(new Date(t.getFullYear(), t.getMonth()-4, 1));
     const lea = Object.assign(newContrat(), {id:'demo1', enfant:'Léo', enfantNom:'Durand', famille:'Famille Durand', parent1:'Claire Durand', adresse:'5 place du Marché, Nantes',
       naissance: iso(new Date(t.getFullYear()-2, 4, 12)), debut:deb1, horaires:1, wA:['9','9','','9','9','',''],
