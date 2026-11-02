@@ -1,0 +1,5 @@
+Polices incluses dans le Carnet Assmat (sous-ensemble latin, hébergées avec l'application,
+aucune requête vers Google), fichiers woff2 du projet libre Fontsource (github.com/fontsource) :
+- Fraunces (Undercase Type), Work Sans (Wei Huang), IBM Plex Mono (IBM)
+Toutes sont distribuées sous la licence SIL Open Font License 1.1 : https://openfontlicense.org
+Elles peuvent être utilisées, intégrées et redistribuées librement avec un logiciel ; elles ne peuvent pas être vendues seules.
