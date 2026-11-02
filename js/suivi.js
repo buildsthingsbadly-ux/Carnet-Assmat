@@ -488,6 +488,14 @@ function renderMoisSuivi(c){
 /* Transfert du récapitulatif vers « Salaire du mois & Pajemploi » (rien à recalculer) */
 /* Indemnités d'entretien d'un mois, jour de présence par jour de présence (source unique pour tous les écrans).
    Mois suivi : journées réelles ; sinon planning du contrat (fériés chômés, semaines sans accueil et dates du contrat exclus). */
+/* Entretien du mois sans les jours d'absence indiqués (dates iso) : montant exact de chaque journée retirée */
+function ieDuMoisSauf(c, ym, sel){
+  const I = ieDuMois(c, ym); if(!sel || !sel.size) return I;
+  const days = I.days.filter(x=>!sel.has(x.k)), vals = days.map(x=>x.ie);
+  return Object.assign({}, I, {days, jours: days.length, total: round2(vals.reduce((s,v)=>s+v,0)),
+    hAvg: days.length ? days.reduce((s,x)=>s+x.R,0)/60/days.length : 0, min: vals.length ? Math.min(...vals) : 0, max: vals.length ? Math.max(...vals) : 0,
+    absents: I.days.filter(x=>sel.has(x.k)), modifie: true});
+}
 function ieDuMois(c, ym){
   const M = suiviMonth(c, ym), d0 = parseD(ym), last = new Date(d0.getFullYear(), d0.getMonth()+1, 0);
   const days = M.days.filter(x=>x.inC && x.acc && x.R>0 && x.st!=='avant');

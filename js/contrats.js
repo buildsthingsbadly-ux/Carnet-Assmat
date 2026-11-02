@@ -330,6 +330,12 @@ function noterSemaineOff(cid){
     toast('Semaine du lundi '+fmtDate(k)+' : '+(avant ? 'accueil rétabli.' : 'sans accueil (pas d\u2019entretien ni de repas).')+(b && b.aPlacer ? ' Encore '+b.aPlacer+' semaine(s) sans accueil à noter cette année.' : ''));
   }, {type:'date'});
 }
+/* Entretien dû pour chaque durée de journée du planning (montant du contrat, jamais moins que le minimum légal) */
+function ieParDuree(c, when){
+  const d = when ? parseD(when) : today(), cc = paramsAt(c, d);
+  const H = [...new Set(wNums(cc.wA).concat(cc.alterne ? wNums(cc.wB) : []).filter(h=>h>0))].sort((a,b)=>a-b);
+  return H.map(h=>({h, v: ieJourMontant(cc, h, d), leg: ieLegalJour(h, d), prevu: ieContratJour(cc, h, d)}));
+}
 /* Contrat commencé bien avant sa saisie dans le carnet, sans aucun compteur repris */
 function contratCreeLe(c){ const t = parseInt(String(c.id||'').slice(1), 36); return t > 1.5e12 && t < 4e12 ? new Date(t) : null; }
 function repriseAFaire(c){
@@ -689,6 +695,14 @@ function ctRecap(dv){
   h+='<div class="result-line total"><span class="lbl">Salaire mensuel brut</span><span class="val">'+fmtEUR(dv.brut)+'</span></div>';
   h+='<div class="result-line"><span class="lbl">Salaire mensuel net (estimation)</span><span class="val">'+fmtEUR(dv.net)+'</span></div>';
   h+='<div class="result-line"><span class="lbl">Indemnité d\'entretien moyenne par jour</span><span class="val">'+fmtEUR(dv.ieJour)+'</span></div>';
+  if(CT && (CT.ieMode===1 || CT.ieMode===2) && ieContrat(CT)){
+    const P = ieParDuree(CT);
+    h += P.map(x=>'<div class="result-line"><span class="lbl">&nbsp;&nbsp;↳ Journée de '+fmtH(x.h*60)+'</span><span class="val">'+fmtEUR(x.v)+(x.v > x.prevu + 1e-9 ? ' (minimum légal)' : '')+'</span></div>').join('');
+    if(P.some(x=>x.v > x.prevu + 1e-9)){
+      const maxLeg = Math.max(...P.map(x=>x.leg));
+      h += '<div class="warn-box">Le montant prévu ('+fmtEUR(ieContrat(CT))+') est inférieur au minimum légal pour certaines journées : le carnet appliquera le minimum ces jours-là. Pour un montant unique valable tous les jours, prévoyez au moins <b>'+fmtEUR(maxLeg)+'</b>.</div>';
+    }
+  }
   h+='<div class="result-line"><span class="lbl">Indemnités d\'entretien (moyenne par mois)</span><span class="val">'+fmtEUR(dv.ieMois)+'</span></div>'
     + '<div class="hint">Moyenne pour se faire une idée : l\u2019entretien est payé pour chaque jour où l\u2019enfant vient, donc le montant réel change d\u2019un mois à l\u2019autre (onglet Mois).</div>';
   if(dv.repasMois) h+='<div class="result-line"><span class="lbl">Repas (moyenne par mois)</span><span class="val">'+fmtEUR(dv.repasMois)+'</span></div>';

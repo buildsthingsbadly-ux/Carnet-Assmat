@@ -115,7 +115,7 @@ PREFILL.mois = c=>{
 };
 function moisFillFromContract(c, m){
   const d = parseD(m);
-  setVal('mois-ded-maj', '');
+  setVal('mois-ded-maj', ''); setVal('mois-abs-dates', '');
   const dv = derive(c, d);
   setSegVal('mois-type', c.type);
   setVal('mois-base', round2(dv.brutBase)); setVal('mois-heures', round2(dv.hMensu)); setVal('mois-taux', round2(dv.tauxEff));
@@ -187,11 +187,24 @@ function moisCompute(){
   // Entretien, repas, km
   // Entretien : jour par jour (même total que l'onglet Mois) tant que les cases reprises du contrat ne sont pas modifiées ;
   // sinon, saisie libre sur une durée moyenne. Montants au centime (minimum légal arrondi au centime supérieur).
-  const jours = num('mois-jours'), hj = num('mois-hjour'), ieSaisie = num('mois-indemj');   // montant du contrat tel qu'écrit
+  const joursSaisis = num('mois-jours'), hj = num('mois-hjour'), ieSaisie = num('mois-indemj');   // montant du contrat tel qu'écrit
   const ieLeg = ieLegalJour(hj || R('ieHeuresRef', d), d);
-  let ieAuto = null;
+  let ieAuto = null, jours = joursSaisis;
   const cIE = moisContrat();
-  if(cIE && jours){ const I = ieDuMois(cIE, m); if(I.jours===jours && Math.abs(round2(I.hAvg)-hj)<0.005 && Math.abs(I.fixe-ieSaisie)<0.005) ieAuto = I; }
+  const absSet = new Set(String(val('mois-abs-dates')||'').split(',').filter(Boolean));
+  if(cIE && joursSaisis){
+    const I = ieDuMoisSauf(cIE, m, absSet);
+    // absence retirée du salaire sans préciser les jours : l'entretien et les repas de ces jours ne sont pas dus non plus
+    const jdedSansDates = absent && !I.suivi && !absSet.size && I.jours===joursSaisis ? Math.min(I.jours, Math.round(num('mois-jded'))||0) : 0;
+    jours = joursSaisis - jdedSansDates;
+    const memeMontant = Math.abs(I.fixe-ieSaisie)<0.005, memeDuree = Math.abs(round2(I.hAvg)-hj)<0.005;
+    if(memeMontant && memeDuree && I.jours===jours) ieAuto = I;
+    else if(memeMontant && memeDuree && jours < I.jours){
+      // jours d'absence non précisés : on retire les journées les moins chères (hypothèse la plus favorable à la salariée)
+      const keep = I.days.slice().sort((a,b)=>b.ie-a.ie).slice(0, jours), vk = keep.map(x=>x.ie);
+      ieAuto = Object.assign({}, I, {days: keep, jours, total: round2(vk.reduce((s,v)=>s+v,0)), min: vk.length ? Math.min(...vk) : 0, max: vk.length ? Math.max(...vk) : 0, modifie: true, favorable: true});
+    }
+  }
   // durée non indiquée : le montant convenu est retenu tel quel (le minimum ne peut pas être vérifié), sinon minimum pour 9 h
   // contrat « montant pour 9 h » : au prorata de la durée moyenne si elle est plus courte
   const modeIE = cIE ? (paramsAt(cIE, new Date(d.getFullYear(), d.getMonth()+1, 0)).ieMode||0) : 1;
@@ -199,7 +212,7 @@ function moisCompute(){
   const ieJour = ieAuto ? (ieAuto.jours ? ieAuto.total/ieAuto.jours : 0) : (ieSaisie && !hj ? ieSaisie : Math.max(iePrevu, ieLeg));
   const ie = ieAuto ? ieAuto.total : (jours ? round2(ieJour*jours) : 0);
   // repas : total exact du mois (jours de présence × prix), exprimé au centime seulement à la fin
-  const repas = ieAuto && Math.abs(num('mois-repas') - (ieAuto.M.T.jAcc ? ieAuto.M.T.repas/ieAuto.M.T.jAcc : 0)) < 1e-6
+  const repas = ieAuto && !ieAuto.modifie && Math.abs(num('mois-repas') - (ieAuto.M.T.jAcc ? ieAuto.M.T.repas/ieAuto.M.T.jAcc : 0)) < 1e-6
     ? round2(ieAuto.M.T.repas) : round2(jours*num('mois-repas'));
   const km = round2(num('mois-km'));
   // Pajemploi : heures et jours mensualisés, diminués de l'absence ; + heures de congés payés (année incomplète)
@@ -239,7 +252,10 @@ CALC.mois = ()=>{
   const r = moisCompute(), d = r.d;
   const fl = Object.entries(feries(d.getFullYear())).filter(([k])=>k.slice(0,7)===r.m.slice(0,7)).map(([k,n])=>n+' ('+fmtDate(k)+')');
   setTxt('mois-feries-liste', fl.length ? 'Jours fériés ce mois-ci : '+fl.join(', ')+'. Un jour férié chômé prévu au planning est payé normalement (dès le début du contrat, si les jours d\'accueil prévus juste avant et juste après sont travaillés ou l\'absence autorisée).' : 'Aucun jour férié ce mois-ci.');
-  setTxt('mois-ie-hint', r.ieAuto
+  moisAbsRender();
+  setTxt('mois-ie-hint', r.ieAuto && r.ieAuto.favorable
+    ? 'Jours d\u2019absence non précisés : le carnet retire les journées les moins chères (hypothèse la plus favorable à l\u2019assistante maternelle). Touchez les jours d\u2019absence ci-dessous pour le montant exact.'
+    : r.ieAuto
     ? 'Calcul jour par jour d\'après '+(r.ieAuto.suivi ? 'le suivi des journées' : 'le planning du contrat')+' : chaque journée reçoit le montant du contrat, jamais moins que le minimum légal de sa durée (même total que l\'onglet Mois).'
     : 'Minimum légal pour une journée de '+fmtNum(r.hj||R('ieHeuresRef', r.d)||9,2)+' h : '+fmtEUR(r.ieLeg)+'. Laissez vide pour l\'appliquer.'+(moisContrat() ? ' Cases modifiées à la main : calcul sur la durée moyenne.' : ''));
   setTxt('mois-hreel-hint', r.hReelAuto ? 'Calculé d\'après le planning : '+fmtNum(r.hReel,2)+' h. Corrigez si besoin (sert à la régularisation de fin de contrat).' : 'Gardées dans l\'historique pour la régularisation de fin de contrat.');
@@ -280,7 +296,7 @@ CALC.mois = ()=>{
     ['Nombre de jours d\'activité', r.jDecl ? r.jDecl+' j' : '—'],
     ['Heures complémentaires : nombre / montant net', r.hcompl ? fmtNum(r.hComplDecl,2)+' h / '+fmtEUR(r.brutCompl*Math.min(1,netRatio(d)+hsReduction(d))) : '0'],
     ['Heures majorées : nombre / montant net', (r.hmaj||r.hMajMensuDu) ? fmtNum(r.hMajDecl,2)+' h'+(r.hMajMensuDu?' (dont '+fmtNum(r.hMajMensuDu,2)+' h prévues au contrat)':'')+' / '+fmtEUR((r.brutMaj+r.brutMajMensu)*Math.min(1,netRatio(d)+hsReduction(d))) : '0'],
-    ['Congés payés : jours / montant net', r.inc ? (r.cpTot||r.jcp ? fmtNum(r.jcp,1)+' j / '+fmtEUR(r.cpTot*netRatio(d)) : 'rien ce mois-ci') : 'ne rien remplir (année complète)'],
+    ['Congés payés', r.inc ? (r.cpTot||r.jcp ? (r.jcp ? fmtNum(r.jcp,1)+' j · ' : '')+'dont '+fmtEUR(r.cpTot*netRatio(d))+' net, déjà compris dans le salaire net total et les heures' : 'rien ce mois-ci') : 'ne rien remplir (année complète)'],
     ['Salaire net total', r.brut ? fmtEUR(r.net) : '—'],
     ['Indemnités d\'entretien', fmtEUR(r.ie)],
     ['Indemnités de repas', fmtEUR(r.repas)],
@@ -452,7 +468,7 @@ PREFILL.ccass = c=>{
   setVal('ccass-jours-habituel', round2(dv.joursMensu));
   setVal('ccass-hnorm-habituel', round2(dv.hNormMensu));
   setSegVal('ccass-entretien', 1);
-  setVal('ccass-ie-montant', round2(dv.ieJour));   // moyenne par jour de présence, montant du contrat et minimum légal compris
+  setVal('ccass-ie-montant', ieContrat(paramsAt(c, today())) || '');   // montant du contrat ; le minimum légal est appliqué jour par jour
   const dm = malCountBefore(c, parseD(curMonth())); if(dm) setVal('ccass-mal-deja', dm);
   refreshVisibility('ccass');
   ccassPrefillCalendar(true);
@@ -551,7 +567,7 @@ CALC.ccass = ()=>{
   setTxt('out-ccass-hsup-declar', fmtNum(Math.max(hsD,0),2)+' h');
   setTxt('out-ccass-h-total-declar', !isNaN(hnD) ? fmtNum(Math.max((hnD||0)+(hsD||0),0),2)+' h' : '—');
   const jAcc = Math.max(0, jp-jnt);
-  const ie = seg('ccass-entretien')===1 ? jAcc*num('ccass-ie-montant') : 0;
+  const ie = seg('ccass-entretien')===1 ? ccassEntretien(jnt) : 0;
   setTxt('out-ccass-entretien', fmtEUR(ie));
   const m = val('ccass-cal-mois') || curMonth();
   setTxt('out-ccass-total', (bN||bS||ie) ? fmtEUR(sal+ie) : '—');
@@ -560,6 +576,51 @@ CALC.ccass = ()=>{
   const r = ccassHelper();
   if(r){ const id = {enfmal:'ccass-mal-result', evt:'ccass-evt-result', enfassmat:'ccass-ea-result', adapt:'ccass-adapt-result'}[mo.id]; setHTML(id, r.txt); }
 };
+/* « Salaire du mois » sans suivi : jours d'absence à cocher (entretien et repas exacts) */
+function moisAbsSel(){ return new Set(String(val('mois-abs-dates')||'').split(',').filter(Boolean)); }
+function moisAbsRender(){
+  const c = moisContrat(), m = val('mois-mois'); if(!$('mois-abs-wrap')) return;
+  if(!c || !m){ show('mois-abs-wrap', false); return; }
+  const I = ieDuMois(c, m), sel = moisAbsSel();
+  show('mois-abs-wrap', I.days.length > 0);
+  setHTML('mois-abs-jours', I.days.map(x=>'<button type="button" class="chip'+(sel.has(x.k) ? ' on' : '')+'" aria-pressed="'+sel.has(x.k)+'" onclick="moisAbsToggle(\''+x.k+'\')">'+x.d.toLocaleDateString('fr-FR', {weekday:'short', day:'numeric'})+'</button>').join(''));
+}
+function moisAbsToggle(k){
+  const c = moisContrat(), m = val('mois-mois'); if(!c || !m) return;
+  const sel = moisAbsSel(); if(sel.has(k)) sel.delete(k); else sel.add(k);
+  setVal('mois-abs-dates', [...sel].sort().join(','));
+  const I = ieDuMoisSauf(c, m, sel); setVal('mois-jours', I.jours); setVal('mois-hjour', round2(I.hAvg));
+  CALC.mois(); persistTheme('mois');
+}
+function moisDedDepuisJours(){
+  const c = moisContrat(), m = val('mois-mois'), sel = moisAbsSel();
+  if(!c || !sel.size){ toast('Cochez d\u2019abord les jours d\u2019absence (« Entretien, repas, kilomètres et paiement »).'); const f = $('mois-fold-frais'); if(f){ f.open = true; f.scrollIntoView({block:'start'}); } return; }
+  const I = ieDuMois(c, m), abs = I.days.filter(x=>sel.has(x.k)), hSel = abs.reduce((s,x)=>s+x.P,0)/60, hPrev = I.M.T.hPrev/60;
+  setSegVal('mois-incomplet', 1); refreshVisibility('mois');
+  setVal('mois-jded', abs.length); setVal('mois-hded', round2(hSel)); setVal('mois-deduction', hPrev ? round2(num('mois-base')*hSel/hPrev) : '');
+  CALC.mois(); persistTheme('mois');
+  toast(abs.length+' jour(s), '+fmtNum(hSel, 2)+' h retirés du salaire (méthode de la Cour de cassation).');
+}
+/* « Mois incomplet » : entretien jour par jour d'après le calendrier, sans les jours fériés chômés */
+function ccassEntretien(jnt){
+  const m = val('ccass-cal-mois') || curMonth(), d0 = parseD(m), y = d0.getFullYear(), mo = d0.getMonth(), nb = daysInMonth(y, mo);
+  const k = selKey('ccass'), c = k!=='libre' ? getContrat(k) : null, mt = num('ccass-ie-montant'), sup = seg('ccass-hassup')===1;
+  if(seg('ccass-usecal')===1){   // totaux saisis sans calendrier : durée moyenne
+    const jp = num('ccass-jours-potentiels'), hMoy = num('ccass-jours-habituel') ? num('ccass-hnorm-habituel')/num('ccass-jours-habituel')/(52/12)*(52/12) : 0;
+    return round2(Math.max(0, jp - jnt)*Math.max(mt, ieLegalJour(hMoy || R('ieHeuresRef', d0), d0)));
+  }
+  const deb = c ? parseD(c.debut) : null, fin = c ? parseD(c.fin) : null, L = []; let dehors = 0;
+  for(let i=1; i<=nb; i++){
+    const dt = new Date(y, mo, i), h = num('ccass-d-'+i) + (sup ? num('ccass-ds-'+i) : 0);
+    if(!(h > 0) || ferieName(dt)) continue;
+    if((deb && dt < deb) || (fin && dt > fin)){ dehors++; continue; }
+    const p = c ? paramsAt(c, dt) : {};
+    L.push(ieJourMontant({ieMode: mt ? (p.ieMode===2 ? 2 : 1) : 0, ieMontant: mt}, h, dt));
+  }
+  const retirer = Math.max(0, Math.round(jnt) - dehors);
+  L.sort((a,b)=>b-a);
+  return round2(L.slice(0, Math.max(0, L.length - retirer)).reduce((s,v)=>s+v,0));
+}
 /* Depuis « Salaire du mois » : ouvrir « Mois incomplet » sur le même enfant et le MÊME mois */
 function moisOpenCcass(){
   const m = val('mois-mois') || curMonth(), key = selKey('mois');
@@ -888,7 +949,7 @@ VIS.fin = ()=>{
   ['fin-entretien-row','fin-cp-row','fin-regul-row','fin-rupture-row'].forEach(id=>show(id, !avant, 'flex'));
   if(avant){ show('fin-entretien-wrap', false); show('fin-cp-wrap', false); show('fin-regul-wrap', false); show('fin-rupture-wrap', false); }
   setTxt('fin-salaire-label', avant ? 'Salaire mensuel brut prévu au contrat (€)' : 'Salaire du dernier mois, hors indemnités d\'entretien (€)');
-  setTxt('fin-salaire-hint', avant ? 'Sert à calculer l\'indemnité forfaitaire : la moitié de ce montant.' : 'Si le dernier mois est incomplet, utilisez le thème « Mois incomplet ».');
+  if(avant) setTxt('fin-salaire-hint', 'Sert à calculer l\'indemnité forfaitaire : la moitié de ce montant.');
   show('fin-retraite-wrap', quiV===7);
   setTxt('fin-notif-label', deces ? 'Date du décès' : quiV===7 ? 'Date de remise de votre lettre de départ (ou de sa première présentation par La Poste)' : 'Date de remise de la lettre en main propre (ou de sa première présentation par La Poste)');
   setTxt('fin-notif-hint', deces ? 'Le contrat s\'arrête ce jour-là. Un proche (ayant droit) doit vous prévenir par écrit ; les documents de fin de contrat sont à remettre sous 30 jours.' : 'Pas la date d\'envoi : le préavis commence le jour où la lettre est remise ou présentée pour la première fois (voir l\'avis de réception). L\'ancienneté se compte à cette date.');
@@ -918,6 +979,31 @@ VIS.fin = ()=>{
   setTxt('fin-regul-heures-label', av ? 'Heures réellement effectuées avant le 1er avenant' : 'Total des heures réellement effectuées sur la période');
   if(seg('fin-qui')===4){ ['fin-entretien-wrap','fin-cp-wrap','fin-cp-results','fin-regul-wrap','fin-regul-results','fin-rupture-wrap','fin-rupture-results','row-fin-entretien'].forEach(id=>show(id, false)); }
 };
+/* Fin de contrat : date de fin = celle de la fiche, sinon la fin du préavis (ou la date de la lettre si pas de préavis) */
+let FIN_AUTO = null;
+function finDateFin(c){ if(c && parseD(c.fin)) return parseD(c.fin); const pr = finPreavis(); return pr.fin || pr.notif || today(); }
+function finAutoKey(){ return [val('fin-debut'), val('fin-notif'), seg('fin-qui'), seg('fin-faute')].join('|'); }
+/* Dernier mois : salaire au prorata des heures prévues jusqu'à la date de fin (Cour de cassation), entretien jour par jour */
+function finDernierMois(c){
+  const fin = finDateFin(c), cv = Object.assign({}, c, {fin: iso(fin)}), m = isoMonth(fin);
+  const Mfin = suiviMonth(cv, m, {sansCP:true}), ieFin = ieDuMois(cv, m);
+  setVal('fin-salaire', round2(Mfin.brut || 0));
+  setSegVal('fin-entretien', ieFin.total ? 1 : 0); setVal('fin-entretien-montant', ieFin.total || '');
+  FIN_AUTO = {cid: c.id, key: finAutoKey(), sal: val('fin-salaire'), ie: val('fin-entretien-montant'), fin: iso(fin)};
+  setHTML('fin-salaire-hint', 'Calculé jusqu\u2019au <b>'+fin.toLocaleDateString('fr-FR')+'</b> '+(parseD(c.fin) ? '(date de fin de la fiche)' : '(fin du préavis)')+' : salaire au prorata des heures prévues (Cour de cassation), entretien jour par jour.'
+    + (parseD(c.fin) ? '' : ' <a href="#" onclick="finEnregistrerDate();return false;">Enregistrer cette date de fin dans la fiche</a>'));
+}
+function finEnregistrerDate(){
+  const k = selKey('fin'), c = k!=='libre' ? getContrat(k) : null; if(!c || !FIN_AUTO) return;
+  showConfirmDialog('Date de fin du contrat', 'Enregistrer le '+fmtDate(FIN_AUTO.fin)+' comme dernier jour du contrat de '+(c.enfant||'cet enfant')+' ? Les mois suivants ne seront plus comptés.', ()=>{ c.fin = FIN_AUTO.fin; saveState(); finDernierMois(c); CALC.fin(); toast('Date de fin enregistrée.'); }, 'Enregistrer', 'Annuler');
+}
+/* Lettre ou motif modifiés : le dernier mois suit la nouvelle date de fin, tant qu'il n'a pas été corrigé à la main */
+function finAutoRefresh(){
+  const k = selKey('fin'), c = k!=='libre' ? getContrat(k) : null;
+  if(!c || !FIN_AUTO || FIN_AUTO.cid!==c.id || finAutoKey()===FIN_AUTO.key) return;
+  if(val('fin-salaire')!==FIN_AUTO.sal || val('fin-entretien-montant')!==FIN_AUTO.ie){ FIN_AUTO.key = finAutoKey(); return; }
+  finDernierMois(c);
+}
 PREFILL.fin = c=>{
   setVal('fin-notif', iso(today()));
   if(!c) return;
@@ -925,17 +1011,15 @@ PREFILL.fin = c=>{
   setSegVal('fin-type', c.type);
   setVal('fin-debut', c.debut);
   if(c.fin) setVal('fin-regul-fin', c.fin);
-  const finM = isoMonth(parseD(c.fin) || today()), Mfin = suiviMonth(c, finM, {sansCP:true});
-  setVal('fin-salaire', round2(Mfin.brut || dv.brut)); setVal('fin-taux', round2(dv.tauxEff)); setVal('fin-heures', round2(dv.moyH));
+  setVal('fin-taux', round2(dv.tauxEff)); setVal('fin-heures', round2(dv.moyH));
+  finDernierMois(c);
   setVal('fin-regul-taux', round2(dv.tauxEff));
-  const fin = parseD(c.fin) || today();
+  const fin = finDateFin(c);
   const d12 = addMonths(fin, -12), deb = parseD(c.debut);
   setVal('fin-regul-debut', iso(deb && deb>d12 ? deb : addDays(d12,1)));
   if(!c.fin) setVal('fin-regul-fin', iso(fin));
   setSegVal('fin-regul', c.type===1 ? 1 : 0);
-  // entretien du dernier mois : jours de présence réels (ou prévus) jusqu'à la date de fin, jamais une moyenne mensualisée
-  const ieFin = ieDuMois(c, isoMonth(fin));
-  setSegVal('fin-entretien', ieFin.total ? 1 : 0); setVal('fin-entretien-montant', ieFin.total || '');
+  // entretien du dernier mois : calculé dans finDernierMois (jour par jour, jusqu'à la date de fin)
   // Cumuls : mois validés tels qu'enregistrés ; mois non validés calculés comme dans l'onglet Mois (suivi ou planning)
   const rp = c.rep || {};
   const J = contratCumuls(c);
@@ -1086,6 +1170,7 @@ function finEstimeTotal(){
 function toBrutFin(x){ return seg('fin-unite')===1 ? x/netRatio() : x; }
 CALC.fin = ()=>{
   if(document.activeElement && ['fin-debut','fin-notif'].includes(document.activeElement.id)) finAutoRupture();
+  finAutoRefresh();
   const pr = finPreavis();
   // Préavis
   let piTxt;
@@ -1230,7 +1315,7 @@ function parentsMoisBloc(c, ym, titre){
     + line('Heures normales', (m.hDecl||0)+' h') + line('Jours d’activité', (m.jDecl||0)+' j')
     + (m.hCompl ? line('Heures complémentaires', fmtNum(m.hCompl,2)+' h'+(m.netCompl ? ' · '+fmtEUR(m.netCompl)+' net' : '')) : '') + (m.hMaj ? line('Heures majorées', fmtNum(m.hMaj,2)+' h'+(m.netMaj ? ' · '+fmtEUR(m.netMaj)+' net' : '')) : '')
     + (m.netHs && !m.netCompl && !m.netMaj ? line('Montant net des heures en plus', fmtEUR(m.netHs)) : '')
-    + (m.cp ? line('Congés payés', fmtNum(m.jCP||0,2)+' j · '+fmtEUR(m.cpNet)+' net') : (m.type===1 ? '' : line('Congés payés', 'ne rien remplir (année complète)')))
+    + (m.cp ? line('Congés payés', (m.jCP ? fmtNum(m.jCP,2)+' j · ' : '')+'dont '+fmtEUR(m.cpNet)+' net, déjà compris dans le salaire net total et les heures normales') : (m.type===1 ? '' : line('Congés payés', 'ne rien remplir (année complète)')))
     + line('Salaire net', fmtEUR(m.net)) + line('Indemnités d’entretien', fmtEUR(m.ie)) + line('Repas', fmtEUR(m.repas)) + line('Kilomètres', fmtEUR(m.km))
     + (m.datepaie ? line('Date de paiement', fmtDate(m.datepaie)) : '') + '</div>'
     + (dedTxt ? line('Absences retirées du salaire', esc(dedTxt)) : '') + (hsTxt ? line('Heures en plus', esc(hsTxt)) : '')
@@ -1243,7 +1328,7 @@ function parentsMoisBloc(c, ym, titre){
     + (m.acompte ? line('Acompte déjà versé', fmtEUR(m.acompte)) + line('Reste à verser', fmtEUR(total - m.acompte)) : '');
   const t = [(c.enfant||'Enfant')+' — '+fmtMonth(ym),
     'À déclarer sur Pajemploi : '+(m.hDecl||0)+' h normales, '+(m.jDecl||0)+' jours d’activité'+(m.hCompl?', '+fmtNum(m.hCompl,2)+' h complémentaires'+(m.netCompl?' ('+fmtEUR(m.netCompl)+' net)':''):'')+(m.hMaj?', '+fmtNum(m.hMaj,2)+' h majorées'+(m.netMaj?' ('+fmtEUR(m.netMaj)+' net)':''):'')
-      + (m.cp ? ', congés payés '+fmtNum(m.jCP||0,2)+' j ('+fmtEUR(m.cpNet)+' net)' : '') + (m.datepaie ? ', date de paiement '+fmtDate(m.datepaie) : ''),
+      + (m.cp ? (m.jCP ? ', '+fmtNum(m.jCP,2)+' jours de congés payés' : '')+' (dont congés payés '+fmtEUR(m.cpNet)+' net, déjà compris dans le salaire net total et les heures : ne pas les ajouter)' : '') + (m.datepaie ? ', date de paiement '+fmtDate(m.datepaie) : ''),
     'Salaire net total : '+fmtEUR(m.net), 'Entretien : '+fmtEUR(m.ie)+' · Repas : '+fmtEUR(m.repas)+' · Km : '+fmtEUR(m.km), (pj===2 ? 'Total payé par Pajemploi+ : ' : 'Total à verser : ')+fmtEUR(total)+(m.valide?'':' (provisoire)')];
   if(dedTxt) t.push('Absences retirées du salaire : '+dedTxt);
   if(hsTxt) t.push('Heures en plus : '+hsTxt);
