@@ -11,7 +11,7 @@ const DOCS = [
   {id:'contrat', g:'Embauche', t:'Contrat de travail (CDI)', d:'Pré-rempli avec le planning, le salaire, les indemnités, les congés, les absences et la rupture.'},
   {id:'autorisations', g:'Embauche', t:'Autorisations et fiche de renseignements', d:'Personnes autorisées, sorties, transport, photos, santé et urgences.'},
   {id:'avenant', g:'Vie du contrat', t:'Avenant au contrat', d:'Changement d\'horaires, de salaire ou d\'indemnités (valeurs actuelles pré-remplies).'},
-  {id:'recap', g:'Vie du contrat', t:'Récapitulatif annuel des sommes versées', d:'Mois par mois : mois validés, sinon estimés d\'après le planning ou le suivi (utile pour vérifier les bulletins et l\'attestation fiscale).'},
+  {id:'recap', g:'Vie du contrat', t:'Récapitulatif des salaires, mois par mois', d:'Mois travaillés avec leur date de paiement : mois validés, sinon estimés d\'après le planning ou le suivi (utile pour vérifier les bulletins et l\'attestation fiscale).'},
   {id:'retrait', g:'Fin de contrat', t:'Lettre de retrait de l\'enfant (par les parents)', d:'Avec le préavis calculé.'},
   {id:'demission', g:'Fin de contrat', t:'Lettre de démission (par l\'assistante maternelle)', d:'Avec le préavis calculé.'},
   {id:'certificat', g:'Fin de contrat', t:'Certificat de travail', d:'Obligatoire à la fin du contrat.'},
@@ -55,7 +55,11 @@ function planningTable(c){
   let h = '<table><tr><td><b>Jour</b></td>'+DOW_SHORT.map(d=>'<td><b>'+d+'</b></td>').join('')+'</tr>';
   h += '<tr><td>'+(B?'Semaine 1':'Heures')+'</td>'+A.map(x=>'<td>'+(x?fmtNum(x,2)+' h':'—')+'</td>').join('')+'</tr>';
   if(B) h += '<tr><td>Semaine 2</td>'+B.map(x=>'<td>'+(x?fmtNum(x,2)+' h':'—')+'</td>').join('')+'</tr>';
-  h += '<tr><td>Horaires (arrivée – départ)</td>'+A.map(x=>'<td>'+(x?'__h__ – __h__':'')+'</td>').join('')+'</tr></table>';
+  const hm = t=>t ? String(t).replace(/^0/, '').replace(':00', ' h').replace(':', ' h ') : '';
+  const tz = (T, i)=>{ const t = c.horaires ? ((T||[])[i]||null) : null; return t && t[0] && t[1] ? hm(t[0])+' – '+hm(t[1]) : '__h__ – __h__'; };
+  h += '<tr><td>Horaires'+(B?' semaine 1':'')+' (arrivée – départ)</td>'+A.map((x, i)=>'<td>'+(x ? tz(c.tA, i) : '')+'</td>').join('')+'</tr>';
+  if(B) h += '<tr><td>Horaires semaine 2</td>'+B.map((x, i)=>'<td>'+(x ? tz(c.tB, i) : '')+'</td>').join('')+'</tr>';
+  h += '</table>';
   if(B){
     const ref = +c.alterneRef || 0;
     h += '<p>Planning une semaine sur deux : '+(ref===1 ? 'les semaines à numéro <b>pair</b> du calendrier suivent le planning « semaine 1 », les semaines à numéro impair le planning « semaine 2 »'
@@ -113,7 +117,7 @@ function printDoc(id){
       + row('Indemnité d\'entretien par jour de présence', c.ieMode===1 ? fmtEUR(ieContrat(c))+' (montant fixe, jamais sous le minimum légal du jour)' : c.ieMode===2 ? fmtEUR(ieContrat(c))+' pour une journée de 9 h ou plus, au prorata en dessous (jamais sous le minimum légal)' : 'minimum légal, soit '+fmtEUR(dv.ieJour)+' en moyenne')
       + row('Repas', c.repasMode===1 ? fmtEUR(parseFloat(c.repasPrix)||0)+' par jour' : c.repasMode===0 ? 'fournis par les parents' : 'aucun')
       + row('Date de paiement du salaire', c.paiementJour ? 'le '+esc(c.paiementJour)+' du mois suivant' : BL) + '</table>'
-      + '<p class="legal-p">Depuis janvier 2026, Pajemploi demande une déclaration par enfant, chaque mois entre le 25 et le 5 du mois suivant. Le thème « Salaire du mois & Pajemploi » du carnet donne chaque mois les chiffres exacts à recopier.</p>';
+      + '<p class="legal-p">Depuis janvier 2026, Pajemploi demande une déclaration par enfant, chaque mois entre le 25 et le 5 du mois suivant. Chaque mois, votre assistante maternelle vous envoie les chiffres exacts à recopier.'+(c.pjPlus===2 ? ' Vous avez choisi Pajemploi+ : vous ne lui versez rien vous-mêmes.' : '')+'</p>';
   }
   else if(id==='contrat'){
     const fe = finEssai(c), essaiMois = Math.max(dv.jA,dv.jB) >= 4 ? (R('essai')||[3,2])[1] : (R('essai')||[3,2])[0];
@@ -131,7 +135,7 @@ function printDoc(id){
       + 'Période d\'adaptation (comprise dans l\'essai, 30 jours calendaires au plus) : '+v(c.adaptation)+'. Le salaire est mensualisé dès le premier jour ; les heures non effectuées pendant l\'adaptation sont déduites selon la méthode de la Cour de cassation.</p>'
       + '<h3>Article 4 — Durée et organisation de l\'accueil</h3>'
       + '<p>'+(c.type===1 ? 'Accueil en <b>année incomplète</b> : <b>'+(c.semaines||'__')+' semaines</b> d\'accueil programmées par an (hors congés payés), listées en annexe.' : 'Accueil en <b>année complète</b> : 52 semaines par an, congés payés de la salariée compris.')
-      + ' Durée hebdomadaire moyenne : <b>'+fmtNum(dv.moyH,2)+' h</b> sur <b>'+fmtNum(dv.moyJ,1)+' jours</b>.</p>' + planningTable(c)
+      + ' Durée hebdomadaire moyenne : <b>'+fmtNum(dv.moyH, Math.abs(dv.moyH - Math.round(dv.moyH)) < 0.005 ? 0 : 2)+' h</b> sur <b>'+fmtNum(dv.moyJ, Math.abs(dv.moyJ - Math.round(dv.moyJ)) < 0.05 ? 0 : 1)+' jours</b>.</p>' + planningTable(c)
       + '<p>Toute modification durable du planning ou du salaire fait l\'objet d\'un avenant écrit et signé.</p>'
       + '<h3>Article 5 — Rémunération</h3><table>'
       + row('Salaire horaire brut', fmtEUR(dv.tauxEff)+' (net estimé '+fmtEUR(toNet(dv.tauxEff, c.debut||null))+')')
@@ -150,7 +154,10 @@ function printDoc(id){
       + '<h3>Article 8 — Jours fériés</h3><p>Le 1er mai est chômé et payé (s\'il est travaillé : majoration de 100 %). Les autres jours fériés sont : ☐ chômés et payés (dès le début du contrat, si les jours d\'accueil prévus avant et après sont travaillés) ☐ travaillés, avec une majoration de 10 %. Jours fériés travaillés convenus : '+BL+'</p>'
       + '<h3>Article 9 — Absences</h3><p>Absence de l\'enfant : le salaire est maintenu, sauf maladie justifiée par un certificat médical remis dans les 48 heures, dans la limite de 5 jours par période de 12 mois à compter de la date d\'effet du contrat ; une hospitalisation ou une maladie d\'au moins 14 jours consécutifs ne sont pas rémunérées. Absences de la salariée non rémunérées (maladie, congé sans solde…) : déduites selon la méthode de la Cour de cassation. Les congés pour événements familiaux prévus par la loi sont rémunérés.</p>'
       + '<h3>Article 10 — Rupture du contrat</h3><p>Hors période d\'essai, préavis : 8 jours calendaires si l\'ancienneté est inférieure à 3 mois, 15 jours de 3 mois à moins d\'un an, un mois au-delà. Le retrait de l\'enfant par l\'employeur est notifié par lettre recommandée avec accusé de réception ou remise en main propre contre décharge ; après 9 mois d\'ancienneté, il ouvre droit à une indemnité de rupture égale à 1/80ᵉ du total des salaires bruts perçus pendant le contrat (sauf faute grave ou lourde). La suspension ou le retrait d\'agrément entraîne la rupture sans préavis ni indemnité. En fin de contrat, l\'employeur remet le certificat de travail, l\'attestation France Travail et le reçu pour solde de tout compte ; en année incomplète, une régularisation du salaire est calculée.</p>'
-      + '<h3>Article 11 — Dispositions diverses</h3><p>Les parents fournissent le carnet de santé (vaccinations), les autorisations écrites (personnes habilitées à reprendre l\'enfant, sorties, transport, photos) et signalent tout changement de situation. La salariée respecte la confidentialité des informations concernant la famille. Pour tout ce qui n\'est pas prévu ici, la convention collective IDCC 3239 s\'applique. Clauses particulières : '+BL+BL+'</p>'
+      + '<h3>Article 11 — Dispositions diverses</h3><p>Les parents fournissent le carnet de santé (vaccinations), les autorisations écrites (personnes habilitées à reprendre l\'enfant, sorties, transport, photos) et signalent tout changement de situation. La salariée respecte la confidentialité des informations concernant la famille. Pour tout ce qui n\'est pas prévu ici, la convention collective IDCC 3239 s\'applique.</p>'
+      + '<p>Dépassement des horaires : tout accueil au-delà des horaires prévus (arrivée plus tôt, départ plus tard) est payé en heures complémentaires, et majoré au-delà de 45 h par semaine. Fournitures à la charge des parents (couches, lait, soins, vêtements de rechange…) : '+BL+'.</p>'
+      + '<p>Déclaration et paiement : '+(c.pjPlus===2 ? 'les parents utilisent le service Pajemploi+ (Pajemploi verse le salaire et les indemnités et prélève les parents).' : c.pjPlus===1 ? 'les parents versent eux-mêmes le salaire et les indemnités, après la déclaration sur Pajemploi.' : '☐ les parents versent eux-mêmes le salaire ☐ les parents utilisent Pajemploi+.')+'</p>'
+      + '<p>Clauses particulières : '+BL+BL+'</p>'
       + lieuDate() + sign('L\'employeur', 'La salariée')
       + (c.type===1 ? '<h3>Annexe — Semaines d\'accueil programmées (année incomplète)</h3><p>Nombre de semaines d\'accueil par an : <b>'+esc(c.semaines||'__')+'</b>.</p>'
         + ((c.semOff||[]).length ? '<p>Semaines <b>sans accueil</b> (du lundi au dimanche) : '+(c.semOff||[]).slice().sort().map(k=>{ const d=parseD(k); return 'S'+isoWeek(d)+' ('+d.toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit'})+' – '+addDays(d,6).toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric'})+')'; }).join(', ')+'.</p>'
@@ -182,7 +189,8 @@ function printDoc(id){
   }
   else if(id==='recap'){
     const deb = parseD(c.debut), fin = parseD(c.fin);
-    h = docHead('Récapitulatif des sommes versées', c);
+    h = docHead('Récapitulatif des salaires, mois par mois', c);
+    const payeLe = (ym, x)=>{ if(x.datepaie) return fmtDate(x.datepaie); if(!c.paiementJour) return '—'; const d = parseD(ym), p = new Date(d.getFullYear(), d.getMonth()+1, Math.min(parseInt(c.paiementJour)||1, 28)); return p.toLocaleDateString('fr-FR')+' (prévu)'; };
     if(!deb) h += '<p>Date de début du contrat non renseignée.</p>';
     let yr = deb ? deb.getFullYear() : 0; const y1 = Math.min(fin ? fin.getFullYear() : 9999, today().getFullYear());
     const blocs = [];
@@ -190,13 +198,13 @@ function printDoc(id){
       const L = moisDuContrat(c, yr+'-01', yr+'-12'); if(!L.length) continue;
       const t = {brut:0, net:0, netImp:0, ie:0, rk:0}; let est = 0;
       const rows = L.map(({ym, x})=>{ t.brut+=x.brut; t.net+=x.net; t.netImp+=x.netImp; t.ie+=x.ie; t.rk+=(x.repas||0)+(x.km||0); if(!x.valide) est++;
-        return '<tr><td>'+fmtMonth(ym)+(x.valide ? '' : ' *')+'</td><td>'+fmtEUR(x.brut)+'</td><td>'+fmtEUR(x.net)+'</td><td>'+fmtEUR(x.netImp)+'</td><td>'+fmtEUR(x.ie)+'</td><td>'+fmtEUR((x.repas||0)+(x.km||0))+'</td></tr>'; }).join('');
-      blocs.unshift('<h3>Année '+yr+'</h3><table><tr><td><b>Mois</b></td><td><b>Brut</b></td><td><b>Net</b></td><td><b>Net imposable</b></td><td><b>Entretien</b></td><td><b>Repas + km</b></td></tr>'
-        + rows + '<tr class="tot"><td>Total</td><td>'+fmtEUR(t.brut)+'</td><td>'+fmtEUR(t.net)+'</td><td>'+fmtEUR(t.netImp)+'</td><td>'+fmtEUR(t.ie)+'</td><td>'+fmtEUR(t.rk)+'</td></tr></table>'
+        return '<tr><td>'+fmtMonth(ym)+(x.valide ? '' : ' *')+'</td><td>'+payeLe(ym, x)+'</td><td>'+fmtEUR(x.brut)+'</td><td>'+fmtEUR(x.net)+'</td><td>'+fmtEUR(x.netImp)+'</td><td>'+fmtEUR(x.ie)+'</td><td>'+fmtEUR((x.repas||0)+(x.km||0))+'</td></tr>'; }).join('');
+      blocs.unshift('<h3>Année '+yr+'</h3><table><tr><td><b>Mois travaillé</b></td><td><b>Payé le</b></td><td><b>Brut</b></td><td><b>Net</b></td><td><b>Net imposable</b></td><td><b>Entretien</b></td><td><b>Repas + km</b></td></tr>'
+        + rows + '<tr class="tot"><td>Total</td><td></td><td>'+fmtEUR(t.brut)+'</td><td>'+fmtEUR(t.net)+'</td><td>'+fmtEUR(t.netImp)+'</td><td>'+fmtEUR(t.ie)+'</td><td>'+fmtEUR(t.rk)+'</td></tr></table>'
         + (est ? '<p class="legal-p">* '+est+' mois non validé(s) : estimation d\'après '+(((STATE.suivi||{})[c.id]||{}).days && Object.keys(STATE.suivi[c.id].days).length ? 'le suivi des journées ou le planning' : 'le planning du contrat')+'.</p>' : ''));
     }
     h += blocs.join('') || '<p>Aucun mois de contrat passé.</p>';
-    h += '<p class="legal-p">Montants du carnet (le net et le net imposable sont des estimations). Les montants officiels sont ceux des bulletins et de l\'attestation fiscale Pajemploi.</p>';
+    h += '<p class="legal-p">Les mois sont rangés par mois travaillé. Pour le crédit d\'impôt des parents, c\'est la date de paiement qui compte : un salaire de décembre payé en janvier compte pour l\'année suivante. Montants du carnet (le net et le net imposable sont des estimations). Les montants officiels sont ceux des bulletins et de l\'attestation fiscale Pajemploi.</p>';
   }
   else if(id==='engagement'){
     const dv = derive(c, c.debut || undefined), demi = (dv.brut||0)/2;

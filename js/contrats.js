@@ -542,7 +542,7 @@ function editContrat(id, force){
   CT_TEXT.forEach(k=>setVal('ct-'+k, CT[k]));
   setSegVal('ct-handicap', CT.handicap); setSegVal('ct-type', CT.type); setSegVal('ct-titre', CT.titre);
   setSegVal('ct-semConnues', CT.semOffAVenir ? 1 : 0); if(CT.hAn) { const d=$('ct-irreg-wrap'); if(d) d.open = true; }
-  setSegVal('ct-alterne', CT.alterne); setSegVal('ct-alterneRef', CT.alterneRef||0); setSegVal('ct-ieMode', CT.ieMode); setSegVal('ct-repasMode', CT.repasMode); setSegVal('ct-cpMode', CT.cpMode);
+  setSegVal('ct-alterne', CT.alterne); setSegVal('ct-alterneRef', CT.alterneRef||0); setSegVal('ct-ieMode', CT.ieMode); setSegVal('ct-repasMode', CT.repasMode); setSegVal('ct-cpMode', CT.cpMode); setSegVal('ct-pjPlus', CT.pjPlus||0);
   for(let i=0;i<7;i++){ setVal('ct-wA'+i, CT.wA[i]); setVal('ct-wB'+i, CT.wB[i]);
     ['A','B'].forEach(w=>{ const t=(CT['t'+w]||[])[i]||[]; setVal('ct-w'+w+i+'s', t[0]||''); setVal('ct-w'+w+i+'e', t[1]||''); }); }
   setSegVal('ct-horaires', CT.horaires||0);
@@ -557,7 +557,7 @@ function ctRead(){
   CT_TEXT.forEach(k=>CT[k]=val('ct-'+k).trim());
   CT.handicap=seg('ct-handicap'); CT.type=seg('ct-type'); CT.titre=seg('ct-titre'); CT.alterne=seg('ct-alterne'); CT.alterneRef=seg('ct-alterneRef');
   CT.semOffAVenir = CT.type===1 && seg('ct-semConnues')===1 ? 1 : 0;
-  CT.ieMode=seg('ct-ieMode'); CT.repasMode=seg('ct-repasMode'); CT.cpMode=seg('ct-cpMode');
+  CT.ieMode=seg('ct-ieMode'); CT.repasMode=seg('ct-repasMode'); CT.cpMode=seg('ct-cpMode'); CT.pjPlus=seg('ct-pjPlus');
   CT.horaires = seg('ct-horaires');
   CT.tA = CT.tA||[]; CT.tB = CT.tB||[];
   for(let i=0;i<7;i++){

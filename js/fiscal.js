@@ -224,8 +224,27 @@ function cmgFillSelects(){
     s.value = '';
   }
 }
+/* Aide CMG estimée d'un enfant pour un mois, avec les données de la famille gardées sur sa fiche (c.cmgFoyer) */
+function cmgEstime(f, ym, h, net, ie, rp, naiss){
+  if(!f || !(f.rev > 0) || !(h > 0)) return null;
+  const chr = R('cmgCHR', ym), plafH = R('cmgPlafondH', ym), te = R('cmgTauxEffort', ym)||[], plancher = R('cmgPlancher', ym), plafond = R('cmgPlafond', ym);
+  const tx = (te[Math.min(f.idx||0, te.length-1)]||0)/100, rev = Math.min(Math.max(f.rev, plancher), plafond);
+  const cout = (net||0)+(ie||0)+(rp||0), coutPlaf = h*Math.min(cout/h, plafH);
+  const nd = parseD(naiss), ageMax = R(f.mono ? 'cmgAgeMaxMono' : 'cmgAgeMax', ym), md = parseD(ym);
+  if(nd && md && md >= new Date(nd.getFullYear()+ageMax, nd.getMonth(), 1)) return 0;
+  return round2(Math.max(0, coutPlaf*(1 - rev*tx/chr)));
+}
+/* Ouvrir l'aide CMG sur un enfant et un mois précis (depuis « Pour les parents ») */
+function cmgOuvrir(cid, ym){
+  const c = getContrat(cid); if(!c) return;
+  showTheme('cmg'); setVal('cmg-mois', ym); setSegVal('cmg-nbenfants-gardes', 0);
+  if(c.cmgFoyer){ setVal('cmg-revenu', c.cmgFoyer.rev); setSegVal('cmg-nbenfants-foyer', c.cmgFoyer.idx||0); setSegVal('cmg-monoparental', c.cmgFoyer.mono ? 1 : 0); }
+  refreshVisibility('cmg'); cmgFromContract(1, cid, true);
+  toast(c.cmgFoyer ? 'Aide CMG de '+fmtMonth(ym)+' pour '+(c.enfant||'cet enfant')+'.' : 'Indiquez les ressources de la famille et ses enfants à charge : ils seront gardés pour les mois suivants.');
+}
 function cmgFromContract(i, id, silent){
   const c = getContrat(id); if(!c) return;
+  STATE.ui = STATE.ui || {}; STATE.ui['cmgCid'+i] = id;
   const m = val('cmg-mois') || curMonth();
   const dv = derive(c, m);
   // même mois que « Salaire du mois » et l'onglet Mois : heures déclarées sur Pajemploi, net, entretien et repas réels
@@ -280,6 +299,9 @@ CALC.cmg = ()=>{
   setTxt('out-cmg-taux-effort', fmtNum(tePct,4)+' %');
   setTxt('out-cmg-total', any?fmtEUR(cmgT):'—');
   setTxt('out-cmg-reste-total', any?fmtEUR(rT):'—');
+  // données de la famille gardées sur la fiche de chaque enfant calculé : le récapitulatif des parents s'en sert
+  if(rs){ for(let i=1;i<=n;i++){ const cid = (STATE.ui||{})['cmgCid'+i], cc = cid && getContrat(cid);
+    if(cc){ const f = {rev: rs, idx, mono: mono ? 1 : 0}; if(JSON.stringify(cc.cmgFoyer||null) !== JSON.stringify(f)){ cc.cmgFoyer = f; saveState(); } } } }
 };
 /* Historique mensuel du CMG */
 function cmgRefreshHistorySelect(){
