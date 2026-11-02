@@ -176,7 +176,7 @@ function finEssai(c){
 
 /* ---------- Navigation (avec le bouton « retour » d'Android) ---------- */
 const THEME_TITLES = { parents:'Pour les parents', contrat:'Enfant & contrat', mensu:'Salaire mensualisé', mois:'Salaire du mois', ccass:'Mois incomplet',
-  cp:'Congés payés', ie:'Indemnités d\'entretien', fin:'Fin de contrat', abattement:'Impôts', cmg:'Aide CMG', reglages:'Réglages', aide:'Aide', docs:'Documents', suivi:'Suivi & paie', formation:'Se former' };
+  cp:'Congés payés', ie:'Indemnités d\'entretien', fin:'Fin de contrat', abattement:'Impôts', cmg:'Aide CMG', reglages:'Réglages', aide:'Aide', docs:'Documents', suivi:'Suivi & paie', formation:'Se former', apropos:'À propos' };
 let CURRENT = 'home';
 function showTheme(id, opts){
   opts = opts||{};

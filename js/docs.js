@@ -27,11 +27,11 @@ function renderDocs(){
   h += '</div>';
   const p = STATE.profil||{}, miss = [];
   if(!p.nom) miss.push('votre nom'); if(!p.agrementNum) miss.push('votre numéro d\'agrément'); if(!p.adresse) miss.push('votre adresse');
-  if(miss.length) h += '<div class="warn-box">Pour des documents complets, renseignez '+miss.join(', ')+' dans <a href="#" onclick="showTheme(\'reglages\');return false;">Réglages ▸ Mon profil</a>.</div>';
+  if(miss.length) h += '<div class="warn-box">Pour des documents complets, renseignez '+miss.join(', ')+' dans Réglages ▸ Mon profil.<div class="btn-row" style="margin-top:6px"><button type="button" class="btn small" onclick="showTheme(\'reglages\')">Ouvrir Mon profil</button></div></div>';
   const c = getContrat(DOCS_ID);
   if(c){
     const m = []; if(!c.parent1) m.push('le nom du parent employeur'); if(!c.adresse) m.push('l\'adresse de la famille');
-    if(m.length) h += '<div class="info-box">Pour '+esc(c.enfant)+', il manque '+m.join(' et ')+' : <a href="#" onclick="editContrat(\''+c.id+'\');return false;">compléter le contrat</a> (étape 1, « Coordonnées »). Sinon, des lignes vides seront laissées à remplir à la main.</div>';
+    if(m.length) h += '<div class="info-box">Pour '+esc(c.enfant)+', il manque '+m.join(' et ')+' (fiche de l\'enfant, étape 1, « Coordonnées »). Sinon, des lignes vides seront laissées à remplir à la main.<div class="btn-row" style="margin-top:6px"><button type="button" class="btn small" onclick="editContrat(\''+c.id+'\')">Compléter la fiche de '+esc(c.enfant)+'</button></div></div>';
   }
   let g = '';
   DOCS.forEach(d=>{
@@ -154,7 +154,8 @@ function printDoc(id){
       + '<h3>Article 8 — Jours fériés</h3><p>Le 1er mai est chômé et payé (s\'il est travaillé : majoration de 100 %). Les autres jours fériés sont : ☐ chômés et payés (dès le début du contrat, si les jours d\'accueil prévus avant et après sont travaillés) ☐ travaillés, avec une majoration de 10 %. Jours fériés travaillés convenus : '+BL+'</p>'
       + '<h3>Article 9 — Absences</h3><p>Absence de l\'enfant : le salaire est maintenu, sauf maladie justifiée par un certificat médical remis dans les 48 heures, dans la limite de 5 jours par période de 12 mois à compter de la date d\'effet du contrat ; une hospitalisation ou une maladie d\'au moins 14 jours consécutifs ne sont pas rémunérées. Absences de la salariée non rémunérées (maladie, congé sans solde…) : déduites selon la méthode de la Cour de cassation. Les congés pour événements familiaux prévus par la loi sont rémunérés.</p>'
       + '<h3>Article 10 — Rupture du contrat</h3><p>Hors période d\'essai, préavis : 8 jours calendaires si l\'ancienneté est inférieure à 3 mois, 15 jours de 3 mois à moins d\'un an, un mois au-delà. Le retrait de l\'enfant par l\'employeur est notifié par lettre recommandée avec accusé de réception ou remise en main propre contre décharge ; après 9 mois d\'ancienneté, il ouvre droit à une indemnité de rupture égale à 1/80ᵉ du total des salaires bruts perçus pendant le contrat (sauf faute grave ou lourde). La suspension ou le retrait d\'agrément entraîne la rupture sans préavis ni indemnité. En fin de contrat, l\'employeur remet le certificat de travail, l\'attestation France Travail et le reçu pour solde de tout compte ; en année incomplète, une régularisation du salaire est calculée.</p>'
-      + '<h3>Article 11 — Dispositions diverses</h3><p>Les parents fournissent le carnet de santé (vaccinations), les autorisations écrites (personnes habilitées à reprendre l\'enfant, sorties, transport, photos) et signalent tout changement de situation. La salariée respecte la confidentialité des informations concernant la famille. Pour tout ce qui n\'est pas prévu ici, la convention collective IDCC 3239 s\'applique.</p>'
+      + '<h3>Article 11 — Dispositions diverses</h3><p>Les parents fournissent le carnet de santé (vaccinations), les autorisations écrites (personnes habilitées à reprendre l\'enfant, sorties, transport, photos) et signalent tout changement de situation. La salariée respecte la confidentialité des informations concernant la famille.</p>'
+      + '<p>Données personnelles : la salariée enregistre les informations nécessaires à l\'accueil de l\'enfant, au calcul et à la déclaration du salaire (coordonnées, planning, absences, informations de santé utiles à l\'accueil). Elles sont conservées sur son téléphone, ne sont transmises à personne d\'autre que les organismes de déclaration, et sont supprimées '+(parseInt((STATE.settings||{}).conservation)||5)+' ans après la fin du contrat. Les parents peuvent demander à les consulter, les faire corriger ou supprimer (règlement européen 2016/679).</p><p> Pour tout ce qui n\'est pas prévu ici, la convention collective IDCC 3239 s\'applique.</p>'
       + '<p>Dépassement des horaires : tout accueil au-delà des horaires prévus (arrivée plus tôt, départ plus tard) est payé en heures complémentaires, et majoré au-delà de 45 h par semaine. Fournitures à la charge des parents (couches, lait, soins, vêtements de rechange…) : '+BL+'.</p>'
       + '<p>Déclaration et paiement : '+(c.pjPlus===2 ? 'les parents utilisent le service Pajemploi+ (Pajemploi verse le salaire et les indemnités et prélève les parents).' : c.pjPlus===1 ? 'les parents versent eux-mêmes le salaire et les indemnités, après la déclaration sur Pajemploi.' : '☐ les parents versent eux-mêmes le salaire ☐ les parents utilisent Pajemploi+.')+'</p>'
       + '<p>Clauses particulières : '+BL+BL+'</p>'
@@ -168,7 +169,7 @@ function printDoc(id){
   else if(id==='autorisations'){
     h = docHead('Autorisations parentales et fiche de renseignements', c)
       + '<h3>Personnes autorisées à reprendre l\'enfant</h3><table>'+[1,2,3].map(i=>row('Nom, lien, téléphone', BL+BL)).join('')+'</table><p>Une pièce d\'identité pourra être demandée.</p>'
-      + '<h3>Autorisations</h3><p>☐ Sorties à pied (parc, médiathèque, relais petite enfance…)<br>☐ Transport en voiture par l\'assistante maternelle (siège adapté, assurance du véhicule déclarée)<br>☐ Photos et vidéos à usage privé (aucune diffusion sur internet)<br>☐ Administration d\'un médicament sur ordonnance (joindre l\'ordonnance)<br>☐ Soins d\'urgence et transport vers un établissement de santé</p>'
+      + '<h3>Autorisations</h3><p>☐ Sorties à pied (parc, médiathèque, relais petite enfance…)<br>☐ Transport en voiture par l\'assistante maternelle (siège adapté, assurance du véhicule déclarée)<br>☐ Photos et vidéos à usage privé (aucune diffusion sur internet)<br>☐ Aide à la prise d\'un médicament (art. L. 2111-3-1 et R. 2111-1 du Code de la santé publique) : sur ordonnance au nom de l\'enfant, médicament fourni par les parents dans son emballage, médecin n\'ayant pas demandé l\'intervention d\'un professionnel de santé ; chaque prise est notée (date, heure, dose)<br>☐ Soins d\'urgence et transport vers un établissement de santé</p>'
       + '<h3>Santé et urgences</h3><table>'+row('Médecin traitant (nom, téléphone)', BL)+row('Allergies, régime, PAI', BL)+row('Vaccinations à jour (carnet de santé vu le)', BL)+row('Personnes à prévenir en urgence', BL+BL)+'</table>'
       + lieuDate() + sign('Le(s) parent(s)', 'L\'assistante maternelle');
   }
@@ -244,9 +245,9 @@ function printDoc(id){
           ? '<p>Je soussigné(e) '+BL+', agissant en qualité d\'ayant droit de '+employeurs(c)+', particulier employeur décédé le '+v(fmtDate(c.fin))+', certifie que celui-ci a employé :</p><table>'
           : '<p>Je soussigné(e) '+employeurs(c)+', demeurant '+v(c.adresse)+', particulier employeur, certifie avoir employé :</p><table>')
       + row('Salariée', assmatNom()) + row('Adresse', v(p.adresse)) + row('Emploi occupé', 'Assistante maternelle agréée (agrément n° '+v(p.agrementNum)+')')
-      + row('Du', v(fmtDate(c.debut))) + row('Au', v(fmtDate(c.fin))+' (fin du préavis, effectué ou non)') + '</table>'
+      + row('Du', v(fmtDate(c.debut))) + row('Au', v(fmtDate(c.fin || certFinCalculee(c)))+' (fin du préavis, effectué ou non)') + '</table>'
       + '<p>Convention collective applicable : particuliers employeurs et emploi à domicile (IDCC 3239).</p>'
-      + '<p>Mme '+assmatNom()+' nous quitte libre de tout engagement.</p>'
+
       + '<p>Portabilité de la prévoyance : la salariée peut bénéficier du maintien des garanties de prévoyance (IRCEM) dans les conditions prévues par la loi ; elle est invitée à se rapprocher de l\'IRCEM.</p>'
       + '<p>Fait à '+BL+', le '+today().toLocaleDateString('fr-FR')+', pour servir et valoir ce que de droit.</p><p>Signature de l\'employeur :<br><br><br></p>';
   }
@@ -268,7 +269,7 @@ function printDoc(id){
       + '<p>Fait à '+BL+', le '+today().toLocaleDateString('fr-FR')+'.</p>' + sign('L\'employeur', 'La salariée (mention « pour solde de tout compte »)')
       + '<p class="legal-p">Montants repris du calcul « Fin de contrat » du carnet : vérifiez-les avec la dernière déclaration Pajemploi.</p>';
   }
-  doPrint('<div class="doc">'+h+'</div>');
+  doPrint('<div class="doc">'+docGenre(h)+'</div>');
 }
 /* Lettre de fin : durée du préavis (pas de date de fin : elle dépend du jour où la lettre sera présentée) */
 function lettrePreavis(c, qui){
@@ -277,5 +278,17 @@ function lettrePreavis(c, qui){
   const anc = deb ? monthsBetween(deb, t) : 0, P = R('preavis', t) || [{jours:8},{jours:15},{mois:1}], p = anc < 3 ? P[0] : anc < 12 ? P[1] : P[2];
   const dur = p.mois ? p.mois+' mois' : p.jours+' jours calendaires';
   return 'Compte tenu de l\'ancienneté ('+ancienneteTxt(c.debut, iso(t))+'), le préavis prévu par la convention collective est de <b>'+dur+'</b>.';
+}
+/* Date de fin pour le certificat quand la fiche n'en a pas : fin du préavis calculée dans « Fin de contrat » */
+function certFinCalculee(c){ try{ finValues(c); return typeof finDateFin==='function' ? iso(finDateFin(c)) : ''; }catch(e){ return ''; } }
+/* Documents accordés au masculin si « Monsieur » est choisi dans Mon profil */
+function docGenre(h){
+  if(((STATE.profil||{}).civ||'F')!=='M') return h;
+  return h.replace(/<p>Madame,<\/p>/g, '<p>Monsieur,</p>').replace(/agréer, Madame, nos/g, 'agréer, Monsieur, nos')
+    .replace(/Assistante maternelle agréée/g, 'Assistant maternel agréé').replace(/assistante maternelle agréée/g, 'assistant maternel agréé')
+    .replace(/Assistantes maternelles/g, 'Assistants maternels').replace(/assistantes maternelles/g, 'assistants maternels')
+    .replace(/Assistante maternelle/g, 'Assistant maternel').replace(/assistante maternelle/g, 'assistant maternel')
+    .replace(/La salariée/g, 'Le salarié').replace(/la salariée/g, 'le salarié').replace(/Salariée/g, 'Salarié').replace(/salariée/g, 'salarié')
+    .replace(/\bMme /g, 'M. ').replace(/accueilli\(e\) chez vous/g, 'accueilli(e) chez vous');
 }
 function fournisPar(qui, c){ return fmtEUR(parseFloat(c.repasPrix)||0)+' par jour de présence, repas fournis par l\'assistante maternelle'; }

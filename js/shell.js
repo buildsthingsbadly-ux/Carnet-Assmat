@@ -402,6 +402,24 @@ new MutationObserver(muts=>muts.forEach(m=>{
     setTimeout(()=>{ const f = o.querySelector('input:not([type=hidden]),select,textarea,button'); if(f) f.focus(); }, 60);
   } else if(_lastFocus && document.body.contains(_lastFocus)){ try{ _lastFocus.focus(); }catch(e){} }
 })).observe(document.body, {attributes:true, attributeFilter:['class'], subtree:true});
+/* Tabulation gardée dans la fenêtre ouverte (lecteurs d'écran, clavier) */
+document.addEventListener('keydown', e=>{
+  if(e.key!=='Tab') return;
+  const o = [...document.querySelectorAll('.overlay.show')].pop(); if(!o) return;
+  const f = [...o.querySelectorAll('a[href],button,input:not([type=hidden]),select,textarea,summary,[tabindex]:not([tabindex="-1"])')].filter(x=>!x.disabled && x.offsetParent);
+  if(!f.length) return;
+  const first = f[0], last = f[f.length-1];
+  if(!o.contains(document.activeElement)){ e.preventDefault(); first.focus(); return; }
+  if(e.shiftKey && document.activeElement===first){ e.preventDefault(); last.focus(); }
+  else if(!e.shiftKey && document.activeElement===last){ e.preventDefault(); first.focus(); }
+});
+/* Écrans longs : bouton « haut de page » */
+(function(){
+  const b = document.createElement('button'); b.id = 'top-btn'; b.type = 'button'; b.textContent = '↑'; b.setAttribute('aria-label', 'Revenir en haut de l\u2019écran');
+  b.onclick = ()=>window.scrollTo({top:0, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth'});
+  document.addEventListener('DOMContentLoaded', ()=>document.body.appendChild(b)); if(document.readyState!=='loading') document.body.appendChild(b);
+  window.addEventListener('scroll', ()=>b.classList.toggle('show', window.scrollY > 2*window.innerHeight), {passive:true});
+})();
 document.addEventListener('keydown', e=>{
   if(e.key!=='Escape') return;
   const o = [...document.querySelectorAll('.overlay.show')].pop();

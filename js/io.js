@@ -2,7 +2,7 @@
    IMPRESSION / PDF · SAUVEGARDE · RÉGLAGES · MISES À JOUR RÉGLEMENTAIRES · AIDE · DÉMARRAGE
    ===================================================================================== */
 'use strict';
-const APP_VERSION = '3.18.0';
+const APP_VERSION = '3.19.0';
 
 /* ---------------------------------- Impression / PDF ---------------------------------- */
 let _pc = null;
@@ -80,15 +80,40 @@ function printAbattement(title, mode){
 }
 
 /* ---------------------------------- Sauvegarde (copie de sécurité) ---------------------------------- */
+/* Copie de sécurité chiffrée : AES-GCM 256 bits, clé dérivée du mot de passe (PBKDF2-SHA256, 250 000 tours) */
+function u8b64(u){ let s=''; for(let i=0;i<u.length;i+=8192) s += String.fromCharCode(...u.subarray(i, i+8192)); return btoa(s); }
+function b64u8(b){ return Uint8Array.from(atob(b), c=>c.charCodeAt(0)); }
+async function cleMdp(mdp, salt){
+  const base = await crypto.subtle.importKey('raw', new TextEncoder().encode(mdp), 'PBKDF2', false, ['deriveKey']);
+  return crypto.subtle.deriveKey({name:'PBKDF2', salt, iterations:250000, hash:'SHA-256'}, base, {name:'AES-GCM', length:256}, false, ['encrypt','decrypt']);
+}
+async function chiffrerCopie(txt, mdp){
+  const salt = crypto.getRandomValues(new Uint8Array(16)), iv = crypto.getRandomValues(new Uint8Array(12));
+  const ct = await crypto.subtle.encrypt({name:'AES-GCM', iv}, await cleMdp(mdp, salt), new TextEncoder().encode(txt));
+  return {app:'carnet-assmat', chiffre:1, algo:'AES-GCM-256 / PBKDF2-SHA256-250000', exportedAt:new Date().toISOString(), salt:u8b64(salt), iv:u8b64(iv), data:u8b64(new Uint8Array(ct))};
+}
+async function dechiffrerCopie(o, mdp){
+  const pt = await crypto.subtle.decrypt({name:'AES-GCM', iv:b64u8(o.iv)}, await cleMdp(mdp, b64u8(o.salt)), b64u8(o.data));
+  return new TextDecoder().decode(pt);
+}
 async function syncExport(){
+  let nPj = 0; try{ nPj = Object.keys(await pjAll()).length; }catch(e){}
+  if(!(window.crypto && crypto.subtle)){ syncExportGo(null); return; }
+  _confirmNoCb = ()=>syncExportGo(null);
+  showConfirmDialog('Protéger la copie par un mot de passe ?', 'La copie contient les fiches des enfants et des familles'+(nPj ? ' et '+nPj+' pièce(s) jointe(s) (certificats médicaux, ordonnances…)' : '')+'. Avec un mot de passe, elle est illisible pour toute autre personne si le fichier est perdu ou partagé. Retenez-le bien : sans lui, la copie ne pourra pas être restaurée.',
+    ()=>askText('Mot de passe de la copie', 'Au moins 8 caractères. Il vous sera demandé pour restaurer la copie.', '', p=>{ if(!p || p.length < 8){ toast('Mot de passe trop court (8 caractères au moins) : copie non faite.'); return; } syncExportGo(p); }, {type:'password'}),
+    'Oui, avec un mot de passe (conseillé)', 'Non, sans mot de passe');
+}
+async function syncExportGo(mdp){
   persistTheme(CURRENT);
   const now = new Date();
   // pièces jointes du suivi (photos de certificats, tickets…) incluses dans la copie
   let pj = {};
   try{ const all = await pjAll(); for(const id of Object.keys(all)){ pj[id] = {nom: all[id].nom, type: all[id].type, t: all[id].t, data: await blobToB64(all[id].blob)}; } }catch(e){ pj = {}; }
   const payload = { app:'carnet-assmat', version:2, appVersion:APP_VERSION, exportedAt: now.toISOString(), state: STATE, pj };
-  const blob = new Blob([JSON.stringify(payload, null, 1)], {type:'application/json'});
-  const name = 'copie-carnet-assmat-'+iso(today())+'.json';
+  const texte = mdp ? JSON.stringify(await chiffrerCopie(JSON.stringify(payload), mdp)) : JSON.stringify(payload, null, 1);
+  const blob = new Blob([texte], {type:'application/json'});
+  const name = 'copie-carnet-assmat-'+iso(today())+(mdp ? '-protegee' : '')+'.json';
   const file = (typeof File==='function') ? new File([blob], name, {type:'application/json'}) : null;
   const finish = ()=>{ STATE.lastExport = now.toISOString(); saveNow(); if(CURRENT==='home') renderHome(); };
   // Sur téléphone : proposer directement le partage (Drive, mail, WhatsApp…), sinon téléchargement
@@ -108,6 +133,20 @@ function syncImportFile(file){
   const r = new FileReader();
   r.onload = e=>{
     let p; try{ p = JSON.parse(e.target.result); }catch(err){ toast('Fichier illisible.'); return; }
+    if(p && p.app==='carnet-assmat' && p.chiffre){
+      askText('Copie protégée', 'Entrez le mot de passe choisi lors de la copie.', '', async m=>{
+        if(!m) return;
+        try{ syncImportData(JSON.parse(await dechiffrerCopie(p, m))); }catch(err){ toast('Mot de passe incorrect, ou fichier abîmé.'); }
+      }, {type:'password'});
+      return;
+    }
+    syncImportData(p);
+  };
+  r.readAsText(file);
+  $('sync-file-input').value = '';
+}
+function syncImportData(p){
+  {
     let newState = null, label = '';
     if(p && p.app==='carnet-assmat' && p.state){ newState = Object.assign(clone(STATE_DEFAULT), p.state); label = 'copie du '+new Date(p.exportedAt).toLocaleString('fr-FR'); }
     else if(p && p.app==='carnet-calcul-assmat' && p.data){
@@ -126,11 +165,11 @@ function syncImportFile(file){
       STATE = newState; STATE.settings = Object.assign(clone(STATE_DEFAULT.settings), STATE.settings||{});
       saveNow(); regBuild(); applyTheme(); CURRENT='home'; showHome(); toast('Copie restaurée.');
       if(p.pj) (async ()=>{ for(const id of Object.keys(p.pj)){ try{ const x=p.pj[id]; await pjPutRaw(id, {blob: await b64ToBlob(x.data), nom:x.nom, type:x.type, t:x.t}); }catch(e){} } })();
+      if(lockActive()) closeOverlay('lock-overlay');
     }, 'Oui, restaurer', 'Annuler');
-  };
-  r.readAsText(file);
-  $('sync-file-input').value = '';
+  }
 }
+function lockActive(){ const o = $('lock-overlay'); return !!(o && o.classList.contains('show')); }
 function wipeAll(){
   showConfirmDialog('Tout effacer ?', 'Tous les enfants, calculs et réglages enregistrés sur ce téléphone seront supprimés définitivement. Faites une copie de sécurité avant si besoin. Continuer ?', ()=>{
     STATE = clone(STATE_DEFAULT); saveNow(); regBuild(); applyTheme(); CURRENT='home'; showHome(); toast('Données effacées.');
@@ -138,7 +177,7 @@ function wipeAll(){
 }
 
 /* ---------------------------------- Réglages ---------------------------------- */
-const PROFIL_FIELDS = ['nom','adresse','tel','email','agrementNum','agrementDate','agrementDuree','assurance','assuranceAuto'];
+const PROFIL_FIELDS = ['civ','nom','adresse','tel','email','agrementNum','agrementDate','agrementDuree','assurance','assuranceAuto'];
 function applyTheme(){
   const t = STATE.settings.theme;
   if(t===1) document.documentElement.dataset.theme='light'; else if(t===2) document.documentElement.dataset.theme='dark'; else delete document.documentElement.dataset.theme;
@@ -146,7 +185,7 @@ function applyTheme(){
 function renderSettings(){
   setSegVal('set-am', STATE.settings.am); setSegVal('set-theme', STATE.settings.theme); setSegVal('set-autoreg', STATE.settings.autoreg);
   setVal('set-agrement', STATE.settings.agrement); setVal('set-regurl', STATE.settings.regUrl);
-  PROFIL_FIELDS.forEach(k=>setVal('prof-'+k, (STATE.profil||{})[k]));
+  PROFIL_FIELDS.forEach(k=>setVal('prof-'+k, (STATE.profil||{})[k] || (k==='civ' ? 'F' : '')));
   setVal('set-zone', STATE.settings.zone||''); setVal('set-rappel', STATE.settings.rappel||'18:30'); setVal('set-conservation', STATE.settings.conservation||5);
   setVal('set-pin-new', ''); setSegVal('set-suivi', STATE.settings.suivi===0 ? 1 : 0); setSegVal('set-font', STATE.settings.font||0);
   regRenderStatus(); regRenderTable(); congesRender(); absEnfRender();
@@ -326,9 +365,9 @@ function regRenderTable(){
     h += '<details class="reg-cat help"><summary>'+esc(REG.categories[cat])+'</summary><div>';
     cats[cat].forEach(k=>{
       const p = REG.params[k], cur = R(k), du = Rdu(k), nx = Rnext(k);
-      h += '<div class="reg-row" id="regrow-'+k+'"><div class="rl">'+esc(p.label)+(p.src?' <a href="'+esc(p.src)+'" target="_blank" rel="noopener">↗</a>':'')+'</div>'
+      h += '<div class="reg-row" id="regrow-'+k+'"><div class="rl">'+esc(p.label)+(p.src?' <a class="reg-ic" href="'+esc(p.src)+'" target="_blank" rel="noopener" aria-label="Source officielle : '+esc(p.label)+'">↗</a>':'')+'</div>'
         + '<div class="rv">En vigueur : <b>'+esc(fmtRegV(cur,p.unit))+'</b> depuis le '+fmtDate(du)+(nx?' · prochaine valeur : <b>'+esc(fmtRegV(nx.v,p.unit))+'</b> le '+fmtDate(nx.du):'')
-        + ' <a href="#" onclick="regEdit(\''+k+'\');return false;">✎</a></div>'
+        + ' <a class="reg-ic" href="#" onclick="regEdit(\''+k+'\');return false;" aria-label="Modifier : '+esc(p.label)+'">✎</a></div>'
         + '<div class="rv">Historique : '+p.values.map(x=>fmtDate(x.du)+' → '+esc(fmtRegV(x.v,p.unit))+(x.manual?' <span class="manual">(saisi à la main)</span>':'')).join(' ; ')+'</div>'
         + (p.note?'<div class="hint">'+esc(p.note)+'</div>':'')+'</div>';
     });
@@ -365,7 +404,8 @@ function regClearManual(){
 
 /* ---------------------------------- Aide ---------------------------------- */
 const AIDE = [
-  ['Je débute : comprendre les calculs', 'La rubrique <b>Outils ▸ Se former</b> explique pas à pas, avec des exemples chiffrés, le contrat, le salaire mensualisé, la paie de chaque mois, les absences, les congés et la fin du contrat. Comptez environ une heure en tout, chapitre par chapitre. <a href="#" onclick="showTheme(\'formation\');return false;">Ouvrir la formation</a>'],
+  ['Je débute : comprendre les calculs', 'La rubrique <b>Outils ▸ Se former</b> explique pas à pas, avec des exemples chiffrés, le contrat, le salaire mensualisé, la paie de chaque mois, les absences, les congés et la fin du contrat. Comptez environ une heure en tout, chapitre par chapitre. <br><button type="button" class="btn small" style="margin-top:6px" onclick="showTheme(\'formation\')">Ouvrir la formation</button>'],
+  ['Mes données, l\u2019éditeur et les limites du carnet', 'Tout reste sur ce téléphone ; l\u2019application est indépendante des organismes officiels. <br><button type="button" class="btn small" style="margin-top:6px" onclick="showTheme(\'apropos\')">À propos et confidentialité</button>'],
   ['Comment commencer ?', 'Sur l\'accueil, touchez <b>« Ajouter un enfant »</b> et répondez aux questions (prénom, dates, planning, tarif). Recommencez pour chaque enfant (4 en cours au maximum). Ensuite, chaque calcul se remplit tout seul : choisissez l\'enfant en haut de l\'écran. Pour un calcul ponctuel, choisissez « Saisie libre ». Renseignez aussi une fois « Mon profil » (Réglages) pour les documents.'],
   ['Chaque mois : 3 étapes', 'Dans l\'onglet <b>Mois</b>, chaque enfant a sa carte avec 3 étapes, à faire dans l\'ordre :<br>1. <b>Vérifier et valider les chiffres</b> : le résultat et le bloc orange « Ce que les parents recopient sur Pajemploi » sont en haut ; ne corrigez en dessous que ce qui a changé (absence, heures en plus, jour férié, congés). Touchez « Valider ce mois » : le mois est gardé et sert ensuite aux congés, à la fin de contrat et aux impôts.<br>2. <b>Envoyer aux parents</b> : le récapitulatif part par SMS ou mail. Ce sont les parents qui déclarent sur Pajemploi, entre le 25 et le 5.<br>3. <b>Salaire reçu</b> : notez la date du paiement.<br>Si le bulletin Pajemploi donne un autre net, corrigez le mois et validez-le à nouveau.'],
   ['Année incomplète : semaines sans accueil pas encore connues', 'Souvent, les parents ne connaissent pas à l\'avance toutes leurs dates de vacances. Dans la fiche de l\'enfant, répondez « Pas encore » : le contrat indique seulement le <b>nombre</b> de semaines d\'accueil par an, et c\'est lui qui fixe le salaire mensualisé (juste dès le premier mois). Ensuite, à chaque fois que les parents vous donnent une semaine sans accueil, touchez <b>📅 Semaine sans accueil</b> (onglet Enfants, ou sur la carte du mois) : l\'entretien et les repas de ce mois sont recalculés. En attendant, le carnet compte les congés avec le nombre de semaines du contrat (jamais plus) et vous rappelle combien de semaines restent à noter avant la date anniversaire. En fin de contrat, il vous prévient si des semaines semblent manquer, car la régularisation serait sinon trop élevée. Bon à savoir : prévoyez dans le contrat un délai pour que les parents vous préviennent (par exemple un mois).'],
