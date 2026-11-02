@@ -395,6 +395,10 @@ function absEnfant(c, d){
   const k = typeof d==='string' ? d : iso(d);
   return L.some(p=>p && p.cid===c.id && p.du && p.au && k >= p.du && k <= p.au);
 }
+/* Impôt sur le revenu retenu par Pajemploi : taux de « Mon profil » (vide ou 0 = non imposable, réglage par défaut).
+   Estimation sur le net imposable du salaire + entretien + repas (avant l'abattement, qui est déjà pris en compte dans le taux). */
+function pasTaux(){ const t = parseFloat(String(((STATE && STATE.profil)||{}).pasTaux||'').replace(',','.')); return t>0 && t<60 ? t : 0; }
+function pasEstime(netImp, ie, repas){ const t = pasTaux(); return t ? Math.round(Math.max(0, (netImp||0)+(ie||0)+(repas||0))*t)/100 : 0; }
 function askText(title, message, def, cb, opts){
   const i0 = $('prompt-input'); if(i0) i0.type = (opts && opts.type) || 'text';
   setTxt('prompt-title', title); setTxt('prompt-message', message); setVal('prompt-input', def||'');

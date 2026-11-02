@@ -385,6 +385,8 @@ function computeAlerts(){
     if(!contratActif(c, now) && parseD(c.fin) && parseD(c.fin) < now) return;
     if(repriseAFaire(c)) out.push({lvl:'warn', html:nom+' : le contrat a commencé le '+fmtDate(c.debut)+', avant que vous utilisiez le carnet. Indiquez ce qui s\u2019est passé avant (congés restants ou déjà pris, jours d\u2019enfant malade déjà retirés) : sinon le solde de congés et la fin de contrat seront faux.',
       act:'<button class="btn small" onclick="repriseOuvrir(\''+c.id+'\')">Compléter</button> <button class="btn small" onclick="repriseRien(\''+c.id+'\')">Rien à reprendre</button>'});
+    if(c.type===1 && (parseFloat(c.semaines)||0) >= 47 && contratActif(c, now)) out.push({lvl:'warn', html:nom+' : '+esc(c.semaines)+' semaines d’accueil par an en année incomplète. Au-delà de 46 semaines, c’est une année complète : le salaire est surestimé. Corrigez le contrat (avenant).'});
+    const kmW = kmTauxAlerte(c.kmTaux); if(kmW && contratActif(c, now)) out.push({lvl:'warn', html:nom+' : '+kmW});
     const cpTrop = cpAuDelaAcquis(c);
     if(cpTrop) out.push({lvl:'warn', html:nom+' : '+cpTrop.pris+' jours de congés payés pris ou prévus depuis le 1er juin, pour environ '+fmtNum(cpTrop.acquis, 1)+' jours acquis au '+fmtDate(iso(cpTrop.jusqua))+'. Les <b>'+cpTrop.trop+' jour(s) en plus</b> ne sont pas payés par le salaire mensualisé, sauf accord écrit des parents : ils se retirent comme un congé sans solde.',
       act:'<button class="btn small" onclick="showTheme(\'ccass\')">Mois incomplet</button> <button class="btn small" onclick="showTheme(\'cp\')">Congés payés</button>'});
@@ -691,6 +693,14 @@ function cpJuinEstime(c){
   const acq = Math.min(30, joursAcquisCP(iso(deb), iso(e), 0, false, c)), mois = ((e-deb)/86400000+1)/30.4375;
   return {an, premier: Math.max(acq*vj, mois*(dv.brut||0)*dix), juin: y};
 }
+/* Tarif kilométrique hors des barèmes (convention collective : au moins le barème de l'administration, au plus le barème fiscal) */
+function kmTauxAlerte(v){
+  const t = parseFloat(String(v||'').replace(',','.')); if(!(t>0)) return '';
+  const mn = R('kmBaremeAdmin'), mx = R('kmBaremeFiscal');
+  if(mn && t < mn-1e-9) return 'tarif kilométrique de '+fmtEUR(t)+' par km, sous le barème de l’administration ('+fmtEUR(mn)+' par km au moins, d’après la convention collective).';
+  if(mx && t > mx+1e-9) return 'tarif kilométrique de '+fmtEUR(t)+' par km, au-dessus du barème fiscal ('+fmtEUR(mx)+' par km au plus, selon la puissance du véhicule) : l’excédent serait du salaire, soumis à cotisations.';
+  return '';
+}
 function ctToggleWeek(k){
   ctRead();
   if(!Array.isArray(CT.semOff)) CT.semOff = [];
@@ -710,6 +720,8 @@ function ctRecap(dv){
   ];
   let h = '';
   lines.forEach(l=>{ h+='<div class="result-line"><span class="lbl">'+l[0]+'</span><span class="val">'+l[1]+'</span></div>'; });
+  if(CT.type===1 && (parseFloat(CT.semaines)||0) >= 47) h += '<div class="warn-box">⚠️ <b>'+esc(CT.semaines)+' semaines</b> d’accueil par an : c’est une <b>année complète</b> (au-delà de 46 semaines, l’enfant vient toute l’année en dehors des congés). En année incomplète, le salaire serait plus élevé qu’en année complète pour le même accueil. <a href="#" onclick="setSegVal(\'ct-type\',0);ctRead();ctRecap(derive(CT));return false;">Passer en année complète</a></div>';
+  const kmW = kmTauxAlerte(CT.kmTaux); if(kmW) h += '<div class="warn-box">⚠️ '+kmW.charAt(0).toUpperCase()+kmW.slice(1)+'</div>';
   if(CT.type===1){
     const P = ctSemProg(CT);
     if(P.fiable && P.prog !== (parseFloat(CT.semaines)||0)) h += '<div class="warn-box">⚠️ Vous avez indiqué <b>'+esc(CT.semaines||'?')+' semaines</b> d’accueil, mais le calendrier des semaines en compte <b>'+P.prog+'</b>. Le contrat doit dire la même chose partout : le salaire et la régularisation de fin de contrat en dépendent. <a href="#" onclick="setVal(\'ct-semaines\','+P.prog+');ctRead();ctRecap(derive(CT));return false;">Utiliser '+P.prog+' semaines</a>, ou corrigez le calendrier (étape 2).</div>';

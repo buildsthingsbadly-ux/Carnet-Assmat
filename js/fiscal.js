@@ -188,6 +188,12 @@ CALC.abattement = ()=>{
   }
   const plafHs = R('hsExoPlafond', annee ? annee+'-12-31' : undefined) || 7500;
   setTxt('out-ab-1gh', hsMois ? fmtEUR(Math.round(Math.min(hsNet, plafHs)))+(hsNet > plafHs ? ' (plafond atteint : '+fmtEUR(Math.round(hsNet-plafHs))+' imposables, à ajouter à la case 1AJ)' : '')+' — à comparer avec l\u2019attestation Pajemploi' : 'montant de l\u2019attestation Pajemploi');
+  let pasAn = 0;
+  for(let i=1;i<=nb;i++){
+    const c = getContrat(val('ab-c'+i+'-cid')); if(!c || !annee) continue;
+    Object.entries(journalOf(c.id)).forEach(([m, r])=>{ const py = r.datepaie && parseD(r.datepaie) ? parseD(r.datepaie).getFullYear() : +m.slice(0,4); if(py===annee) pasAn += +(r.pas||0); });
+  }
+  setTxt('out-ab-pas', pasAn > 0.004 ? fmtEUR(pasAn)+' (déjà payé : il est déduit de votre impôt final)' : '0 € (non imposable, ou taux non indiqué dans Mon profil)');
   abUpdateStatus();
 };
 function abUpdateStatus(){ setTxt('ab-save-status', storageOK ? 'Enregistrement automatique sur ce téléphone, au fil des mois.' : 'Enregistrement impossible (navigation privée ?) : faites une copie de sécurité.'); }

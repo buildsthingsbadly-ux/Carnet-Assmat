@@ -124,6 +124,10 @@ function renderMoisDash(){
       + '<div class="kline"><span>Salaire net'+(J?'':' (estimation)')+'</span><b>'+fmtEUR(net)+'</b></div>'
       + '<div class="kline"><span>Indemnités d\'entretien'+(jIE ? ' ('+jIE+' j)' : '')+'</span><b>'+fmtEUR(ieM)+'</b></div>'
       + '<div class="kline"><span>Repas et km</span><b>'+fmtEUR(frais)+'</b></div>'
+      + (()=>{ const kN = netRatio(finM), csgnd = ((R('cotCsgNonDed', finM)||0)+(R('cotCrds', finM)||0))*(R('assietteCsg', finM)||0.9825);
+          const p = J ? (J.pas||0) : pasEstime(kN ? net/kN*(kN+csgnd) : 0, ieM, frais);
+          return p > 0.004 ? '<div class="kline"><span>Impôt retenu par Pajemploi'+(J ? '' : ' (estimation)')+'</span><b>−'+fmtEUR(p)+'</b></div>' : ''; })()
+      + ''
       + '<a href="#" class="hint" style="display:inline-block;margin-top:4px;min-height:32px" onclick="ficheMoisPour(\''+c.id+'\',\''+ym+'\');return false;">🧾 Comprendre ces chiffres</a>'
       + (adaptationAFaire(c, ym) ? '<div class="warn-box" style="margin-top:6px">'+adaptationTxt(c)+' <a href="#" onclick="openSuivi(\'cal\',\''+c.id+'\',\''+ym+'\');return false;">Ouvrir le calendrier du mois</a></div>' : '')
       + (c.type===1 && !J && ym <= curMonth() && !useSuivi ? '<div class="hint" style="margin-top:4px">Une semaine sans accueil ce mois-ci (vacances, absence prévue) ? <a href="#" onclick="noterSemaineOff(\''+c.id+'\');return false;">📅 Notez-la</a> : l\u2019entretien et les repas seront ajustés.</div>' : '')

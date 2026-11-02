@@ -525,7 +525,16 @@ function ieDuMois(c, ym){
    (mode 1) ou au prorata des jours de congés pris dans le mois (mode 2). */
 function cpIndemniteMois(c, ym, joursPris){
   const d0 = parseD(ym), cc = paramsAt(c, new Date(d0.getFullYear(), d0.getMonth()+1, 0));
-  if(cc.type!==1 || !(cc.cpMode===1 || cc.cpMode===2)) return 0;
+  // année complète : en juin, complément si 10 % des salaires de la période close dépassent le maintien de salaire
+  if(cc.type!==1){
+    if(d0.getMonth()!==5) return 0;
+    const yA = d0.getFullYear(), sA0 = new Date(yA-1, 5, 1), eA = new Date(yA, 4, 31), debA = parseD(c.debut), sA = debA && debA > sA0 ? debA : sA0;
+    if(sA > eA) return 0;
+    const acqA = typeof joursAcquisCP==='function' ? joursAcquisCP(iso(sA), iso(eA), 0, false, c) : 0; if(!acqA) return 0;
+    const KA = contratCumuls(c, isoMonth(sA), isoMonth(eA)), dvA = derive(c, eA);
+    return Math.max(0, (KA.brut - KA.cp12)*(R('cpDixieme')||0.10) - acqA*dvA.moyH/6*dvA.tauxEff);
+  }
+  if(!(cc.cpMode===1 || cc.cpMode===2)) return 0;
   if(cc.cpMode===1 && d0.getMonth()!==5) return 0;
   if(cc.cpMode===2 && !joursPris) return 0;
   // période close la plus récente : celle qui se termine le 31 mai précédant (ou égal à) ce mois
