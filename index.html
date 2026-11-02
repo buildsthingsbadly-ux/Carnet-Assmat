@@ -418,6 +418,7 @@
       <div class="seg" id="mois-incomplet"><button class="on">Non</button><button>Oui</button></div></div>
     <div class="subblock" id="mois-incomplet-wrap" style="display:none">
       <div class="info-box"><b>Le plus simple :</b> <a href="#" onclick="moisNoterAbsences();return false;">noter l'absence sur les jours concernés</a> (calendrier de ce mois) : le carnet sait si elle se retire et recalcule tout, sans report.<br>Ou faites le calcul dans « Mois incomplet » (il dit aussi si l'absence se déduit), puis touchez « Reporter ». <a href="#" onclick="moisOpenCcass();return false;">Ouvrir ce calcul sur ce mois</a></div>
+      <div class="btn-row" style="margin-top:6px"><button class="btn small" type="button" onclick="moisDedDepuisJours()">Retirer du salaire les jours d'absence cochés</button></div>
       <div class="field"><label>Montant brut déduit (€)</label><input type="number" step="0.01" id="mois-deduction" placeholder="0"><input type="hidden" id="mois-ded-maj"></div>
       <div class="grid2">
         <div class="field"><label>Jours d'accueil prévus ce mois-ci</label><input type="number" step="1" id="mois-jprev" placeholder="ex. 22"></div>
@@ -463,6 +464,9 @@
       <div class="field"><label>Jours de présence réelle de l'enfant</label><input type="number" step="1" id="mois-jours" placeholder="ex. 20"><div class="hint">Pour l'entretien et les repas (jours où l'enfant est venu).</div></div>
       <div class="field"><label>Heures moyennes par jour de présence</label><input type="number" step="0.25" id="mois-hjour" placeholder="ex. 9"></div>
     </div>
+    <div class="field" id="mois-abs-wrap" style="display:none"><label>Jours où l'enfant n'est pas venu ce mois-ci <span class="hint">(facultatif)</span></label>
+      <div class="chips" id="mois-abs-jours"></div><input type="hidden" id="mois-abs-dates">
+      <div class="hint">Touchez chaque jour d'absence (enfant malade, vacances des parents…) : l'entretien et les repas de ces jours sont retirés, au montant exact de chaque journée. Le salaire ne change pas ici : s'il faut aussi retirer l'absence du salaire, répondez « Oui » à « Une absence à déduire », puis touchez « Retirer du salaire les jours cochés ».</div></div>
     <div class="grid2">
       <div class="field"><label>Indemnité d'entretien par jour (€)</label><input type="number" step="0.01" id="mois-indemj" placeholder="auto"><div class="hint" id="mois-ie-hint">Laissez vide pour appliquer le minimum légal.</div></div>
       <div class="field"><label>Repas et goûters par jour (€)</label><input type="number" step="0.01" id="mois-repas" placeholder="0"></div>
@@ -593,8 +597,8 @@
 
     <div class="toggle-row"><span class="q">Ajouter les indemnités d'entretien du mois ?</span>
       <div class="seg" id="ccass-entretien"><button class="on">Non</button><button>Oui</button></div></div>
-    <div id="ccass-ie-wrap" class="field subblock" style="display:none"><label>Indemnité par jour d'accueil (€)</label><input type="number" step="0.01" id="ccass-ie-montant" placeholder="ex. 3.92">
-      <div class="hint">Multipliée par les jours réellement accueillis (prévus − non travaillés).</div></div>
+    <div id="ccass-ie-wrap" class="field subblock" style="display:none"><label>Montant d'entretien par jour prévu au contrat (€)</label><input type="number" step="0.01" id="ccass-ie-montant" placeholder="vide : minimum légal">
+      <div class="hint">Calcul jour par jour d'après le calendrier : chaque journée reçoit ce montant, jamais moins que le minimum légal de sa durée ; pas d'entretien les jours fériés chômés. Si vous ne précisez pas quels jours ne sont pas travaillés, ce sont les journées les moins chères qui sont retirées.</div></div>
 
     <div class="stub">
       <div class="stub-head">Résultat</div>
@@ -752,7 +756,7 @@
       <div class="seg" id="fin-unite"><button class="on">Brut</button><button>Net</button></div>
       <div class="hint">En net, ils sont reconvertis en brut pour appliquer les méthodes légales.</div></div>
     <div class="field"><label id="fin-salaire-label">Salaire du dernier mois, hors indemnités d'entretien (€)</label><input type="number" step="0.01" id="fin-salaire" placeholder="ex. 831.74">
-      <div class="hint" id="fin-salaire-hint">Si le dernier mois est incomplet, utilisez le thème « Mois incomplet ».</div></div>
+      <div class="hint" id="fin-salaire-hint">Calculé jusqu'à la date de fin du contrat (ou la fin du préavis).</div></div>
     <div class="toggle-row" id="fin-entretien-row"><span class="q">Des indemnités d'entretien sont-elles dues pour ce dernier mois ?</span>
       <div class="seg" id="fin-entretien"><button class="on">Non</button><button>Oui</button></div></div>
     <div id="fin-entretien-wrap" class="field subblock" style="display:none"><label>Montant des indemnités d'entretien (€)</label><input type="number" step="0.01" id="fin-entretien-montant" placeholder="ex. 65"><div class="hint">Jours de présence du dernier mois jusqu'à la date de fin, au montant du jour (jamais une moyenne mensualisée).</div></div>
