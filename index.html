@@ -310,6 +310,9 @@
       </div>
       <div class="field"><label>Jour du mois où le salaire est payé <span class="hint">(facultatif)</span></label><input type="number" step="1" min="1" max="31" id="ct-paiementJour" placeholder="ex. 5">
         <div class="hint">Demandé par Pajemploi (« date de paiement ») et à écrire dans le contrat.</div></div>
+      <div class="toggle-row"><span class="q">Les parents utilisent-ils Pajemploi+ (Pajemploi vous verse le salaire et prélève les parents) ?</span>
+        <div class="seg" id="ct-pjPlus"><button class="on">Je ne sais pas</button><button>Non</button><button>Oui</button></div>
+        <div class="hint">Sert au récapitulatif envoyé aux parents : avec Pajemploi+, ils ne vous versent rien eux-mêmes.</div></div>
       <div class="toggle-row" id="ct-cpMode-row" style="display:none"><span class="q">Comment vos congés payés sont-ils payés pour cet enfant ? (année incomplète)</span>
         <div class="seg" id="ct-cpMode"><button class="on">Un peu chaque mois (10 % du salaire)</button><button>En une fois en juin</button><button>Quand je prends mes congés</button></div>
         <div class="hint">C'est ce qui est écrit dans le contrat. En cas de doute : « en juin ».</div></div>
@@ -670,6 +673,8 @@
     <div class="toggle-row" id="par-fratrie-row" style="display:none"><label class="q" style="display:flex;gap:10px;align-items:center;min-height:44px"><input type="checkbox" id="par-fratrie" checked onchange="CALC.parents()"> Inclure les frères et sœurs de la même famille dans le message</label></div>
     <div class="stub"><div class="stub-head">Ce mois-ci</div><div class="stub-body" id="par-mois-out"><p class="hint">Choisissez un enfant enregistré.</p></div></div>
     <div class="field"><label>Année (pour les impôts des parents)</label><input type="number" step="1" id="par-annee" placeholder="ex. 2026"></div>
+    <div class="field"><label>Aide CMG reçue par les parents dans l'année (€) <span class="hint">(facultatif)</span></label><input type="number" step="0.01" id="par-cmg-an" placeholder="vide : estimation du carnet"><div class="hint">Le montant exact figure sur l'attestation annuelle de la CAF. Il se retire des frais de garde avant de calculer le crédit d'impôt.</div></div>
+    <div class="toggle-row"><label class="q" style="display:flex;gap:10px;align-items:center;min-height:44px"><input type="checkbox" id="par-annee-msg" onchange="CALC.parents()"> Ajouter le total de l'année au message (utile en janvier, pour la déclaration d'impôts)</label></div>
     <div class="stub"><div class="stub-head">Sur l'année</div><div class="stub-body" id="par-annee-out"></div></div>
     <div class="btn-row"><button class="btn primary" onclick="parentsPartager()">📤 Envoyer le récapitulatif aux parents</button></div>
     <div class="legal"><strong>Pour les parents —</strong> crédit d'impôt pour frais de garde d'un enfant de moins de <span data-reg="creditGardeAgeMax" data-fmt="num">6</span> ans au 1er janvier : <span data-reg="creditGardeTaux" data-fmt="pct">50 %</span> des sommes versées (salaire net et indemnités d'entretien, sans les repas), diminuées de l'aide CMG reçue, dans la limite de <span data-reg="creditGardePlafond" data-fmt="eur0">3 500 €</span> par enfant et par an (cases 7GA à 7GC ; en résidence alternée, cases 7GE à 7GG avec un plafond divisé par deux). Les sommes comptent l'année où elles sont payées. Les montants affichés sont des estimations : l'attestation Pajemploi et celle de la CAF font foi.</div>
