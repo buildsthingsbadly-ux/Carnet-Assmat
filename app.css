@@ -87,6 +87,13 @@ body.in-theme #btn-back{display:inline-flex;}
 .h-sec{font-family:'Fraunces',Georgia,serif;font-weight:600;font-size:1.08rem;margin:26px 0 10px;color:var(--teal-deep);}
 .index{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
 @media (max-width:520px){.index{grid-template-columns:1fr;}}
+/* cartes compactes de l'onglet Outils : deux colonnes, même sur téléphone */
+.index.compact{gap:8px;}
+@media (max-width:520px){.index.compact{grid-template-columns:1fr 1fr;}}
+.index.compact .card{padding:10px 10px 10px 12px;}
+.index.compact .card .num{display:none;}
+.index.compact .card h2{font-size:.95rem;margin:0 0 3px;}
+.index.compact .card p{font-size:.76rem;}
 .card{background:var(--paper);border:1px solid var(--line);border-left:5px solid var(--teal);border-radius:8px;
   padding:16px 16px;text-align:left;cursor:pointer;font-family:inherit;display:block;width:100%;color:var(--ink);
   transition:transform .15s ease, box-shadow .15s ease, border-color .15s ease;}
