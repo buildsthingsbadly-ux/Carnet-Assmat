@@ -390,6 +390,7 @@ function computeAlerts(){
     if(c.type===1 && (parseFloat(c.semaines)||0) >= 47 && contratActif(c, now)) out.push({lvl:'warn', html:nom+' : '+esc(c.semaines)+' semaines d’accueil par an en année incomplète. Au-delà de 46 semaines, c’est une année complète : le salaire est surestimé. Corrigez le contrat (avenant).'});
     const kmW = kmTauxAlerte(c.kmTaux); if(kmW && contratActif(c, now)) out.push({lvl:'warn', html:nom+' : '+kmW});
     if(repasPrixManquant(c) && contratActif(c, now)) out.push({lvl:'warn', html:nom+' : vous fournissez les repas, mais leur prix n’est pas indiqué dans la fiche : ils comptent pour 0 €.'});
+    if(contratActif(c, now) && typeof fractionnementSuggere==='function'){ const frA = fractionnementSuggere(c); if(frA.jours) out.push({lvl:'warn', html:nom+' : '+frA.hors+' jours de congé principal pris entre le 1er novembre et le 30 avril : <b>'+frA.jours+' jour(s) de congé en plus</b> (fractionnement), sauf si vous y avez renoncé par écrit.'}); }
     const cpTrop = cpAuDelaAcquis(c);
     if(cpTrop) out.push({lvl:'warn', html:nom+' : '+cpTrop.pris+' jours de congés payés pris ou prévus depuis le 1er juin, pour environ '+fmtNum(cpTrop.acquis, 1)+' jours acquis au '+fmtDate(iso(cpTrop.jusqua))+'. Les <b>'+cpTrop.trop+' jour(s) en plus</b> ne sont pas payés par le salaire mensualisé, sauf accord écrit des parents : ils se retirent comme un congé sans solde.',
       act:'<button class="btn small" onclick="showTheme(\'ccass\')">Mois incomplet</button> <button class="btn small" onclick="showTheme(\'cp\')">Congés payés</button>'});
@@ -727,6 +728,9 @@ function ctRecap(dv){
   let h = '';
   lines.forEach(l=>{ h+='<div class="result-line"><span class="lbl">'+l[0]+'</span><span class="val">'+l[1]+'</span></div>'; });
   if(CT.type===1 && (parseFloat(CT.semaines)||0) >= 47) h += '<div class="warn-box">⚠️ <b>'+esc(CT.semaines)+' semaines</b> d’accueil par an : c’est une <b>année complète</b> (au-delà de 46 semaines, l’enfant vient toute l’année en dehors des congés). En année incomplète, le salaire serait plus élevé qu’en année complète pour le même accueil. <a href="#" onclick="setSegVal(\'ct-type\',0);ctRead();ctRecap(derive(CT));return false;">Passer en année complète</a></div>';
+  { const hMx = R('hMaxJour')||13, SW = [CT.wA].concat(CT.alterne ? [CT.wB] : []);
+    if(SW.some(W=>wNums(W).some(x=>x > hMx + 1e-9))) h += '<div class="warn-box">⚠️ Une journée dépasse '+hMx+' h : interdit (11 h de repos consécutif obligatoires entre deux journées). Corrigez le planning (étape 3).</div>';
+    if(SW.some(W=>wNums(W).filter(x=>x > 0).length >= 7)) h += '<div class="warn-box">⚠️ Accueil 7 jours sur 7 : un repos hebdomadaire de 24 h consécutives (de préférence le dimanche) est obligatoire, en plus des 11 h de repos quotidien.</div>'; }
   const kmW = kmTauxAlerte(CT.kmTaux); if(kmW) h += '<div class="warn-box">⚠️ '+kmW.charAt(0).toUpperCase()+kmW.slice(1)+'</div>';
   if(repasPrixManquant(CT)) h += '<div class="warn-box">⚠️ Vous fournissez les repas, mais leur prix n’est pas indiqué (étape 4) : ils ne seraient jamais comptés.</div>';
   if(CT.type===1){

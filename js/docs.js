@@ -137,7 +137,7 @@ function printDoc(id){
       + '<h3>Article 4 — Durée et organisation de l\'accueil</h3>'
       + '<p>'+(c.type===1 ? 'Accueil en <b>année incomplète</b> : <b>'+(c.semaines||'__')+' semaines</b> d\'accueil programmées par an (hors congés payés), listées en annexe.' : 'Accueil en <b>année complète</b> : 52 semaines par an, congés payés de la salariée compris.')
       + ' Durée hebdomadaire moyenne : <b>'+fmtNum(dv.moyH, Math.abs(dv.moyH - Math.round(dv.moyH)) < 0.005 ? 0 : 2)+' h</b> sur <b>'+fmtNum(dv.moyJ, Math.abs(dv.moyJ - Math.round(dv.moyJ)) < 0.05 ? 0 : 1)+' jours</b>.</p>' + planningTable(c)
-      + '<p>Toute modification durable du planning ou du salaire fait l\'objet d\'un avenant écrit et signé.</p>'
+      + '<p>Toute modification durable du planning ou du salaire fait l\'objet d\'un avenant écrit et signé. Durée d\'accueil : 13 h par jour au plus (11 h de repos consécutif entre deux journées). Repos hebdomadaire : 24 h consécutives au moins, de préférence le dimanche ; un accueil exceptionnel ce jour-là est majoré de 25 % (ou compensé par un repos payé allongé d\'autant). Le fractionnement du congé principal ouvre droit aux jours supplémentaires prévus par la loi, sauf renonciation écrite de la salariée.</p>'
       + '<h3>Article 5 — Rémunération</h3><table>'
       + row('Salaire horaire brut', fmtEUR(dv.tauxEff)+' (net estimé '+fmtEUR(toNet(dv.tauxEff, c.debut||null))+')')
       + row('Heures mensualisées', fmtNum(dv.hMensu,2)+' h = '+fmtNum(dv.moyH,2)+' h × '+dv.semaines+' semaines ÷ 12')

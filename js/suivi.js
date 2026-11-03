@@ -163,7 +163,13 @@ function suiviMonth(c, ym, opts){
     // un jour férié chômé qui tombe un jour ouvrable (même un samedi non travaillé) ne compte pas comme jour de congé
     const fer = wk.filter(x=>x.ferie && (x.P>0 ? x.st==='ferieCh' : !x.acc)), pl = wk.filter(x=>x.P>0 && x.st!=='ferieCh'), cp = wk.filter(x=>x.def.cp);
     if(cp.length && cp.length===pl.length) T.cpOuv += wk.filter(x=>dowIdx(x.d)<6).length - fer.filter(x=>dowIdx(x.d)<6).length;
-    else T.cpOuv += cp.length;
+    else if(cp.length){
+      // semaine en partie en congés : jours ouvrables du premier jour de congé à la veille de la reprise
+      // (samedis compris, dimanches et jours fériés exclus)
+      let n = 0, enCours = false;
+      wk.forEach(x=>{ if(x.def.cp) enCours = true; else if(enCours && x.P > 0 && x.st!=='ferieCh') enCours = false; if(enCours && dowIdx(x.d) < 6 && !x.ferie) n++; });
+      T.cpOuv += Math.max(n, cp.length);
+    }
   }
   // salaire mensualisé dû (méthode Cour de cassation, ventilé par avenant)
   const vs = Object.values(versions);
