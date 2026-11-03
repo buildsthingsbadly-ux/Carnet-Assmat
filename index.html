@@ -416,7 +416,7 @@
     <div class="field"><label>Mois concerné</label><input type="month" id="mois-mois"></div>
     <div class="h-sec">1. Ce mois-ci, qu’est-ce qui change ?</div>
     <p class="hint" style="margin-top:-4px">Pour un mois normal, laissez tout à « Non » : les chiffres viennent du contrat (et du suivi au jour le jour s’il existe).</p>
-    <div class="toggle-row"><span class="q">Une absence à déduire ce mois-ci (début ou fin de contrat, adaptation, maladie…) ?</span>
+    <div class="toggle-row"><span class="q">Une absence à déduire ce mois-ci (adaptation, maladie, congé sans solde…) ?</span>
       <div class="seg" id="mois-incomplet"><button class="on">Non</button><button>Oui</button></div></div>
     <div class="subblock" id="mois-incomplet-wrap" style="display:none">
       <div class="info-box"><b>Le plus simple :</b> <a href="#" onclick="moisNoterAbsences();return false;">noter l'absence sur les jours concernés</a> (calendrier de ce mois) : le carnet sait si elle se retire et recalcule tout, sans report.<br>Ou faites le calcul dans « Mois incomplet » (il dit aussi si l'absence se déduit), puis touchez « Reporter ». <a href="#" onclick="moisOpenCcass();return false;">Ouvrir ce calcul sur ce mois</a></div>
@@ -621,6 +621,7 @@
       <div class="field"><label>Mois</label><input type="month" id="ccass-cal-mois">
         <div class="hint">Pour chaque jour, les heures normales prévues au contrat (les jours vides = pas d'accueil prévu). Les jours fériés sont signalés en orange.</div></div>
       <div class="btn-row" style="margin:-4px 0 6px"><button class="btn small" onclick="ccassPrefillCalendar()">📅 Remplir avec le planning du contrat</button><button class="btn small" onclick="ccassClearCalendar()">Vider</button></div>
+      <div id="ccass-hors-info"></div>
       <div id="ccass-calendar"></div>
       <div class="result-line"><span class="lbl">Jours d'accueil prévus dans le mois</span><span class="val" id="out-ccass-cal-jours">—</span></div>
       <div class="result-line"><span class="lbl">Heures normales prévues dans le mois</span><span class="val" id="out-ccass-cal-hnorm">—</span></div>
@@ -878,6 +879,7 @@
           <div class="result-line"><span class="lbl">Indemnité de rupture (1/<span data-reg="ruptureDiviseur" data-fmt="num">80</span>ᵉ des salaires bruts)</span><span class="val" id="out-fin-rupture">—</span></div>
         </div>
         <div class="result-line"><span class="lbl">Total des sommes dues (salaire en brut, indemnités telles quelles)</span><span class="val" id="out-fin-total">—</span></div>
+        <div class="hint" id="fin-total-hint"></div>
         <div class="result-line total"><span class="lbl">À verser au total (estimation en net)</span><span class="val" id="out-fin-net">—</span></div>
         <div class="result-line" id="row-fin-pas" style="display:none"><span class="lbl">Impôt sur le revenu retenu par Pajemploi (estimation)</span><span class="val" id="out-fin-pas">—</span></div>
         <div class="result-line total" id="row-fin-apres" style="display:none"><span class="lbl">À verser après impôt</span><span class="val" id="out-fin-apres">—</span></div>
