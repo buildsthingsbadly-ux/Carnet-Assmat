@@ -105,6 +105,9 @@ function setupFinSteps(){
 }
 function finShowStep(n){
   FIN_STEP = Math.max(1, Math.min(3, n));
+  // fin de contrat préparée (au-delà de l'étape 1) : « Salaire du mois » prévient tant que la date de fin n'est pas enregistrée
+  { const kP = selKey('fin'), cP = kP && kP!=='libre' ? getContrat(kP) : null;
+    if(cP && FIN_STEP>=2 && !parseD(cP.fin) && FIN_AUTO && FIN_AUTO.cid===cP.id && FIN_AUTO.fin){ STATE.finPrepa = STATE.finPrepa || {}; STATE.finPrepa[cP.id] = {fin: FIN_AUTO.fin, notif: val('fin-notif')}; } }
   const th = $('theme-fin'); if(!th) return;
   th.querySelectorAll('.fstep').forEach(s=>s.classList.toggle('on', +s.dataset.s===FIN_STEP));
   const titres = ['Qui arrête, et quand ?', 'Ce qui reste à payer', 'Résultat et documents'];

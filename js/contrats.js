@@ -149,8 +149,8 @@ function plannedDays(c, y, m, opts){
   const A=wNums(c.wA), B=c.alterne?wNums(c.wB):A;
   for(let day=1; day<=daysInMonth(y,m); day++){
     const d = new Date(y,m,day);
-    if(deb && d<deb) continue;
-    if(fin && d>fin) continue;
+    const hors = (deb && d<deb) || (fin && d>fin);
+    if(hors && !opts.toutLeMois) continue;
     const cc = paramsAt(c, d);
     const AA = cc===c ? A : wNums(cc.wA), BB = cc===c ? B : (cc.alterne ? wNums(cc.wB) : AA);
     const h = (weekIsB(cc,d)?BB:AA)[dowIdx(d)];
@@ -158,7 +158,7 @@ function plannedDays(c, y, m, opts){
     if(semaineSansAccueil(cc, d)) continue;
     const f = ferieName(d);
     if(f && opts.skipFeries) continue;
-    out.push({d, h, ferie:f});
+    out.push({d, h, ferie:f, hors:!!hors});
   }
   return out;
 }
@@ -678,7 +678,8 @@ function ctRenderWeeks(){
   const prog = 52-off-vides;
   setHTML('ct-semoff-info', 'Chaque case est une semaine (date du lundi)'+(CT.alterne?', avec son type (sem. 1 ou sem. 2)':'')+'. En vert : l\u2019enfant vient. Sur ces 52 semaines : <b>'+prog+' semaines où l\u2019enfant vient</b>, '+off+' sans accueil'+(vides ? ', '+vides+' semaines '+(sA?'2':'1')+' sans heures prévues (grisées)' : '')+'. '
     + (off || vides ? '<a href="#" onclick="setVal(\'ct-semaines\','+prog+');ctRefresh();return false;">Utiliser '+prog+' comme nombre de semaines</a>. ' : '')
-    + 'Ce calendrier sert à compter les vrais jours d\'accueil de chaque mois (entretien, repas, impôts, régularisation).');
+    + 'Ce calendrier sert à compter les vrais jours d\'accueil de chaque mois (entretien, repas, impôts, régularisation).'
+    + ((parseFloat(CT.semaines)||0) && (off || vides) && Math.abs((parseFloat(CT.semaines)||0) - prog) > 0.01 ? '<div class="warn-box" style="margin-top:6px">⚠️ Vous avez indiqué <b>'+CT.semaines+' semaines</b> d’accueil, mais le calendrier en compte <b>'+prog+'</b>. Le contrat doit dire la même chose partout : corrigez le nombre ou le calendrier.</div>' : ''));
 }
 /* Semaines où l'enfant vient, d'après le calendrier des semaines sans accueil (52 semaines depuis le début du contrat) */
 function ctSemProg(C){
@@ -693,7 +694,9 @@ function ctSemProg(C){
 /* Année incomplète, congés payés en juin : estimation (le plus favorable entre maintien de salaire et 10 %) */
 function cpJuinEstime(c){
   const dv = derive(c), vj = (dv.moyH||0)/6*(dv.tauxEff||0), dix = R('cpDixieme')||0.10;
-  const an = Math.max(30*vj, 12*(dv.brut||0)*dix);
+  // année incomplète : 2,5 jours par période de 4 semaines d'accueil (pas toujours 30 jours)
+  const sem = parseFloat(c.semaines)||dv.semaines||52, jAn = c.type===1 ? Math.min(R('cpMax')||30, Math.ceil(sem/4*(R('cpParMois')||2.5) - 1e-9)) : 30;
+  const an = Math.max(jAn*vj, 12*(dv.brut||0)*dix);
   const deb = parseD(c.debut); if(!deb) return {an, premier: an, juin: today().getFullYear()};
   const y = deb.getMonth()>=5 ? deb.getFullYear()+1 : deb.getFullYear(), e = new Date(y, 4, 31);
   const acq = Math.min(30, joursAcquisCP(iso(deb), iso(e), 0, false, c)), mois = ((e-deb)/86400000+1)/30.4375;
@@ -912,10 +915,17 @@ function pickKid(theme, key){
 }
 function refillFromContract(theme){
   const k = selKey(theme);
-  if(theme==='mois' && typeof moisSaisieEffacer==='function') moisSaisieEffacer(k, val('mois-mois'));
+  const mGarde = theme==='mois' ? val('mois-mois') : '';
+  if(theme==='mois' && typeof moisSaisieEffacer==='function') moisSaisieEffacer(k, mGarde);
   if(STATE.forms[theme]) delete STATE.forms[theme][k];
   loadThemeForm(theme);
-  toast('Valeurs du contrat rechargées.');
+  // on reste sur le mois affiché
+  if(mGarde && val('mois-mois')!==mGarde){
+    setVal('mois-mois', mGarde); const cG = moisContrat();
+    if(cG) moisFillFromContract(cG, mGarde); else if(STATE.libre) moisFillLibre(mGarde);
+    refreshVisibility('mois'); CALC.mois(); persistTheme('mois');
+  }
+  toast(mGarde ? fmtMonth(mGarde).replace(/^./, x=>x.toUpperCase())+' : valeurs du contrat rechargées.' : 'Valeurs du contrat rechargées.');
 }
 function formCollect(theme){
   const root = $('theme-'+theme), f = {i:{}, s:{}};
