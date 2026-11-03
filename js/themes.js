@@ -42,6 +42,7 @@ document.addEventListener('input', e=>{
   if(e.target.id==='ccass-cal-mois'){ buildCcassCalendar(); }
   if(e.target.id==='ccass-motif-sel'){ VIS.ccass(); }
   if(e.target.id==='mois-mois' && moisContrat() && e.target.value){ moisFillFromContract(moisContrat(), e.target.value); VIS.mois(); }
+  else if(e.target.id==='mois-mois' && !moisContrat() && STATE.libre && e.target.value){ moisFillLibre(e.target.value); }
   if(e.target.id==='mois-kmnb'){ const cK = moisContrat(), tK = cK ? parseFloat(String(paramsAt(cK, parseD(val('mois-mois'))||today()).kmTaux||'').replace(',','.'))||0 : 0;
     if(tK) setVal('mois-km', round2(num('mois-kmnb')*tK)); else if(val('mois-kmnb')) toast('Pas de tarif au kilomètre dans le contrat : indiquez le montant en euros.'); }
   if(e.target.id==='ie-mois' && ieContratChoisi() && e.target.value){ ieFillFromContract(ieContratChoisi(), e.target.value); VIS.ie(); }
@@ -59,6 +60,9 @@ function curMonth(){ return isoMonth(today()); }
    ===================================================================================== */
 VIS.mensu = ()=>{
   const alt = seg('mensu-rythme')===1;
+  show('mensu-cpmode-row', seg('mensu-type')===1, 'flex');
+  const dw = String(val('mensu-dows')||'').split(',').filter(x=>x!=='').map(Number);
+  setHTML('mensu-dows-chips', ['Lun','Mar','Mer','Jeu','Ven','Sam','Dim'].map((l,i)=>'<button type="button" class="chip'+(dw.includes(i)?' on':'')+'" aria-pressed="'+dw.includes(i)+'" onclick="mensuDow('+i+')">'+l+'</button>').join(''));
   show('mensu-semaines-wrap', seg('mensu-type')===1);
   show('mensu-hB-wrap', alt); show('mensu-jB-wrap', alt);
   setTxt('mensu-hA-label', alt ? 'Heures de la semaine 1' : 'Heures par semaine');
@@ -99,7 +103,73 @@ CALC.mensu = ()=>{
   setTxt('out-mensu-salaire', salaire ? fmtEUR(salaire) : '—');
   setTxt('out-mensu-net', salaire ? fmtEUR(netMensualise(salaire, hMaj*taux*(1+majPct/100))) : '—');
   setTxt('mensu-net-hint', 'Estimation à '+fmtNum(netRatio()*100,2)+' % du brut'+(STATE.settings.am?' (Alsace-Moselle)':'')+' ; le net exact est calculé par Pajemploi.');
+  // entretien, repas, congés de l'année incomplète, total et chiffres Pajemploi d'un mois complet
+  const dows = String(val('mensu-dows')||'').split(',').filter(x=>x!=='').map(Number);
+  if(dows.length && !jA){ setVal('mensu-jA', dows.length); }
+  const hJour = moyJ ? moy/moyJ : 0, iej = hJour ? Math.max(num('mensu-ie'), ieLegalJour(hJour)) : 0;
+  const jMensu = moyJ*sem/12, ieMois = iej*jMensu, repasJ = num('mensu-repas'), repasMois = repasJ*jMensu;
+  const inc = seg('mensu-type')===1, cpMode = seg('mensu-cpmode'), dix = R('cpDixieme')||0.10;
+  const cp12 = inc && cpMode===0 ? salaire*dix : 0, brutHs = hMaj*taux*(1+majPct/100);
+  const netM = salaire ? netMensualise(salaire + cp12, brutHs) : 0;
+  setTxt('out-mensu-hjour', hJour ? fmtH(Math.round(hJour*60)) : '—'); setTxt('out-mensu-iej', iej ? fmtEUR(iej) : '—');
+  setTxt('out-mensu-frais', (ieMois||repasMois) ? fmtEUR(ieMois+repasMois)+(repasMois ? ' (dont repas '+fmtEUR(repasMois)+')' : '') : '—');
+  setTxt('out-mensu-total', salaire ? fmtEUR(netM + ieMois + repasMois) : '—');
+  const juin = inc && cpMode===1 && salaire ? Math.max(5*moy*taux, 12*salaire*dix) : 0;
+  show('row-mensu-juin', juin > 0, 'flex'); setTxt('out-mensu-juin', fmtEUR(juin));
+  const lpj = (l, v)=>'<div class="result-line"><span class="lbl">'+l+'</span><span class="val">'+v+'</span></div>';
+  setHTML('mensu-pj', salaire ? lpj('Heures normales', Math.round(hNorm + (cp12 && taux ? cp12/taux : 0))+' h') + lpj('Heures majorées', hMaj ? fmtNum(hMaj,2)+' h' : '0')
+    + lpj('Jours d’activité', Math.ceil(jMensu - 1e-9)+' j') + (cp12 ? lpj('Congés payés', 'dont '+fmtEUR(cp12*netRatio())+' net (10 %), déjà compris dans le salaire net') : '')
+    + lpj('Salaire net total', fmtEUR(netM)) + lpj('Indemnités d’entretien (moyenne)', fmtEUR(ieMois)) + lpj('Repas (moyenne)', fmtEUR(repasMois)) : '<p class="hint">Remplissez les heures, les jours et le salaire horaire.</p>');
+  show('mensu-libre-actions', selKey('mensu')==='libre');
+  // base partagée avec les autres outils en saisie libre
+  if(selKey('mensu')==='libre' && salaire) STATE.libre = {type: inc ? 1 : 0, semaines: sem, alt, hA, hB, jA: jA || dows.length, jB, moy, moyJ, taux, majPct, titre: seg('mensu-titre'), dows, ie: num('mensu-ie') || '', repas: repasJ || '', cpMode, base: round2(salaire), hNorm, hMaj, jMensu, hJour};
 };
+function mensuDow(i){
+  const s = new Set(String(val('mensu-dows')||'').split(',').filter(x=>x!=='').map(Number));
+  if(s.has(i)) s.delete(i); else s.add(i);
+  setVal('mensu-dows', [...s].sort().join(',')); if(s.size) setVal('mensu-jA', s.size);
+  VIS.mensu(); CALC.mensu(); persistTheme('mensu');
+}
+/* Saisie libre : du salaire mensualisé au salaire d'un mois, ou vers un calcul complet sans fiche */
+function libreVersMois(){
+  const k = selKey('mensu'); persistTheme('mensu');
+  if(k!=='libre'){ STATE.sel.mois = k; showTheme('mois'); return; }
+  if(!STATE.libre){ toast('Remplissez d’abord les heures, les jours et le salaire horaire.'); return; }
+  STATE.sel.mois = 'libre'; if(STATE.forms.mois) delete STATE.forms.mois.libre; saveState(); showTheme('mois');
+  toast('Salaire du mois prérempli avec votre salaire mensualisé.');
+}
+let CALC_PREFILL = null;
+function libreVersCalc(){
+  const L = STATE.libre; if(!L){ toast('Remplissez d’abord les heures, les jours et le salaire horaire.'); return; }
+  const go = ()=>{
+    const dows = (L.dows||[]).length ? L.dows : [0,1,2,3,4,5,6].slice(0, Math.max(1, Math.round(L.jA)||5));
+    const hJ = round2(L.hA/dows.length), wA = ['','','','','','',''].map((x,i)=>dows.includes(i) ? String(hJ) : '');
+    if(STATE.calc){ delete STATE.calc; if(STATE.journal) delete STATE.journal.calc; if(STATE.moisSaisies) delete STATE.moisSaisies.calc; Object.keys(STATE.forms||{}).forEach(t=>{ if(STATE.forms[t]) delete STATE.forms[t].calc; }); }
+    if(STATE.ui) delete STATE.ui.ctDraft;
+    CALC_PREFILL = {type: L.type, semaines: L.type===1 ? String(L.semaines) : '', wA, taux: String(L.taux), titre: L.titre, maj: String(L.majPct||''), horaires: 0,
+      repasMode: L.repas ? 1 : 0, repasPrix: L.repas ? String(L.repas) : '', ieMode: L.ie ? 1 : 0, ieMontant: L.ie ? String(L.ie) : '', cpMode: L.cpMode,
+      debut: iso(new Date(today().getFullYear(), today().getMonth(), 1))};
+    editContrat('calc', true); CALC_PREFILL = null;
+    toast('Contrat de calcul prérempli'+(L.alt ? ' (rythme d’une semaine sur deux à compléter)' : '')+' : vérifiez la date de début et le planning.');
+  };
+  if(STATE.calc) showConfirmDialog('Remplacer le calcul sans fiche ?', 'Un calcul sans fiche existe déjà. Le remplacer par ces chiffres ?', go, 'Oui, remplacer', 'Annuler'); else go();
+}
+/* « Salaire du mois » en saisie libre : rempli avec le salaire mensualisé et les vrais jours du mois */
+function moisFillLibre(m){
+  const L = STATE.libre; if(!L || !m) return;
+  const d = parseD(m), y = d.getFullYear(), mo = d.getMonth();
+  setSegVal('mois-type', L.type); setVal('mois-base', L.base); setVal('mois-heures', round2(L.hNorm + L.hMaj)); setVal('mois-taux', L.taux);
+  setVal('mois-jmensu', round2(L.jMensu)); setVal('mois-majoration', L.majPct || '');
+  let prev = 0, fer = 0;
+  if((L.dows||[]).length){ for(let i=1; i<=daysInMonth(y, mo); i++){ const dt = new Date(y, mo, i); if(!L.dows.includes(dowIdx(dt))) continue; prev++; if(ferieName(dt)) fer++; } }
+  const jAuto = prev ? prev - fer : (Math.round(L.jMensu) || '');
+  setVal('mois-jours', jAuto); setVal('mois-jprev', prev || ''); if($('mois-jours')) $('mois-jours').dataset.auto = String(jAuto);
+  setVal('mois-hjour', L.hJour ? round2(L.hJour) : ''); setVal('mois-indemj', L.ie || ''); setVal('mois-repas', L.repas || '');
+  setSegVal('mois-cp12', L.type===1 && L.cpMode===0 ? 1 : 0);
+  ['mois-deduction','mois-jded','mois-hded','mois-hcompl','mois-hmaj','mois-cpmontant','mois-km','mois-kmnb','mois-acompte','mois-pas','mois-regul','mois-jcp','mois-abs-dates'].forEach(id=>setVal(id, ''));
+  setSegVal('mois-incomplet', 0); setSegVal('mois-heuresup', 0); setSegVal('mois-ferie', 0);
+  refreshVisibility('mois');
+}
 
 /* =====================================================================================
    02 · SALAIRE DU MOIS, DÉCLARATION PAJEMPLOI ET HISTORIQUE DES MOIS VALIDÉS
@@ -115,7 +185,7 @@ VIS.mois = ()=>{
 function moisContrat(){ const k = selKey('mois'); return k!=='libre' ? getContrat(k) : null; }
 PREFILL.mois = c=>{
   const m = curMonth(); setVal('mois-mois', m);
-  if(!c) return;
+  if(!c){ if(STATE.libre) moisFillLibre(m); return; }
   moisFillFromContract(c, m);
 };
 function moisFillFromContract(c, m){
@@ -190,7 +260,10 @@ function moisCompute(){
   const inc = seg('mois-type')===1;
   const taux = num('mois-taux'), base = num('mois-base');
   const absent = seg('mois-incomplet')===1;
-  const ded = absent ? Math.min(num('mois-deduction'), base) : 0;
+  // saisie libre : retenue calculée toute seule (salaire × heures non travaillées ÷ heures prévues du mois, Cour de cassation)
+  const dedAuto = !moisContrat() && absent && !val('mois-deduction') && num('mois-hded') && num('mois-jprev') && num('mois-hjour')
+    ? round2(base*num('mois-hded')/(num('mois-jprev')*num('mois-hjour'))) : 0;
+  const ded = absent ? Math.min(num('mois-deduction') || dedAuto, base) : 0;
   const hs = seg('mois-heuresup')===1;
   const hcompl = hs ? num('mois-hcompl') : 0, hmaj = hs ? num('mois-hmaj') : 0;
   const majPct = Math.max(num('mois-majoration')||R('majMin',d), R('majMin',d));
@@ -234,6 +307,8 @@ function moisCompute(){
   let ieAuto = null, jours = joursSaisis;
   const cIE = moisContrat();
   const absSet = new Set(String(val('mois-abs-dates')||'').split(',').filter(Boolean));
+  // saisie libre : jours non travaillés retirés aussi des jours d'entretien et de repas (tant que le nombre de jours n'a pas été corrigé à la main)
+  if(!cIE && absent && num('mois-jded') && $('mois-jours') && $('mois-jours').dataset.auto && String(joursSaisis)===$('mois-jours').dataset.auto) jours = Math.max(0, joursSaisis - Math.round(num('mois-jded')));
   if(cIE && joursSaisis){
     const I = ieDuMoisSauf(cIE, m, absSet);
     // absence retirée du salaire sans préciser les jours : l'entretien et les repas de ces jours ne sont pas dus non plus
@@ -294,7 +369,7 @@ function moisCompute(){
   const pasM = val('mois-pas')!=='' ? Math.max(0, num('mois-pas')) : pasEstime(netImp, ie, repas);
   return {m, d, inc, taux, base, ded, hContrat, brutMensu: Math.max(0, base-ded), hcompl, hmaj, majPct, supFerie, brutCompl, brutMaj, brutNormal, cp12, cpVerse, cpTot, brut,
     net, netHs, netImp, brutMajMensu, hMajMensuDu, hComplDecl, hMajDecl, jours, hj, ieLeg, ieSaisie, ieJour, ie, ieAuto, repas, km, hNormDecl, jDecl, jHors: jHorsC, hReel, hReelAuto, j8, hm8,
-    pas: pasM, jcp: num('mois-jcp'), acompte: num('mois-acompte'), datepaie: val('mois-datepaie')};
+    pas: pasM, dedAuto, jcp: num('mois-jcp'), acompte: num('mois-acompte'), datepaie: val('mois-datepaie')};
 }
 /* Jours fériés : précisions selon le contrat (fériés travaillés) et le lundi de Pentecôte (journée de solidarité) */
 function feriesPlus(fl){
@@ -323,10 +398,12 @@ CALC.mois = ()=>{
   else if(!r.ieAuto && r.ieSaisie && !r.hj) w.push('Durée des journées non indiquée : '+fmtEUR(r.ieSaisie)+' par jour est retenu sans contrôle. Il est sous le minimum légal pour les journées de plus de '+fmtH(Math.floor(ieSeuilHeures(r.ieSaisie, d)*60))+' : indiquez la durée moyenne pour le vérifier.');
   else if(!r.ieAuto && r.ieSaisie && r.ieSaisie < r.ieLeg-1e-9) w.push('⚠️ L\'indemnité d\'entretien saisie ('+fmtEUR(r.ieSaisie)+') est sous le minimum légal pour une journée de '+fmtNum(r.hj||9,2)+' h ('+fmtEUR(r.ieLeg)+') : le minimum est appliqué.');
   if(!r.ieAuto && r.jours && !r.hj && !r.ieSaisie) w.push('Durée des journées non indiquée : le minimum d\'entretien est calculé pour '+(R('ieHeuresRef', d)||9)+' h.');
-  if(seg('mois-incomplet')===1 && !num('mois-deduction')) w.push('Indiquez le montant déduit (calcul « Mois incomplet », bouton « Reporter »).');
+  if(seg('mois-incomplet')===1 && !num('mois-deduction') && !r.dedAuto) w.push('Indiquez le montant déduit (calcul « Mois incomplet », bouton « Reporter »).');
   if(!r.inc && r.cpTot) w.push('ℹ️ Année complète : complément de congés payés de '+fmtEUR(r.cpTot)+' brut (sur la période terminée le 31 mai, la règle des 10 % est plus favorable que le maintien de salaire). Il s’ajoute au salaire de ce mois, sans heures en plus ; sur Pajemploi, il est compris dans le salaire net.');
   const c = moisContrat();
   if(c && adaptationAFaire(c, r.m)) w.push(adaptationTxt(c, r.m));
+  if(r.dedAuto) w.push('ℹ️ Retenue calculée : '+fmtEUR(r.base)+' × '+fmtNum(num('mois-hded'),2)+' h non travaillées ÷ '+fmtNum(num('mois-jprev')*num('mois-hjour'),2)+' h prévues ce mois-ci = '+fmtEUR(r.dedAuto)+' (méthode de la Cour de cassation). Corrigez le montant s’il le faut.');
+  if(!c && STATE.libre && selKey('mois')==='libre') w.push('ℹ️ Saisie libre : chiffres repris de « Salaire mensualisé »'+((STATE.libre.dows||[]).length ? ', jours du mois comptés d’après vos jours d’accueil (jours fériés chômés retirés de l’entretien et des repas)' : '')+(STATE.libre.type===1 ? '. Année incomplète : si l’enfant ne vient pas certaines semaines ce mois-ci, corrigez le nombre de jours.' : '.'));
   if(c && r.km){ const kw = kmTauxAlerte(paramsAt(c, d).kmTaux); if(kw) w.push('⚠️ '+kw.charAt(0).toUpperCase()+kw.slice(1)); }
   if(c && repasPrixManquant(paramsAt(c, d))) w.push('⚠️ Vous fournissez les repas, mais le contrat n’indique pas leur prix : ils comptent pour 0 €. Indiquez le prix dans la fiche de l’enfant (étape 4).');
   if(c && journalOf(c.id)[r.m]) w.push('ℹ️ Ce mois est déjà validé : valider à nouveau remplacera l\'enregistrement.');
@@ -525,7 +602,18 @@ function ccassReport(){
 }
 PREFILL.ccass = c=>{
   setVal('ccass-cal-mois', curMonth());
-  if(!c){ buildCcassCalendar(); return; }
+  if(!c){
+    buildCcassCalendar();
+    const L = STATE.libre; if(!L) return;
+    setVal('ccass-base-normal', round2(L.hNorm*L.taux)); setSegVal('ccass-hassup', L.hMaj>0 ? 1 : 0);
+    if(L.hMaj>0){ setVal('ccass-base-sup', round2(L.hMaj*L.taux*(1+(L.majPct||10)/100))); setVal('ccass-hsup-habituel', round2(L.hMaj)); }
+    setVal('ccass-jours-habituel', round2(L.jMensu)); setVal('ccass-hnorm-habituel', round2(L.hNorm)); setSegVal('ccass-entretien', 1); setVal('ccass-ie-montant', L.ie || '');
+    refreshVisibility('ccass');
+    if((L.dows||[]).length && L.hJour){ const d0 = parseD(curMonth()), y = d0.getFullYear(), mo = d0.getMonth();
+      for(let i=1; i<=daysInMonth(y, mo); i++){ if(L.dows.includes(dowIdx(new Date(y, mo, i)))) setVal('ccass-d-'+i, round2(L.hJour)); }
+      if(typeof onCcassCalInput==='function') onCcassCalInput(); }
+    return;
+  }
   const dv = derive(c);
   setVal('ccass-base-normal', round2(dv.hNormMensu*dv.tauxEff));
   setSegVal('ccass-hassup', dv.hMajMensu>0 ? 1 : 0);
@@ -880,7 +968,7 @@ function cpAutoDates(){
 }
 PREFILL.cp = c=>{
   cpRefPeriods(c).forEach(p=>{ setVal('cp-'+p.k+'-debut', p.s?iso(p.s):''); setVal('cp-'+p.k+'-fin', p.e?iso(p.e):''); });
-  if(!c) return;
+  if(!c){ const L = STATE.libre; if(L){ setSegVal('cp-type', L.type); setVal('cp-taux', L.taux); setVal('cp-heures', round2(L.moy)); } return; }
   const dv = derive(c);
   setSegVal('cp-type', c.type); setVal('cp-taux', round2(dv.tauxEff)); setVal('cp-heures', round2(dv.moyH));
   // jours de congés déjà notés : suivi au jour le jour, sinon mois validés (+ reprise d'un contrat en cours)
@@ -974,7 +1062,11 @@ function ieFillFromContract(c, m){
 }
 PREFILL.ie = c=>{
   setVal('ie-mois', curMonth());
-  if(!c) return;
+  if(!c){ const L = STATE.libre; if(!L) return;
+    if(L.hJour) setVal('ie-heures', round2(L.hJour));
+    if((L.dows||[]).length){ const d0 = parseD(curMonth()), y = d0.getFullYear(), mo = d0.getMonth(); let n = 0;
+      for(let i=1; i<=daysInMonth(y, mo); i++){ const dt = new Date(y, mo, i); if(L.dows.includes(dowIdx(dt)) && !ferieName(dt)) n++; } setVal('ie-jours-accueil', n); }
+    return; }
   ieFillFromContract(c, curMonth());
 };
 CALC.ie = ()=>{
@@ -1129,7 +1221,7 @@ function finAutoRefresh(){
 }
 PREFILL.fin = c=>{
   setVal('fin-notif', iso(today()));
-  if(!c) return;
+  if(!c){ const L = STATE.libre; if(L){ setSegVal('fin-type', L.type); setVal('fin-taux', L.taux); setVal('fin-heures', round2(L.moy)); setVal('fin-salaire', L.base); } return; }
   const dv = derive(c);
   setSegVal('fin-type', c.type);
   setVal('fin-debut', c.debut);

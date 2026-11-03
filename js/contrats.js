@@ -549,7 +549,7 @@ function editContrat(id, force){
   const calc = id==='calc';
   if(!id && contratsEnCours().length >= placesMax()){ toast(placesMax()+' enfants en cours au maximum. Un contrat terminé libère sa place automatiquement.'); return; }
   CT_IS_NEW = calc ? !STATE.calc : !id;
-  CT = calc ? (STATE.calc ? clone(STATE.calc) : Object.assign(newContrat(), {id:'calc', horaires:1})) : id ? clone(getContrat(id)) : Object.assign(newContrat(), {horaires:1});
+  CT = calc ? (STATE.calc ? clone(STATE.calc) : Object.assign(newContrat(), {id:'calc', horaires:1}, (typeof CALC_PREFILL!=='undefined' && CALC_PREFILL) || {})) : id ? clone(getContrat(id)) : Object.assign(newContrat(), {horaires:1});
   setTxt('ct-title', calc ? 'Calcul sans fiche (aucun enfant créé)' : CT_IS_NEW ? 'Nouvel enfant' : 'Modifier : '+(CT.enfant||'enfant'));
   CT_TEXT.forEach(k=>setVal('ct-'+k, CT[k]));
   setSegVal('ct-handicap', CT.handicap); setSegVal('ct-type', CT.type); setSegVal('ct-titre', CT.titre);
