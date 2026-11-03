@@ -366,6 +366,16 @@
     </div>
     <div class="toggle-row"><span class="q">Avez-vous le titre professionnel AM-AP ?</span>
       <div class="seg" id="mensu-titre"><button class="on">Non</button><button>Oui</button></div></div>
+    <details class="help" id="mensu-plus" open><summary>Pour aller plus loin : jours d'accueil, entretien, repas, congés (facultatif)</summary>
+      <div class="field"><label>Jours d'accueil dans la semaine</label><div class="chips" id="mensu-dows-chips"></div><input type="hidden" id="mensu-dows">
+        <div class="hint">Sert à compter les vrais jours de chaque mois, jours fériés compris, dans « Salaire du mois ».</div></div>
+      <div class="grid2">
+        <div class="field"><label>Indemnité d'entretien convenue par jour (€)</label><input type="number" step="0.01" id="mensu-ie" placeholder="minimum légal"><div class="hint">Laissez vide pour le minimum légal de la journée moyenne.</div></div>
+        <div class="field"><label>Repas et goûters fournis par vous : prix par jour (€)</label><input type="number" step="0.01" id="mensu-repas" placeholder="vide si fournis par les parents"></div>
+      </div>
+      <div class="toggle-row" id="mensu-cpmode-row" style="display:none"><span class="q">Année incomplète : comment les congés payés sont-ils payés ?</span>
+        <div class="seg" id="mensu-cpmode"><button class="on">Un peu chaque mois (10 %)</button><button>En une fois en juin</button><button>Quand je prends mes congés</button></div></div>
+    </details>
 
     <div class="stub">
       <div class="stub-head">Résultat</div>
@@ -378,7 +388,14 @@
         <div class="result-line total"><span class="lbl">Salaire mensuel brut</span><span class="val" id="out-mensu-salaire">—</span></div>
         <div class="result-line"><span class="lbl">Salaire mensuel net (estimation)</span><span class="val" id="out-mensu-net">—</span></div>
         <div class="result-line" id="row-mensu-cp12" style="display:none"><span class="lbl">Si les congés sont payés chaque mois (année incomplète) : + 10 %, soit un salaire brut de</span><span class="val" id="out-mensu-cp12">—</span></div>
+        <div class="result-line"><span class="lbl">Indemnité d'entretien par jour (journée moyenne de <span id="out-mensu-hjour">—</span>)</span><span class="val" id="out-mensu-iej">—</span></div>
+        <div class="result-line"><span class="lbl">Entretien et repas (moyenne par mois)</span><span class="val" id="out-mensu-frais">—</span></div>
+        <div class="result-line total"><span class="lbl">Total à verser chaque mois (salaire net + entretien + repas, moyenne)</span><span class="val" id="out-mensu-total">—</span></div>
+        <div class="result-line" id="row-mensu-juin" style="display:none"><span class="lbl">Congés payés versés en juin, pour une année entière d'accueil (estimation)</span><span class="val" id="out-mensu-juin">—</span></div>
         <div class="net-hint" id="mensu-net-hint">—</div>
+        <div class="pajemploi-block"><div class="pajemploi-title">À déclarer sur Pajemploi pour un mois complet, sans absence</div><div id="mensu-pj"></div></div>
+        <div class="btn-row" id="mensu-libre-actions" style="flex-wrap:wrap;margin:10px 0"><button class="btn small primary" type="button" onclick="libreVersMois()">➜ Salaire d'un mois avec ces chiffres</button> <button class="btn small" type="button" onclick="libreVersCalc()">➜ Calcul complet sans fiche (planning, mois, fin)</button>
+          <div class="hint">En saisie libre, ces chiffres remplissent aussi « Mois incomplet », « Indemnités d'entretien », « Congés payés » et « Fin de contrat ».</div></div>
         <div class="legal"><strong>Règle —</strong> CCN des particuliers employeurs et de l'emploi à domicile (IDCC 3239), socle assistant maternel : salaire mensualisé = heures par semaine × 52 (année complète) ou × nombre de semaines d'accueil (année incomplète) ÷ 12 × salaire horaire. Les heures au-delà de <span data-reg="seuilMaj" data-fmt="num">45</span> h par semaine sont payées avec la majoration prévue au contrat (<span data-reg="majMin" data-fmt="num">10</span> % minimum). Le salaire horaire ne peut pas être inférieur au minimum conventionnel en vigueur. Les jours par mois sont indicatifs (repère pour l'entretien et les repas).</div>
         <button class="btn primary block" onclick="askPrintChoice('mensu','Salaire mensualisé — Récapitulatif')">📄 Récapitulatif PDF (enregistrer ou imprimer)</button>
       </div>
