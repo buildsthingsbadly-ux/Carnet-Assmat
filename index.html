@@ -369,6 +369,7 @@
     <details class="help" id="mensu-plus" open><summary>Pour aller plus loin : jours d'accueil, entretien, repas, congés (facultatif)</summary>
       <div class="field"><label>Jours d'accueil dans la semaine</label><div class="chips" id="mensu-dows-chips"></div><input type="hidden" id="mensu-dows">
         <div class="hint">Sert à compter les vrais jours de chaque mois, jours fériés compris, dans « Salaire du mois ».</div></div>
+      <div class="field" id="mensu-dowsB-wrap" style="display:none"><label>Jours d'accueil de la semaine 2</label><div class="chips" id="mensu-dowsB-chips"></div><input type="hidden" id="mensu-dowsB"></div>
       <div class="grid2">
         <div class="field"><label>Indemnité d'entretien convenue par jour (€)</label><input type="number" step="0.01" id="mensu-ie" placeholder="minimum légal"><div class="hint">Laissez vide pour le minimum légal de la journée moyenne.</div></div>
         <div class="field"><label>Repas et goûters fournis par vous : prix par jour (€)</label><input type="number" step="0.01" id="mensu-repas" placeholder="vide si fournis par les parents"></div>
@@ -462,6 +463,8 @@
         <div class="field"><label>Heures majorées (au-delà de <span data-reg="seuilMaj" data-fmt="num">45</span> h dans la semaine)</label><input type="number" step="0.25" id="mois-hmaj" placeholder="0"></div>
       </div>
       <div class="field"><label>Majoration de ces heures (%)</label><input type="number" step="1" id="mois-majoration" placeholder="10"><div class="hint">10 % minimum.</div></div>
+      <details class="help" id="mois-hs-sem" ontoggle="if(this.open) moisHsRender()"><summary>Calculer semaine par semaine (le carnet sépare complémentaires et majorées)</summary><div id="mois-hs-sem-body"></div></details>
+      <div class="field"><label>Heures faites le jour du repos hebdomadaire (souvent le dimanche)</label><input type="number" step="0.25" id="mois-hrepos" placeholder="0"><div class="hint">Accueil exceptionnel : +25 % sur ces heures, en plus. Comptez-les aussi dans les heures ci-dessus. À la place, un repos payé allongé d'autant est possible si vous en êtes convenus par écrit.</div></div>
     </div>
 
     <div class="toggle-row"><span class="q">Avez-vous travaillé un jour férié ce mois-ci ?</span>

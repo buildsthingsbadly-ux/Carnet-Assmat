@@ -35,6 +35,11 @@ const REG_DEFAULT = {
       values:[ {du:'2026-01-01', v:3.64}, {du:'2026-06-01', v:4.20} ] },
     salMinTitre: { cat:'salaire', label:'Salaire horaire minimum brut avec titre professionnel AM-AP', unit:'€/h',
       values:[ {du:'2026-01-01', v:3.79}, {du:'2026-06-01', v:4.37} ] },
+    majReposHebdo: { cat:'salaire', label:'Majoration des heures faites le jour du repos hebdomadaire (accueil exceptionnel ; ou repos payé allongé d\'autant)', unit:'%',
+      src:'https://code.travail.gouv.fr/contribution/3239-travail-du-dimanche-quelle-contrepartie',
+      values:[ {du:'2022-01-01', v:25} ] },
+    fractionnement: { cat:'conges', label:'Fractionnement : jours de congé principal pris entre le 1er novembre et le 30 avril donnant 1 jour [seuil 1] ou 2 jours [seuil 2] de congé en plus, sauf renonciation écrite', unit:'jours',
+      values:[ {du:'2008-01-01', v:[3,6]} ] },
     seuilMaj: { cat:'salaire', label:'Seuil hebdomadaire au-delà duquel les heures sont majorées', unit:'h/sem',
       values:[ {du:'2022-01-01', v:45} ] },
     majMin: { cat:'salaire', label:'Majoration minimale des heures au-delà de 45 h', unit:'%',
@@ -197,6 +202,7 @@ const REG_DEFAULT = {
       values:[ {du:'2025-09-01', v:12} ] }
   },
   changelog: [
+    { date:'2026-11-03', cats:['salaire','conges','temps'], text:'Accueil exceptionnel le jour du repos hebdomadaire : heures majorées de 25 % (ou repos payé allongé d\'autant). Jours de fractionnement du congé principal (1 ou 2 jours, sauf renonciation écrite). Alertes sur les durées maximales du contrat.' },
     { date:'2026-11-03', cats:['entretien','cotisations','fiscal'], text:'Barèmes kilométriques ajoutés (minimum : barème de l\'administration ; maximum : barème fiscal) pour contrôler le tarif du contrat. Prélèvement à la source estimé avec le taux de Mon profil (0 % par défaut : non imposable).' },
     { date:'2026-11-02', cats:['cotisations','fiscal','conges'], text:'Taux salariaux 2026 vérifiés sur urssaf.fr (mise à jour du 01/06/2026) : prévoyance IRCEM 1,04 % confirmée, comme la vieillesse (6,90 % et 0,40 %), la CSG-CRDS (6,80 % et 2,90 %), la retraite complémentaire (3,15 %) et la CEG (0,86 %). Nouvelles valeurs modifiables par mise à jour : plafond de la Sécurité sociale (4 005 €), méthode du dixième (10 %), crédit d\'impôt des parents (50 %, 3 500 €, moins de 6 ans).' },
     { date:'2026-11-01', cats:['cmg'], text:'CMG : plancher de ressources corrigé à 814,02 € par mois (valeur publiée par l\'Urssaf, mise à jour du 24/04/2026) ; plafond de 8 500 €, le même pour un parent seul.' },

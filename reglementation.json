@@ -65,6 +65,32 @@
         }
       ]
     },
+    "majReposHebdo": {
+      "cat": "salaire",
+      "label": "Majoration des heures faites le jour du repos hebdomadaire (accueil exceptionnel ; ou repos payé allongé d'autant)",
+      "unit": "%",
+      "src": "https://code.travail.gouv.fr/contribution/3239-travail-du-dimanche-quelle-contrepartie",
+      "values": [
+        {
+          "du": "2022-01-01",
+          "v": 25
+        }
+      ]
+    },
+    "fractionnement": {
+      "cat": "conges",
+      "label": "Fractionnement : jours de congé principal pris entre le 1er novembre et le 30 avril donnant 1 jour [seuil 1] ou 2 jours [seuil 2] de congé en plus, sauf renonciation écrite",
+      "unit": "jours",
+      "values": [
+        {
+          "du": "2008-01-01",
+          "v": [
+            3,
+            6
+          ]
+        }
+      ]
+    },
     "seuilMaj": {
       "cat": "salaire",
       "label": "Seuil hebdomadaire au-delà duquel les heures sont majorées",
@@ -832,6 +858,15 @@
     }
   },
   "changelog": [
+    {
+      "date": "2026-11-03",
+      "cats": [
+        "salaire",
+        "conges",
+        "temps"
+      ],
+      "text": "Accueil exceptionnel le jour du repos hebdomadaire : heures majorées de 25 % (ou repos payé allongé d'autant). Jours de fractionnement du congé principal (1 ou 2 jours, sauf renonciation écrite). Alertes sur les durées maximales du contrat."
+    },
     {
       "date": "2026-11-03",
       "cats": [
