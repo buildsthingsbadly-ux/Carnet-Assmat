@@ -93,6 +93,7 @@ function renderMoisDash(){
     + '<div style="text-align:center"><b>'+fmtMonth(ym)+'</b><div class="hint" style="margin:2px 0 0">Déclaration Pajemploi du '+ouv.toLocaleDateString('fr-FR',{day:'numeric',month:'short'})+' au '+lim.toLocaleDateString('fr-FR',{day:'numeric',month:'short'})
     + (t>=ouv && t<=lim ? ' · <b>'+(jr>0?'encore '+jr+' j':'dernier jour')+'</b>' : '')+'</div></div>'
     + '<button class="icon-btn" onclick="DASH_YM=isoMonth(new Date('+d0.getFullYear()+','+(d0.getMonth()+1)+',1));renderMoisDash();afterNavigate()" aria-label="Mois suivant">›</button></div>';
+  h += '<p class="hint" style="margin:0 0 10px">Votre paie du mois, enfant par enfant : <b>1.</b> vérifier et valider les chiffres, <b>2.</b> les envoyer aux parents, <b>3.</b> noter le salaire reçu.</p>';
   if(!list.length){ setHTML('home-mois', h+'<div class="info-box">Aucun contrat ce mois-ci.</div>'); return; }
   let totNet = 0, totFrais = 0, estim = false;
   list.forEach(c=>{

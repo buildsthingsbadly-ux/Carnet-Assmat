@@ -28,7 +28,7 @@ function renderDocs(){
   h += '</div>';
   const p = STATE.profil||{}, miss = [];
   if(!p.nom) miss.push('votre nom'); if(!p.agrementNum) miss.push('votre numéro d\'agrément'); if(!p.adresse) miss.push('votre adresse');
-  if(miss.length) h += '<div class="warn-box">Pour des documents complets, renseignez '+miss.join(', ')+' dans Réglages ▸ Mon profil.<div class="btn-row" style="margin-top:6px"><button type="button" class="btn small" onclick="showTheme(\'reglages\')">Ouvrir Mon profil</button></div></div>';
+  if(miss.length) h += '<div class="warn-box">Pour des documents complets, renseignez '+miss.join(', ')+' dans Réglages ▸ Mes coordonnées et mon agrément.<div class="btn-row" style="margin-top:6px"><button type="button" class="btn small" onclick="showTheme(\'reglages\')">Ouvrir Mon profil</button></div></div>';
   const c = getContrat(DOCS_ID);
   if(c){
     const m = []; if(!c.parent1) m.push('le nom du parent employeur'); if(!c.adresse) m.push('l\'adresse de la famille');

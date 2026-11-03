@@ -50,7 +50,7 @@ function ficheOuvrir(f){
 function ficheImprimer(){ if(!FICHE_HTML) return; closeOverlay('fiche-overlay'); doPrint(FICHE_HTML); }
 /* origine des chiffres d'un mois : validé, suivi au jour le jour, ou planning (sans suivi) */
 function ficheOrigine(c, ym){
-  if(!c) return 'Calcul fait avec les chiffres que vous avez saisis (saisie libre, sans fiche enfant).';
+  if(!c) return 'Calcul fait avec les chiffres que vous avez saisis (calcul rapide, sans fiche enfant).';
   if(journalOf(c.id)[ym]) return '✔ Mois <b>validé</b> : les chiffres sont ceux enregistrés au moment de la validation.';
   const cg = ((STATE.settings||{}).conges||[]).length, ab = ((STATE.settings||{}).absEnf||[]).some(p=>p.cid===c.id);
   const inc = c.type===1 && c.semOffAVenir ? ' <b>Semaines sans accueil pas encore toutes connues</b> : tant qu’une semaine n’est pas notée, l’entretien et les repas la comptent comme une semaine d’accueil (le salaire, lui, ne change pas).' : '';
@@ -113,7 +113,7 @@ function ficheMois(){
   return {titre:'le salaire du mois', sous:(c ? (c.enfant||'')+' · ' : '')+fmtMonth(r.m),
     bref:'Pour '+fmtMonth(r.m)+', la famille vous verse <b>'+FE(total)+'</b> : '+FE(r.net)+' de salaire net estimé et '+FE(r.ie + r.repas + r.km)+' de frais remboursés.',
     origine: ficheOrigine(c, r.m),
-    prise: [['Enfant', c ? (c.enfant||'')+(c.famille?' ('+c.famille+')':'') : 'saisie libre'], ['Mois', fmtMonth(r.m)], ['Type de contrat', r.inc ? 'année incomplète (l\'enfant ne vient pas toute l\'année)' : 'année complète (l\'enfant vient toute l\'année)'],
+    prise: [['Enfant', c ? (c.enfant||'')+(c.famille?' ('+c.famille+')':'') : 'calcul rapide'], ['Mois', fmtMonth(r.m)], ['Type de contrat', r.inc ? 'année incomplète (l\'enfant ne vient pas toute l\'année)' : 'année complète (l\'enfant vient toute l\'année)'],
       ['Salaire horaire brut', FE(r.taux)]].concat(dv ? [['Planning moyen', FN(dv.moyH)+' h par semaine sur '+FN(dv.moyJ,1)+' jours']] : []).concat([['Jours de présence ce mois-ci', r.jours+' j']]),
     etapes: E,
     resultat: [['Salaire brut', FE(r.brut)], ['Salaire net (estimation)', FE(r.net)], ['Indemnités d\'entretien', FE(r.ie)], ['Repas', FE(r.repas)], ['Kilomètres', FE(r.km)], ['Total à verser par la famille', FE(total), true], ['Net imposable (pour vos impôts)', FE(r.netImp)]],
@@ -200,7 +200,7 @@ function ficheCp(){
   const txt = id=>($(id)||{}).textContent||'—';
   if(txt('out-cp-total')==='—') return null;
   const val10 = seg('cp-valeur')===1;
-  return {titre:'les congés payés', sous: (()=>{ const k=selKey('cp'); const c=k!=='libre'?getContrat(k):null; return c ? c.enfant||'' : 'saisie libre'; })(),
+  return {titre:'les congés payés', sous: (()=>{ const k=selKey('cp'); const c=k!=='libre'?getContrat(k):null; return c ? c.enfant||'' : 'calcul rapide'; })(),
     bref:'Il vous reste <b>'+txt('out-cp-total')+'</b> de congés à prendre.',
     prise:[['Périodes de référence', 'du 1er juin au 31 mai'], ['Congés acquis sur les périodes terminées', txt('out-cp-acquis')], ['Congés de la période en cours', txt('out-cp-encours')], ['Congés déjà pris', txt('out-cp-pris')]],
     etapes:[

@@ -61,6 +61,8 @@ function curMonth(){ return isoMonth(today()); }
 VIS.mensu = ()=>{
   const alt = seg('mensu-rythme')===1;
   show('mensu-cpmode-row', seg('mensu-type')===1, 'flex');
+  // « Pour aller plus loin » : ouvert seulement s'il sert déjà (jours, entretien, repas) ou en année incomplète
+  const mp = $('mensu-plus'); if(mp && !mp.open && (val('mensu-dows') || val('mensu-ie') || val('mensu-repas') || seg('mensu-type')===1)) mp.open = true;
   const dw = String(val('mensu-dows')||'').split(',').filter(x=>x!=='').map(Number);
   show('mensu-dowsB-wrap', alt);
   const dwB = String(val('mensu-dowsB')||'').split(',').filter(x=>x!=='').map(Number);
@@ -445,7 +447,7 @@ CALC.mois = ()=>{
   if(c && adaptationAFaire(c, r.m)) w.push(adaptationTxt(c, r.m));
   if(r.supRepos) w.push('ℹ️ Jour de repos hebdomadaire travaillé : '+fmtNum(num('mois-hrepos'),2)+' h × '+fmtEUR(r.taux)+' × '+(R('majReposHebdo', r.d)||25)+' % = '+fmtEUR(r.supRepos)+' brut en plus (compris dans le salaire net à déclarer).');
   if(r.dedAuto) w.push('ℹ️ Retenue calculée : '+fmtEUR(r.base)+' × '+fmtNum(num('mois-hded'),2)+' h non travaillées ÷ '+fmtNum(num('mois-jprev')*num('mois-hjour'),2)+' h prévues ce mois-ci = '+fmtEUR(r.dedAuto)+' (méthode de la Cour de cassation). Corrigez le montant s’il le faut.');
-  if(!c && STATE.libre && selKey('mois')==='libre') w.push('ℹ️ Saisie libre : chiffres repris de « Salaire mensualisé »'+((STATE.libre.dows||[]).length ? ', jours du mois comptés d’après vos jours d’accueil (jours fériés chômés retirés de l’entretien et des repas)' : '')+(STATE.libre.type===1 ? '. Année incomplète : si l’enfant ne vient pas certaines semaines ce mois-ci, corrigez le nombre de jours.' : '.'));
+  if(!c && STATE.libre && selKey('mois')==='libre') w.push('ℹ️ Calcul rapide : chiffres repris de « Salaire mensualisé »'+((STATE.libre.dows||[]).length ? ', jours du mois comptés d’après vos jours d’accueil (jours fériés chômés retirés de l’entretien et des repas)' : '')+(STATE.libre.type===1 ? '. Année incomplète : si l’enfant ne vient pas certaines semaines ce mois-ci, corrigez le nombre de jours.' : '.'));
   if(c && r.km){ const kw = kmTauxAlerte(paramsAt(c, d).kmTaux); if(kw) w.push('⚠️ '+kw.charAt(0).toUpperCase()+kw.slice(1)); }
   if(c && repasPrixManquant(paramsAt(c, d))) w.push('⚠️ Vous fournissez les repas, mais le contrat n’indique pas leur prix : ils comptent pour 0 €. Indiquez le prix dans la fiche de l’enfant (étape 4).');
   if(c && journalOf(c.id)[r.m]) w.push('ℹ️ Ce mois est déjà validé : valider à nouveau remplacera l\'enregistrement.');
@@ -463,7 +465,7 @@ CALC.mois = ()=>{
   show('row-mois-pas', aPas, 'flex'); show('row-mois-apres', aPas, 'flex');
   setTxt('lbl-mois-pas', 'Impôt sur le revenu retenu par Pajemploi ('+(val('mois-pas')!=='' ? 'montant du bulletin' : 'taux de '+fmtNum(pasTaux(),2)+' %, estimation')+')');
   setTxt('out-mois-pas', '−'+fmtEUR(r.pas)); setTxt('out-mois-apres', fmtEUR(total - r.pas));
-  setTxt('mois-pas-hint', aPas ? 'Pajemploi prélève cet impôt sur le compte des parents : ils versent à l’assistante maternelle le salaire après impôt, plus les indemnités.' : 'Impôt sur le revenu : 0 € (non imposable, réglage par défaut). Si vous êtes imposée, indiquez votre taux dans Réglages ▸ Mon profil.');
+  setTxt('mois-pas-hint', aPas ? 'Pajemploi prélève cet impôt sur le compte des parents : ils vous versent le salaire après impôt, plus les indemnités.' : 'Impôt sur le revenu : 0 € (non imposable, réglage par défaut). Si vous êtes imposée, indiquez votre taux dans Réglages ▸ Ma paie.');
   show('row-mois-reste', r.acompte>0, 'flex'); setTxt('out-mois-reste', fmtEUR(total - r.pas - r.acompte));
   setTxt('out-mois-netsocial', r.brut ? fmtEUR(r.net) : '—');
   setTxt('out-mois-netimp', r.brut ? fmtEUR(r.netImp) : '—');
@@ -523,7 +525,7 @@ function supprimerMois(id, m){
 }
 function renderJournal(){
   const c = moisContrat();
-  if(!c){ setHTML('mois-journal', '<p class="hint">L\'historique est tenu pour chaque enfant enregistré (pas en saisie libre).</p>'); return; }
+  if(!c){ setHTML('mois-journal', '<p class="hint">L\'historique est tenu pour chaque enfant enregistré (pas en calcul rapide).</p>'); return; }
   const J = journalOf(c.id), ms = Object.keys(J).sort().reverse();
   if(!ms.length){ setHTML('mois-journal', '<p class="hint">Aucun mois validé pour '+esc(c.enfant)+'. Après chaque déclaration Pajemploi, touchez « Valider ce mois » : les cumuls ci-dessous se rempliront tout seuls.</p>'); return; }
   const t = journalTotals(c.id);
@@ -644,6 +646,7 @@ function ccassReport(){
 }
 PREFILL.ccass = c=>{
   setVal('ccass-cal-mois', curMonth());
+  { const fc = $('ccass-fold-contrat'); if(fc) fc.open = !c; }
   if(!c){
     buildCcassCalendar();
     const L = STATE.libre; if(!L) return;

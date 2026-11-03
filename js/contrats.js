@@ -178,7 +178,7 @@ function finEssai(c){
 
 /* ---------- Navigation (avec le bouton « retour » d'Android) ---------- */
 const THEME_TITLES = { calc:'Calcul sans fiche', parents:'Pour les parents', contrat:'Enfant & contrat', mensu:'Salaire mensualisé', mois:'Salaire du mois', ccass:'Mois incomplet',
-  cp:'Congés payés', ie:'Indemnités d\'entretien', fin:'Fin de contrat', abattement:'Impôts', cmg:'Aide CMG', reglages:'Réglages', aide:'Aide', docs:'Documents', suivi:'Suivi & paie', formation:'Se former', apropos:'À propos' };
+  cp:'Congés payés', ie:'Indemnités d\'entretien', fin:'Fin de contrat', abattement:'Impôts : abattement', cmg:'Aide CMG des parents', reglages:'Réglages', aide:'Aide', docs:'Documents', suivi:'Suivi au jour le jour', formation:'Se former', apropos:'À propos' };
 let CURRENT = 'home';
 function showTheme(id, opts){
   opts = opts||{};
@@ -898,7 +898,8 @@ function renderPicker(theme){
   STATE.contrats.forEach(c=>{ h+='<button type="button" class="chip'+(k===c.id?' on':'')+'" onclick="pickKid(\''+theme+'\',\''+c.id+'\')">'+esc(c.enfant||'Enfant')+'</button>'; });
   h += STATE.calc ? '<button type="button" class="chip'+(k==='calc'?' on':'')+'" onclick="pickKid(\''+theme+'\',\'calc\')">🧮 Calcul sans fiche</button>'
     : '<button type="button" class="chip" onclick="showTheme(\'calc\')">🧮 Calcul sans fiche…</button>';
-  h += '<button type="button" class="chip'+(k==='libre'?' on':'')+'" onclick="pickKid(\''+theme+'\',\'libre\')">Saisie libre</button></div>';
+  h += '<button type="button" class="chip'+(k==='libre'?' on':'')+'" onclick="pickKid(\''+theme+'\',\'libre\')">Calcul rapide</button></div>';
+  if(k==='libre' || k==='calc') h += '<div class="kp-hint" style="margin-top:2px">« Calcul sans fiche » : un contrat complet qui garde vos mois. « Calcul rapide » : un calcul ponctuel, case par case.</div>';
   h += '<div class="kp-hint">'+(k==='libre'
       ? 'Calcul ponctuel : remplissez les cases vous-même. Vos saisies restent mémorisées.'
       : 'Cases remplies d\'après '+(k==='calc' ? 'votre calcul sans fiche (<a href="#" onclick="showTheme(\'calc\');return false;">voir toutes les étapes</a>)' : 'le contrat de '+esc(getContrat(k).enfant))+'. Vous pouvez les modifier : vos changements sont mémorisés. <br><button type="button" class="btn small" style="margin-top:6px" onclick="refillFromContract(\''+theme+'\')">↺ Revenir aux valeurs du contrat</button>')+'</div>';

@@ -194,7 +194,7 @@ CALC.abattement = ()=>{
     const c = getContrat(val('ab-c'+i+'-cid')); if(!c || !annee) continue;
     Object.entries(journalOf(c.id)).forEach(([m, r])=>{ const py = r.datepaie && parseD(r.datepaie) ? parseD(r.datepaie).getFullYear() : +m.slice(0,4); if(py===annee) pasAn += +(r.pas||0); });
   }
-  setTxt('out-ab-pas', pasAn > 0.004 ? fmtEUR(pasAn)+' (déjà payé : il est déduit de votre impôt final)' : '0 € (non imposable, ou taux non indiqué dans Mon profil)');
+  setTxt('out-ab-pas', pasAn > 0.004 ? fmtEUR(pasAn)+' (déjà payé : il est déduit de votre impôt final)' : '0 € (non imposable, ou taux non indiqué dans Réglages ▸ Ma paie)');
   abUpdateStatus();
 };
 function abUpdateStatus(){ setTxt('ab-save-status', storageOK ? 'Enregistrement automatique sur ce téléphone, au fil des mois.' : 'Enregistrement impossible (navigation privée ?) : faites une copie de sécurité.'); }
