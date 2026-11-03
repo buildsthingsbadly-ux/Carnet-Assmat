@@ -99,7 +99,9 @@ function renderMoisDash(){
     const J = journalOf(c.id)[ym], S = (STATE.suivi||{})[c.id], useSuivi = !!(S && Object.keys(S.days||{}).length);
     const mr = (S && S.months && S.months[ym]) || {st:'ouvert'};
     let net, frais, ieM, jIE, M = null;
+    const X = !J && typeof moisSaisieOf==='function' && moisSaisieOf(c.id, ym) ? moisPourContrat(c, ym) : null;
     if(J){ net = J.net; ieM = J.ie||0; jIE = J.jours; frais = (J.repas||0)+(J.km||0); }
+    else if(X){ net = X.net; ieM = X.ie||0; jIE = X.jours; frais = round2((X.repas||0)+(X.km||0)); estim = true; }
     else {
       // estimation jour par jour (suivi, ou planning du mois) : mêmes chiffres que « Salaire du mois »
       M = suiviMonth(c, ym); net = M.net; estim = true;

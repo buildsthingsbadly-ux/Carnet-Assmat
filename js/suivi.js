@@ -59,6 +59,10 @@ function malCountBefore(c, d){
   const days = (suiviOf(c.id).days)||{};
   let n = 0;
   Object.keys(days).forEach(k=>{ const r=days[k]; if(r.st==='absMalC' && k >= iso(anniv) && k < iso(d)) n++; });
+  // sans suivi : jours « enfant malade avec certificat » retirés dans « Salaire du mois » (mois validés ou en cours)
+  Object.entries((STATE.journal||{})[c.id]||{}).forEach(([ym, r])=>{ (r.abs||[]).forEach(a=>{ if(a.m==='absMalC' && a.ded && a.k >= iso(anniv) && a.k < iso(d)) n++; }); });
+  Object.entries((STATE.moisSaisies||{})[c.id]||{}).forEach(([ym, P])=>{ if(((STATE.journal||{})[c.id]||{})[ym]) return;
+    (P.ded||[]).forEach(k=>{ if((P.motifs||{})[k]==='absMalC' && k >= iso(anniv) && k < iso(d)) n++; }); });
   const rep = c.rep||{};
   if(rep.mal && parseD(rep.date) && parseD(rep.date) >= anniv) n += parseFloat(rep.mal)||0;
   return n;
@@ -564,6 +568,9 @@ function contratCumuls(c, fromM, toM){
       const r = J[ym];
       if(r){ t.brut += +r.brut||0; t.brutMensu += +r.brutMensu||0; t.hContrat += +r.hContrat||0;
         const cc = paramsAt(c, d); t.cp12 += r.cp12!==undefined ? (+r.cp12||0) : (cc.type===1 && cc.cpMode===0 ? (+r.cpMontant||0) : 0); }
+      else if(!arguments[3] && typeof moisSaisieOf==='function' && moisSaisieOf(c.id, ym)){
+        // corrections non validées de « Salaire du mois » (absences, heures en plus…) : reprises telles quelles
+        const x = moisPourContrat(c, ym) || {}; t.brut += x.brut||0; t.brutMensu += x.brutMensu||0; t.hContrat += x.hContrat||0; t.cp12 += x.cp12||0; t.estimes++; }
       else { const M = suiviMonth(c, ym, {sansCP: !!(arguments[3])}), T = M.T;
         t.brut += M.brut; t.brutMensu += M.due; t.hContrat += Math.max(0, T.R + T.ferieChMin + T.dueAbsMin - T.compl - T.maj)/60; t.cp12 += M.cp12; t.estimes++; }
       t.n++;

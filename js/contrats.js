@@ -389,6 +389,7 @@ function computeAlerts(){
       act:'<button class="btn small" onclick="repriseOuvrir(\''+c.id+'\')">Compléter</button> <button class="btn small" onclick="repriseRien(\''+c.id+'\')">Rien à reprendre</button>'});
     if(c.type===1 && (parseFloat(c.semaines)||0) >= 47 && contratActif(c, now)) out.push({lvl:'warn', html:nom+' : '+esc(c.semaines)+' semaines d’accueil par an en année incomplète. Au-delà de 46 semaines, c’est une année complète : le salaire est surestimé. Corrigez le contrat (avenant).'});
     const kmW = kmTauxAlerte(c.kmTaux); if(kmW && contratActif(c, now)) out.push({lvl:'warn', html:nom+' : '+kmW});
+    if(repasPrixManquant(c) && contratActif(c, now)) out.push({lvl:'warn', html:nom+' : vous fournissez les repas, mais leur prix n’est pas indiqué dans la fiche : ils comptent pour 0 €.'});
     const cpTrop = cpAuDelaAcquis(c);
     if(cpTrop) out.push({lvl:'warn', html:nom+' : '+cpTrop.pris+' jours de congés payés pris ou prévus depuis le 1er juin, pour environ '+fmtNum(cpTrop.acquis, 1)+' jours acquis au '+fmtDate(iso(cpTrop.jusqua))+'. Les <b>'+cpTrop.trop+' jour(s) en plus</b> ne sont pas payés par le salaire mensualisé, sauf accord écrit des parents : ils se retirent comme un congé sans solde.',
       act:'<button class="btn small" onclick="showTheme(\'ccass\')">Mois incomplet</button> <button class="btn small" onclick="showTheme(\'cp\')">Congés payés</button>'});
@@ -589,6 +590,7 @@ function ctRefresh(){
   $('ct-prev').style.visibility = CT_STEP===0 ? 'hidden' : 'visible';
   $('ct-next').textContent = CT_STEP===4 ? '✔ Enregistrer' : 'Suivant →';
   show('ct-semaines-wrap', CT.type===1);
+  show('ct-hdec-hint', seg('ct-horaires')!==1);
   show('ct-semConnues-row', CT.type===1, 'flex');
   setTxt('ct-semoff-label', CT.semOffAVenir ? 'Facultatif : touchez seulement les semaines sans accueil déjà connues' : 'Touchez les semaines où l\u2019enfant ne vient pas (vacances scolaires, vos congés…)');
   show('ct-semoff-wrap', CT.type===1);
@@ -697,6 +699,7 @@ function cpJuinEstime(c){
   return {an, premier: Math.max(acq*vj, mois*(dv.brut||0)*dix), juin: y};
 }
 /* Tarif kilométrique hors des barèmes (convention collective : au moins le barème de l'administration, au plus le barème fiscal) */
+function repasPrixManquant(cc){ return !!cc && cc.repasMode===1 && !(parseFloat(String(cc.repasPrix||'').replace(',','.'))>0); }
 function kmTauxAlerte(v){
   const t = parseFloat(String(v||'').replace(',','.')); if(!(t>0)) return '';
   const mn = R('kmBaremeAdmin'), mx = R('kmBaremeFiscal');
@@ -725,6 +728,7 @@ function ctRecap(dv){
   lines.forEach(l=>{ h+='<div class="result-line"><span class="lbl">'+l[0]+'</span><span class="val">'+l[1]+'</span></div>'; });
   if(CT.type===1 && (parseFloat(CT.semaines)||0) >= 47) h += '<div class="warn-box">⚠️ <b>'+esc(CT.semaines)+' semaines</b> d’accueil par an : c’est une <b>année complète</b> (au-delà de 46 semaines, l’enfant vient toute l’année en dehors des congés). En année incomplète, le salaire serait plus élevé qu’en année complète pour le même accueil. <a href="#" onclick="setSegVal(\'ct-type\',0);ctRead();ctRecap(derive(CT));return false;">Passer en année complète</a></div>';
   const kmW = kmTauxAlerte(CT.kmTaux); if(kmW) h += '<div class="warn-box">⚠️ '+kmW.charAt(0).toUpperCase()+kmW.slice(1)+'</div>';
+  if(repasPrixManquant(CT)) h += '<div class="warn-box">⚠️ Vous fournissez les repas, mais leur prix n’est pas indiqué (étape 4) : ils ne seraient jamais comptés.</div>';
   if(CT.type===1){
     const P = ctSemProg(CT);
     if(P.fiable && P.prog !== (parseFloat(CT.semaines)||0)) h += '<div class="warn-box">⚠️ Vous avez indiqué <b>'+esc(CT.semaines||'?')+' semaines</b> d’accueil, mais le calendrier des semaines en compte <b>'+P.prog+'</b>. Le contrat doit dire la même chose partout : le salaire et la régularisation de fin de contrat en dépendent. <a href="#" onclick="setVal(\'ct-semaines\','+P.prog+');ctRead();ctRecap(derive(CT));return false;">Utiliser '+P.prog+' semaines</a>, ou corrigez le calendrier (étape 2).</div>';
@@ -903,6 +907,7 @@ function pickKid(theme, key){
 }
 function refillFromContract(theme){
   const k = selKey(theme);
+  if(theme==='mois' && typeof moisSaisieEffacer==='function') moisSaisieEffacer(k, val('mois-mois'));
   if(STATE.forms[theme]) delete STATE.forms[theme][k];
   loadThemeForm(theme);
   toast('Valeurs du contrat rechargées.');

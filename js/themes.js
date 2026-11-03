@@ -30,6 +30,7 @@ function onSegChange(groupId, idx){
   refreshVisibility(t);
   recalc(t);
   persistTheme(t);
+  if(t==='mois' && MOIS_SAISIE_S.includes(groupId)) moisSaisieSave();
 }
 /* Toute saisie relance le calcul du thème et l'enregistre */
 document.addEventListener('input', e=>{
@@ -41,9 +42,12 @@ document.addEventListener('input', e=>{
   if(e.target.id==='ccass-cal-mois'){ buildCcassCalendar(); }
   if(e.target.id==='ccass-motif-sel'){ VIS.ccass(); }
   if(e.target.id==='mois-mois' && moisContrat() && e.target.value){ moisFillFromContract(moisContrat(), e.target.value); VIS.mois(); }
+  if(e.target.id==='mois-kmnb'){ const cK = moisContrat(), tK = cK ? parseFloat(String(paramsAt(cK, parseD(val('mois-mois'))||today()).kmTaux||'').replace(',','.'))||0 : 0;
+    if(tK) setVal('mois-km', round2(num('mois-kmnb')*tK)); else if(val('mois-kmnb')) toast('Pas de tarif au kilomètre dans le contrat : indiquez le montant en euros.'); }
   if(e.target.id==='ie-mois' && ieContratChoisi() && e.target.value){ ieFillFromContract(ieContratChoisi(), e.target.value); VIS.ie(); }
   if(e.target.id && e.target.id.indexOf('ccass-d')===0){ onCcassCalInput(); }
   recalc(t);
+  if(t==='mois' && MOIS_SAISIE_I.includes(e.target.id)) moisSaisieSave();
   clearTimeout(th._pt); th._pt = setTimeout(()=>persistTheme(t), 500);
 });
 function warnHTML(list){ return list.length ? '<div class="warn-box">'+list.join('<br>')+'</div>' : ''; }
@@ -116,7 +120,7 @@ PREFILL.mois = c=>{
 };
 function moisFillFromContract(c, m){
   const d = parseD(m);
-  setVal('mois-ded-maj', ''); setVal('mois-abs-dates', ''); setVal('mois-pas', '');
+  setVal('mois-ded-maj', ''); setVal('mois-abs-dates', ''); setVal('mois-pas', ''); setVal('mois-kmnb', ''); setTxt('mois-ded-info', ''); show('mois-motif-pick', false);
   const dv = derive(c, d);
   setSegVal('mois-type', c.type);
   setVal('mois-base', round2(dv.brutBase)); setVal('mois-heures', round2(dv.hMensu)); setVal('mois-taux', round2(dv.tauxEff));
@@ -140,6 +144,41 @@ function moisFillFromContract(c, m){
   // Le mois d'entrée ou de sortie en cours de mois est ainsi proratisé (méthode de la Cour de cassation),
   // les fériés chômés et les semaines sans accueil sont exclus, les avenants ventilés.
   if(typeof suiviFillMois==='function') suiviFillMois(c, m);
+  // corrections déjà faites pour ce mois (jours d'absence et motif, heures en plus, kilomètres, acompte…)
+  moisSaisieRestore(c, m);
+}
+/* Corrections de chaque mois, gardées mois par mois et reprises par tous les écrans
+   (message aux parents, carte du mois, aide CMG, cumuls de fin de contrat), même avant la validation */
+const MOIS_SAISIE_I = ['mois-abs-dates','mois-deduction','mois-jprev','mois-jded','mois-hded','mois-ded-maj','mois-hcompl','mois-hmaj','mois-majoration','mois-hferie','mois-h1mai','mois-jcp','mois-cpmontant','mois-kmnb','mois-km','mois-acompte','mois-pas','mois-datepaie','mois-regul'];
+const MOIS_SAISIE_S = ['mois-incomplet','mois-heuresup','mois-ferie','mois-cp12'];
+let MOIS_RESTORE = false;
+function moisSaisieOf(cid, ym){ return ((STATE.moisSaisies||{})[cid]||{})[ym] || null; }
+function moisSaisieSave(){
+  if(MOIS_RESTORE) return;
+  const c = moisContrat(), ym = val('mois-mois'); if(!c || !ym) return;
+  const S = STATE.moisSaisies = STATE.moisSaisies || {}, P = S[c.id] = S[c.id] || {}, old = P[ym] || {};
+  const i = {}, s = {}; MOIS_SAISIE_I.forEach(id=>{ i[id] = val(id); }); MOIS_SAISIE_S.forEach(id=>{ s[id] = seg(id); });
+  P[ym] = {i, s, motifs: old.motifs || {}, ded: old.ded || [], le: new Date().toISOString()}; saveState();
+}
+function moisSaisieRestore(c, ym){
+  const r = moisSaisieOf(c.id, ym); if(!r) return false;
+  MOIS_RESTORE = true;
+  try{
+    Object.entries(r.i||{}).forEach(([k,v])=>setVal(k, v)); Object.entries(r.s||{}).forEach(([k,v])=>setSegVal(k, v));
+    const sel = new Set(String((r.i||{})['mois-abs-dates']||'').split(',').filter(Boolean));
+    if(sel.size){ const I = ieDuMoisSauf(c, ym, sel); setVal('mois-jours', I.jours); setVal('mois-hjour', round2(I.hAvg)); }
+  } finally { MOIS_RESTORE = false; }
+  return true;
+}
+function moisSaisieEffacer(cid, ym){ const P = (STATE.moisSaisies||{})[cid]; if(P && P[ym]){ delete P[ym]; saveState(); } }
+/* Absences d'un mois sans suivi : dates, motif, retirées ou non (mois validé, sinon corrections en cours) */
+function moisAbsences(c, ym){
+  const J = journalOf(c.id)[ym]; if(J && Array.isArray(J.abs)) return J.abs;
+  return moisAbsSaisie(c, ym);
+}
+function moisAbsSaisie(c, ym){
+  const P = moisSaisieOf(c.id, ym); if(!P) return [];
+  return String((P.i||{})['mois-abs-dates']||'').split(',').filter(Boolean).map(k=>({k, m:(P.motifs||{})[k]||'', ded:(P.ded||[]).includes(k)}));
 }
 /* Tous les chiffres du mois : utilisés pour l'affichage, Pajemploi et l'historique */
 function moisPssAlerte(r){
@@ -289,6 +328,7 @@ CALC.mois = ()=>{
   const c = moisContrat();
   if(c && adaptationAFaire(c, r.m)) w.push(adaptationTxt(c, r.m));
   if(c && r.km){ const kw = kmTauxAlerte(paramsAt(c, d).kmTaux); if(kw) w.push('⚠️ '+kw.charAt(0).toUpperCase()+kw.slice(1)); }
+  if(c && repasPrixManquant(paramsAt(c, d))) w.push('⚠️ Vous fournissez les repas, mais le contrat n’indique pas leur prix : ils comptent pour 0 €. Indiquez le prix dans la fiche de l’enfant (étape 4).');
   if(c && journalOf(c.id)[r.m]) w.push('ℹ️ Ce mois est déjà validé : valider à nouveau remplacera l\'enregistrement.');
   setHTML('mois-warn', warnHTML(w));
   setTxt('out-mois-brut', r.brut ? fmtEUR(r.brut)+(r.cpTot?' (dont congés '+fmtEUR(r.cpTot)+')':'') : '—');
@@ -342,7 +382,7 @@ function validerMois(){
   STATE.journal[c.id] = STATE.journal[c.id] || {};
   STATE.journal[c.id][r.m] = { brut:round2(r.brut), net:round2(r.net), netImp:round2(r.netImp), netHs:round2(r.netHs), ie:round2(r.ie), repas:round2(r.repas), km:round2(r.km),
     hDecl:r.hNormDecl, jDecl:r.jDecl, hCompl:r.hcompl, hMaj:r.hmaj + r.hMajMensuDu, hReel:round2(r.hReel), hContrat:round2(r.hContrat), brutMensu:round2(r.brutMensu), jours:r.jours, jCP:r.jcp, cpMontant:round2(r.cpTot), cp12:round2(r.cp12),
-    ded:round2(r.ded), pas:round2(r.pas||0), j8:r.j8, hm8:round2(r.hm8), taux:r.taux, datepaie:r.datepaie, validatedAt:new Date().toISOString() };
+    ded:round2(r.ded), pas:round2(r.pas||0), abs:moisAbsSaisie(c, r.m), j8:r.j8, hm8:round2(r.hm8), taux:r.taux, datepaie:r.datepaie, validatedAt:new Date().toISOString() };
   // le mois correspondant du suivi passe au statut « déclaré »
   const S = (STATE.suivi||{})[c.id];
   if(S && S.months){ const mr = S.months[r.m] = S.months[r.m] || {st:'ouvert'}; if(MONTH_ST.indexOf(mr.st) < MONTH_ST.indexOf('declare')){ mr.st='declare'; auditLog(c.id, fmtMonth(r.m)+' déclaré (mois validé)'); } }
@@ -614,10 +654,49 @@ function moisAbsToggle(k){
   const c = moisContrat(), m = val('mois-mois'); if(!c || !m) return;
   const sel = moisAbsSel(); if(sel.has(k)) sel.delete(k); else sel.add(k);
   setVal('mois-abs-dates', [...sel].sort().join(','));
+  const Pm = moisSaisieOf(c.id, m); if(Pm && !sel.has(k)){ if(Pm.motifs) delete Pm.motifs[k]; Pm.ded = (Pm.ded||[]).filter(x=>x!==k); }
   const I = ieDuMoisSauf(c, m, sel); setVal('mois-jours', I.jours); setVal('mois-hjour', round2(I.hAvg));
-  CALC.mois(); persistTheme('mois');
+  CALC.mois(); persistTheme('mois'); moisSaisieSave();
 }
+const ABS_MOTIFS = [['absMalC','Enfant malade, avec certificat médical'], ['absMalS','Enfant malade, sans certificat'], ['absHosp','Enfant hospitalisé, ou malade 14 jours et plus'],
+  ['absPrev','Vacances ou absence prévue des parents'], ['absAutre','Autre absence de l’enfant (convenance)'], ['malAm','Mon arrêt maladie, accident, maternité'],
+  ['sansSolde','Mon congé sans solde, ou fermeture de mon fait'], ['evtFam','Mon congé pour événement familial (payé)']];
+/* « Retirer du salaire les jours cochés » : on demande d'abord pourquoi l'enfant n'est pas venu */
 function moisDedDepuisJours(){
+  const c = moisContrat(), m = val('mois-mois'), sel = moisAbsSel();
+  if(!c || !sel.size) return moisDedSansJours();
+  moisSaisieSave(); const P = STATE.moisSaisies[c.id][m], sans = [...sel].filter(k=>!(P.motifs||{})[k]), n = (sans.length || sel.size);
+  setHTML('mois-motif-pick', '<div class="info-box"><b>Pourquoi l’enfant n’est-il pas venu '+(n>1 ? 'ces '+n+' jours' : 'ce jour-là')+' ?</b> Le carnet ne retire du salaire que ce qui se retire (une seule raison à la fois ; recommencez pour les autres jours).'
+    + '<div class="btn-row" style="flex-wrap:wrap;margin-top:6px">'+ABS_MOTIFS.map(([k,l])=>'<button type="button" class="btn small" onclick="moisDedMotif(\''+k+'\')">'+l+'</button>').join('')+'</div></div>');
+  show('mois-motif-pick', true);
+}
+function moisDedMotif(code){
+  const c = moisContrat(), m = val('mois-mois'), sel = moisAbsSel(); if(!c || !m || !sel.size) return;
+  show('mois-motif-pick', false);
+  moisSaisieSave(); const P = STATE.moisSaisies[c.id][m]; P.motifs = P.motifs || {};
+  const sans = [...sel].filter(k=>!P.motifs[k]); (sans.length ? sans : [...sel]).forEach(k=>{ P.motifs[k] = code; });
+  moisDedAppliquer(c, m);
+}
+function moisDedAppliquer(c, m){
+  const P = moisSaisieOf(c.id, m), motifs = (P && P.motifs) || {}, sel = moisAbsSel();
+  const I = ieDuMois(c, m), hPrev = I.M.T.hPrev/60, plafond = R('absMaladieEnfant', parseD(m)) || 5;
+  let malDeja = malCountBefore(c, parseD(m)); const retires = [], gardes = [];
+  I.days.filter(x=>sel.has(x.k)).sort((a,b)=>a.k<b.k?-1:1).forEach(x=>{
+    const mo = motifs[x.k] || '', def = ST[mo] || {}; let ded = def.ded===1, plaf = false;
+    if(def.ded==='mal'){ if(malDeja < plafond){ ded = true; malDeja++; } else plaf = true; }
+    (ded ? retires : gardes).push({x, mo, plaf});
+  });
+  const hSel = retires.reduce((s,o)=>s+o.x.P,0)/60;
+  setSegVal('mois-incomplet', retires.length ? 1 : 0); refreshVisibility('mois');
+  setVal('mois-jded', retires.length || ''); setVal('mois-hded', retires.length ? round2(hSel) : ''); setVal('mois-deduction', retires.length && hPrev ? round2(num('mois-base')*hSel/hPrev) : '');
+  CALC.mois(); persistTheme('mois'); moisSaisieSave();
+  const P2 = moisSaisieOf(c.id, m); if(P2){ P2.ded = retires.map(o=>o.x.k); saveState(); }
+  const lib = mo=>((ST[mo]||{}).l||'motif non indiqué').toLowerCase();
+  const msg = (retires.length ? retires.length+' jour(s) retiré(s) du salaire ('+fmtNum(hSel,2)+' h, méthode de la Cour de cassation)' : 'Rien à retirer du salaire')
+    + (gardes.length ? ' ; '+gardes.length+' jour(s) restent payés : '+[...new Set(gardes.map(o=>lib(o.mo)))].join(', ')+(gardes.some(o=>o.plaf) ? ' (plafond de '+plafond+' jours d’enfant malade par période de 12 mois atteint)' : '') : '')+'. L’entretien et les repas de tous ces jours ne sont pas dus.';
+  setTxt('mois-ded-info', msg); toast(msg);
+}
+function moisDedSansJours(){
   const c = moisContrat(), m = val('mois-mois'), sel = moisAbsSel();
   if(!c || !sel.size){ toast('Cochez d\u2019abord les jours d\u2019absence (« Entretien, repas, kilomètres et paiement »).'); const f = $('mois-fold-frais'); if(f){ f.open = true; f.scrollIntoView({block:'start'}); } return; }
   const I = ieDuMois(c, m), abs = I.days.filter(x=>sel.has(x.k)), hSel = abs.reduce((s,x)=>s+x.P,0)/60, hPrev = I.M.T.hPrev/60;
@@ -1327,7 +1406,7 @@ function moisPourContrat(c, ym){
   let r = null;
   try{ setVal('mois-mois', ym); moisFillFromContract(c, ym); r = moisCompute(); }
   finally{ champs.forEach(([el,v])=>{ el.value = v; }); segs.forEach(([id,v])=>setSegVal(id, v)); STATE.sel.mois = selAvant; }
-  return r && {valide:false, brut:r.brut, net:r.net, netImp:r.netImp, ie:r.ie, repas:r.repas, km:r.km, hDecl:r.hNormDecl, jDecl:r.jDecl, hCompl:r.hComplDecl, hMaj:r.hMajDecl, jCP:r.jcp, cp:r.cpTot, acompte:r.acompte||0, jours:r.jours||0, j8:r.j8||0, hm8:r.hm8||0, ded:r.ded||0, pas:r.pas||0,
+  return r && {valide:false, brut:r.brut, net:r.net, netImp:r.netImp, ie:r.ie, repas:r.repas, km:r.km, hDecl:r.hNormDecl, jDecl:r.jDecl, hCompl:r.hComplDecl, hMaj:r.hMajDecl, jCP:r.jcp, cp:r.cpTot, acompte:r.acompte||0, jours:r.jours||0, j8:r.j8||0, hm8:r.hm8||0, ded:r.ded||0, pas:r.pas||0, brutMensu:r.brutMensu||0, hContrat:r.hContrat||0, cp12:r.cp12||0,
     netCompl: (r.brutCompl||0)*Math.min(1,kHs), netMaj: ((r.brutMaj||0)+(r.brutMajMensu||0))*Math.min(1,kHs), cpNet: (r.cpTot||0)*kN, datepaie: r.datepaie||'', type: r.inc ? 1 : paramsAt(c, parseD(ym)).type};
 }
 /* Mois d'un contrat entre deux mois (inclus), jusqu'au mois en cours : chiffres validés, sinon calculés
@@ -1370,6 +1449,11 @@ function parentsMoisBloc(c, ym, titre){
     const g = {}; Ms.days.filter(x=>x.ded>0).forEach(x=>{ const l = ((ST[x.st]||{}).l||x.st).toLowerCase(); (g[l] = g[l] || []).push(jr(x)); });
     absTxt = Object.keys(g).map(l=>g[l].join(', ')+' ('+l+')').join(' ; ');
     hsTxt = Ms.days.filter(x=>x.extra>0).map(x=>jr(x)+' (+'+fmtH(x.extra)+')').join(', ');
+  } else {
+    // sans suivi : jours cochés dans « Salaire du mois », avec leur motif
+    const Lab = moisAbsences(c, ym), jk = k=>parseD(k).toLocaleDateString('fr-FR', {day:'numeric', month:'short'}), g = {};
+    Lab.forEach(a=>{ const l = (a.m ? ((ST[a.m]||{}).l||a.m).toLowerCase() : 'absence')+(a.ded ? '' : ', salaire dû'); (g[l] = g[l] || []).push(jk(a.k)); });
+    absTxt = Object.keys(g).map(l=>g[l].join(', ')+' ('+l+')').join(' ; ');
   }
   // mois d'entrée ou de sortie en cours de mois : le prorata n'est pas une absence
   const d0p = parseD(ym), lastP = new Date(d0p.getFullYear(), d0p.getMonth()+1, 0), debP = parseD(c.debut), finP = parseD(c.fin);
@@ -1402,7 +1486,7 @@ function parentsMoisBloc(c, ym, titre){
     + line('Salaire net', fmtEUR(m.net)) + line('Indemnités d’entretien', fmtEUR(m.ie)) + line('Repas', fmtEUR(m.repas)) + line('Kilomètres', fmtEUR(m.km))
     + (m.datepaie ? line('Date de paiement', fmtDate(m.datepaie)) : '') + '</div>'
     + (horsTxt ? line('Début ou fin de contrat dans le mois', esc(horsTxt)) : '') + (cpJuinTxt ? '<p class="hint">'+esc(cpJuinTxt)+'</p>' : '')
-    + (dedTxt ? line('Absences retirées du salaire', esc(dedTxt)) : '') + (hsTxt ? line('Heures en plus', esc(hsTxt)) : '')
+    + (dedTxt ? line('Absences retirées du salaire', esc(dedTxt)) : (absTxt ? line('Jours d’absence (salaire dû)', esc(absTxt)) : '')) + (hsTxt ? line('Heures en plus', esc(hsTxt)) : '')
     + (Ms ? line('Heures faites (prévu au planning)', fmtH(Ms.T.R)+' ('+fmtH(Ms.T.hPrev)+')') + line('Jours où l’enfant est venu', Ms.T.jAcc+' j') : '')
     + '<p class="hint">'+esc(hNormTxt)+'</p>'
     + '<div class="result-line total"><span class="lbl">'+(pj===2 ? 'Total payé par Pajemploi+ pour '+esc(c.enfant||'cet enfant')+' (les parents ne versent rien eux-mêmes)' : 'Total à verser pour '+esc(c.enfant||'cet enfant'))+'</span><span class="val">'+fmtEUR(total)+'</span></div>'
@@ -1417,6 +1501,7 @@ function parentsMoisBloc(c, ym, titre){
     'Salaire net total : '+fmtEUR(m.net), 'Entretien : '+fmtEUR(m.ie)+' · Repas : '+fmtEUR(m.repas)+' · Km : '+fmtEUR(m.km), (pj===2 ? 'Total payé par Pajemploi+ : ' : 'Total à verser : ')+fmtEUR(total)+(m.valide?'':' (provisoire)')];
   if(horsTxt) t.push(horsTxt);
   if(dedTxt) t.push('Absences retirées du salaire : '+dedTxt);
+  else if(absTxt) t.push('Jours d’absence : '+absTxt+' (pas d’entretien ni de repas ces jours-là)');
   if(hsTxt) t.push('Heures en plus : '+hsTxt);
   t.push(hNormTxt);
   if(cmgE!==null) t.push('Aide CMG estimée : '+fmtEUR(cmgE)+' → reste à votre charge : '+fmtEUR(total - cmgE)+' (estimation, la CAF fixe le montant exact)');
