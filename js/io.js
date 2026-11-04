@@ -2,7 +2,7 @@
    IMPRESSION / PDF · SAUVEGARDE · RÉGLAGES · MISES À JOUR RÉGLEMENTAIRES · AIDE · DÉMARRAGE
    ===================================================================================== */
 'use strict';
-const APP_VERSION = '3.27.0';
+const APP_VERSION = '3.28.0';
 
 /* ---------------------------------- Impression / PDF ---------------------------------- */
 let _pc = null;
@@ -96,31 +96,71 @@ async function dechiffrerCopie(o, mdp){
   const pt = await crypto.subtle.decrypt({name:'AES-GCM', iv:b64u8(o.iv)}, await cleMdp(mdp, b64u8(o.salt)), b64u8(o.data));
   return new TextDecoder().decode(pt);
 }
+/* Adresse du carnet (pour la reprendre sur un autre appareil) */
+function appAdresse(){ try{ if(/^https?:$/.test(location.protocol)) return location.origin + location.pathname.replace(/index\.html$/, ''); }catch(e){} return ''; }
+/* Ce que contient un état : enfants, mois validés, dernière modification */
+function etatResume(S){
+  S = S || {}; let mois = 0; Object.values(S.journal||{}).forEach(j=>{ mois += Object.keys(j||{}).length; });
+  return {enfants: (S.contrats||[]).map(c=>c.enfant||'Enfant'), mois, le: S._savedAt || ''};
+}
+function etatResumeTxt(r){
+  return (r.enfants.length ? r.enfants.length+' enfant(s) ('+r.enfants.slice(0,4).join(', ')+(r.enfants.length>4?'…':'')+')' : 'aucun enfant')+', '+r.mois+' mois validé(s)'
+    + (r.le ? ', modifié le '+new Date(r.le).toLocaleString('fr-FR', {day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit'}) : '');
+}
 async function syncExport(){
   let nPj = 0; try{ nPj = Object.keys(await pjAll()).length; }catch(e){}
   if(!(window.crypto && crypto.subtle)){ syncExportGo(null); return; }
-  _confirmNoCb = ()=>syncExportGo(null);
-  showConfirmDialog('Protéger la copie par un mot de passe ?', 'La copie contient les fiches des enfants et des familles'+(nPj ? ' et '+nPj+' pièce(s) jointe(s) (certificats médicaux, ordonnances…)' : '')+'. Avec un mot de passe, elle est illisible pour toute autre personne si le fichier est perdu ou partagé. Retenez-le bien : sans lui, la copie ne pourra pas être restaurée.',
-    ()=>askText('Mot de passe de la copie', 'Au moins 8 caractères. Il vous sera demandé pour restaurer la copie.', '', p=>{ if(!p || p.length < 8){ toast('Mot de passe trop court (8 caractères au moins) : copie non faite.'); return; } syncExportGo(p); }, {type:'password'}),
-    'Oui, avec un mot de passe (conseillé)', 'Non, sans mot de passe');
+  // sans mot de passe : confirmation, la copie serait lisible par n'importe qui
+  _confirmNoCb = ()=>showConfirmDialog('Copie sans mot de passe ?', 'Toute personne qui obtient ce fichier pourra lire les fiches des familles'+(nPj ? ' et les '+nPj+' pièce(s) jointe(s) (certificats médicaux…)' : '')+'. À réserver à une copie gardée chez vous, sur votre ordinateur.', ()=>syncExportGo(null), 'Oui, sans mot de passe', 'Non, revenir');
+  showConfirmDialog('Faire une copie de sécurité', 'La copie contient les fiches des enfants et des familles'+(nPj ? ' et '+nPj+' pièce(s) jointe(s) (certificats médicaux, ordonnances…)' : '')+'. Protégez-la par un mot de passe : elle sera illisible pour toute autre personne.\n\nEnsuite, envoyez-la à VOUS-MÊME (votre Google Drive ou iCloud, ou un mail à votre adresse), jamais aux parents.',
+    ()=>askText('Mot de passe de la copie', 'Au moins 8 caractères. Notez-le sur papier et rangez-le avec vos contrats : sans lui, la copie ne pourra pas être restaurée, et personne ne peut le retrouver.', '', p=>{
+      if(!p || p.length < 8){ toast('Mot de passe trop court (8 caractères au moins) : copie non faite.'); return; }
+      setTimeout(()=>askText('Retapez le mot de passe', 'Pour éviter une faute de frappe.', '', p2=>{
+        if(p2 !== p){ toast('Les deux mots de passe sont différents : copie non faite. Recommencez.'); return; }
+        syncExportGo(p);
+      }, {type:'password'}), 60);
+    }, {type:'password'}),
+    'Avec un mot de passe (conseillé)', 'Sans mot de passe');
 }
 async function syncExportGo(mdp){
   persistTheme(CURRENT);
-  const now = new Date();
+  const now = new Date(), adr = appAdresse();
   // pièces jointes du suivi (photos de certificats, tickets…) incluses dans la copie
   let pj = {};
   try{ const all = await pjAll(); for(const id of Object.keys(all)){ pj[id] = {nom: all[id].nom, type: all[id].type, t: all[id].t, data: await blobToB64(all[id].blob)}; } }catch(e){ pj = {}; }
-  const payload = { app:'carnet-assmat', version:2, appVersion:APP_VERSION, exportedAt: now.toISOString(), state: STATE, pj };
-  const texte = mdp ? JSON.stringify(await chiffrerCopie(JSON.stringify(payload), mdp)) : JSON.stringify(payload, null, 1);
-  const blob = new Blob([texte], {type:'application/json'});
+  const payload = { app:'carnet-assmat', version:2, appVersion:APP_VERSION, exportedAt: now.toISOString(), ouvrir: adr, state: STATE, pj };
+  let texte;
+  if(mdp){
+    const clair = JSON.stringify(payload), o = await chiffrerCopie(clair, mdp);
+    // relecture immédiate : la copie doit pouvoir être restaurée avec ce mot de passe
+    try{ if(await dechiffrerCopie(o, mdp) !== clair) throw new Error('relecture'); }
+    catch(e){ toast('⚠️ La copie n’a pas pu être vérifiée : elle n’a pas été faite. Recommencez.'); return; }
+    o.ouvrir = adr; texte = JSON.stringify(o);
+  } else texte = JSON.stringify(payload, null, 1);
+  const blob = new Blob([texte], {type:'application/json'}), mo = blob.size/1048576;
   const name = 'copie-carnet-assmat-'+iso(today())+(mdp ? '-protegee' : '')+'.json';
-  const file = (typeof File==='function') ? new File([blob], name, {type:'application/json'}) : null;
-  const finish = ()=>{ STATE.lastExport = now.toISOString(); saveNow(); if(CURRENT==='home') renderHome(); };
-  // Sur téléphone : proposer directement le partage (Drive, mail, WhatsApp…), sinon téléchargement
-  if(file && navigator.canShare && navigator.canShare({files:[file]})){
-    navigator.share({files:[file], title:'Copie de sécurité Carnet Assmat'}).then(()=>{ finish(); toast('Copie de sécurité partagée.'); })
-      .catch(err=>{ if(err && err.name==='AbortError') return; download(blob, name); finish(); });
-  } else { download(blob, name); finish(); toast('Copie enregistrée dans vos téléchargements : '+name); }
+  const msg = 'Copie de sécurité du Carnet Assmat du '+now.toLocaleDateString('fr-FR')+'. Ce fichier ne s’ouvre pas tout seul. Pour reprendre vos données : ouvrez '+(adr || 'le Carnet Assmat')+', puis Outils ▸ Mes données ▸ « Restaurer une copie »'+(mdp ? ' (le mot de passe sera demandé)' : '')+'.';
+  // menu « Partager » (Drive, mail…) : si le type .json est refusé par le téléphone, on l'envoie comme texte, sous le même nom
+  let file = null;
+  if(typeof File==='function' && navigator.canShare){
+    for(const t of ['application/json', 'text/plain']){ try{ const f = new File([blob], name, {type:t}); if(navigator.canShare({files:[f]})){ file = f; break; } }catch(e){} }
+  }
+  const apres = ()=>syncOuEstCopie(now, mo);
+  if(file){
+    navigator.share({files:[file], title:'Copie de sécurité Carnet Assmat', text:msg}).then(apres)
+      .catch(err=>{ if(err && err.name==='AbortError'){ toast('Copie annulée : rien n’a été envoyé.'); return; } download(blob, name); apres(); });
+  } else { download(blob, name); apres(); }
+}
+/* Une copie ne protège que si elle est rangée AILLEURS que sur l'appareil */
+function syncOuEstCopie(now, mo){
+  const lourd = mo > 20 ? '\n\nTaille : '+fmtNum(mo,1)+' Mo, trop lourd pour la plupart des mails : préférez Google Drive ou iCloud.' : '';
+  _confirmNoCb = ()=>{
+    STATE.lastExportLocal = now.toISOString(); saveNow(); renderDonnees(); if(CURRENT==='home') renderHome();
+    showConfirmDialog('Copie restée sur ce téléphone', 'Elle ne vous protège pas si le téléphone est perdu, volé ou cassé. Refaites la copie et choisissez Google Drive, iCloud ou un mail à vous-même. (Le fichier est aussi dans « Fichiers ▸ Téléchargements » : vous pouvez le partager de là.)', ()=>syncExport(), 'Refaire la copie', 'Plus tard');
+  };
+  showConfirmDialog('Où est rangée votre copie ?', 'Elle ne vous protège que si elle est AILLEURS que sur ce téléphone : votre Google Drive ou iCloud, un mail envoyé à vous-même, un ordinateur ou une clé USB.'+lourd,
+    ()=>{ STATE.lastExport = now.toISOString(); delete STATE.lastExportLocal; saveNow(); renderDonnees(); if(CURRENT==='home') renderHome(); toast('Copie de sécurité notée. Gardez bien votre mot de passe.'); },
+    'Ailleurs (Drive, mail, ordinateur…)', 'Restée sur ce téléphone');
 }
 function download(blob, name){
   const url = URL.createObjectURL(blob), a = document.createElement('a');
@@ -132,7 +172,7 @@ function syncImportFile(file){
   if(!file) return;
   const r = new FileReader();
   r.onload = e=>{
-    let p; try{ p = JSON.parse(e.target.result); }catch(err){ toast('Fichier illisible.'); return; }
+    let p; try{ p = JSON.parse(e.target.result); }catch(err){ toast('Ce fichier n’est pas une copie du Carnet Assmat (illisible).'); return; }
     if(p && p.app==='carnet-assmat' && p.chiffre){
       askText('Copie protégée', 'Entrez le mot de passe choisi lors de la copie.', '', async m=>{
         if(!m) return;
@@ -146,33 +186,103 @@ function syncImportFile(file){
   $('sync-file-input').value = '';
 }
 function syncImportData(p){
-  {
-    let newState = null, label = '';
-    if(p && p.app==='carnet-assmat' && p.state){ newState = Object.assign(clone(STATE_DEFAULT), p.state); label = 'copie du '+new Date(p.exportedAt).toLocaleString('fr-FR'); }
-    else if(p && p.app==='carnet-calcul-assmat' && p.data){
-      // ancienne version du carnet
-      newState = clone(STATE); label = 'sauvegarde de l\'ancienne version';
-      const keep = STATE; STATE = newState;
-      try{
-        if(p.data['assmat-abattement-v1']) legacyAbToForm(JSON.parse(p.data['assmat-abattement-v1']));
-        if(p.data['assmat-cmg-v1']) legacyCmgToForm(JSON.parse(p.data['assmat-cmg-v1']));
-        if(p.data['assmat-cmg-historique-v1']) STATE.cmgHistory = (JSON.parse(p.data['assmat-cmg-historique-v1'])||[]).map(h=>({id:h.id,label:h.label,savedAt:h.savedAt,form:legacyCmgForm(h.state)}));
-      }catch(err){}
-      newState = STATE; STATE = keep;
-    }
-    if(!newState){ toast('Ce fichier ne vient pas du Carnet Assmat.'); return; }
-    showConfirmDialog('Restaurer cette copie ?', 'Fichier : '+label+'. Les données actuelles de ce téléphone seront remplacées par celles du fichier. Continuer ?', ()=>{
-      STATE = newState; STATE.settings = Object.assign(clone(STATE_DEFAULT.settings), STATE.settings||{});
-      saveNow(); regBuild(); applyTheme(); CURRENT='home'; showHome(); toast('Copie restaurée.');
-      if(p.pj) (async ()=>{ for(const id of Object.keys(p.pj)){ try{ const x=p.pj[id]; await pjPutRaw(id, {blob: await b64ToBlob(x.data), nom:x.nom, type:x.type, t:x.t}); }catch(e){} } })();
-      if(lockActive()) closeOverlay('lock-overlay');
-    }, 'Oui, restaurer', 'Annuler');
+  let newState = null, label = '';
+  if(p && p.app==='carnet-assmat' && p.state){ newState = Object.assign(clone(STATE_DEFAULT), p.state); label = 'copie du '+new Date(p.exportedAt).toLocaleString('fr-FR'); }
+  else if(p && p.app==='carnet-calcul-assmat' && p.data){
+    // ancienne version du carnet
+    newState = clone(STATE); label = 'sauvegarde de l\'ancienne version';
+    const keep = STATE; STATE = newState;
+    try{
+      if(p.data['assmat-abattement-v1']) legacyAbToForm(JSON.parse(p.data['assmat-abattement-v1']));
+      if(p.data['assmat-cmg-v1']) legacyCmgToForm(JSON.parse(p.data['assmat-cmg-v1']));
+      if(p.data['assmat-cmg-historique-v1']) STATE.cmgHistory = (JSON.parse(p.data['assmat-cmg-historique-v1'])||[]).map(h=>({id:h.id,label:h.label,savedAt:h.savedAt,form:legacyCmgForm(h.state)}));
+    }catch(err){}
+    newState = STATE; STATE = keep;
   }
+  if(!newState){ toast('Ce fichier ne vient pas du Carnet Assmat.'); return; }
+  const depuisCode = lockActive(), demo = isDemo();
+  const rC = etatResume(newState), rA = etatResume(STATE), aDonnees = !demo && (STATE.contrats||[]).length > 0;
+  const plusAncienne = aDonnees && rC.le && rA.le && rC.le < rA.le;
+  const msg = 'Fichier : '+label+'.\n\nDans la copie : '+etatResumeTxt(rC)+'.\nSur cet appareil'+(demo ? ' (exemple en cours : il sera fermé)' : '')+' : '+etatResumeTxt(demo ? {enfants:[], mois:0, le:''} : rA)+'.'
+    + (plusAncienne ? '\n\n⚠️ Cette copie est PLUS ANCIENNE que les données de cet appareil : ce que vous avez saisi depuis sera remplacé.' : '')
+    + (aDonnees ? '\n\nLes données actuelles sont gardées de côté : vous pourrez annuler cette restauration (Outils ▸ Mes données).' : '')
+    + (depuisCode ? '\n\nLe code de verrouillage sera supprimé : vous pourrez en choisir un nouveau dans Réglages.' : (newState.settings && newState.settings.pin ? '\n\nLa copie contient un code de verrouillage : il sera demandé à l’ouverture.' : ''));
+  showConfirmDialog(plusAncienne ? 'Restaurer une copie plus ancienne ?' : 'Restaurer cette copie ?', msg, ()=>restaurerGo(newState, p.pj, depuisCode), 'Oui, restaurer', 'Annuler');
+}
+const AVANT_RESTAU = STORE_KEY+'-avant-restauration';
+async function restaurerGo(newState, pj, depuisCode){
+  const etaitDemo = isDemo();
+  // données actuelles gardées de côté pour pouvoir annuler (sauf en exemple)
+  if(!etaitDemo && (STATE.contrats||[]).length){
+    const av = JSON.stringify(STATE);
+    try{ localStorage.setItem(AVANT_RESTAU, av); localStorage.setItem(AVANT_RESTAU+'-le', new Date().toISOString()); }catch(e){}
+    await idbSaveState(AVANT_RESTAU, av);
+  }
+  // restauration pendant l'exemple : on sort de l'exemple, la copie devient les vraies données
+  if(etaitDemo){
+    try{ localStorage.removeItem(DEMO_FLAG); localStorage.removeItem(DEMO_KEY); localStorage.removeItem(STORE_KEY+'-avant-demo'); }catch(e){}
+    await idbSaveState(DEMO_KEY, ''); await idbSaveState(STORE_KEY+'-avant-demo', '');
+  }
+  STATE = newState; STATE.settings = Object.assign(clone(STATE_DEFAULT.settings), STATE.settings||{}); migrateState();
+  if(depuisCode) STATE.settings.pin = '';
+  let nPj = 0, ko = 0;
+  if(pj) for(const id of Object.keys(pj)){ try{ const x = pj[id]; await pjPutRaw(id, {blob: await b64ToBlob(x.data), nom:x.nom, type:x.type, t:x.t}); nPj++; }catch(e){ ko++; } }
+  saveNow();
+  const msg = 'Copie restaurée'+(nPj ? ' ('+nPj+' pièce(s) jointe(s))' : '')+'.'+(ko ? ' ⚠️ '+ko+' pièce(s) jointe(s) illisible(s).' : '')+(depuisCode ? ' Code de verrouillage supprimé.' : '');
+  if(etaitDemo){ try{ sessionStorage.setItem('carnet-toast', msg); }catch(e){} setTimeout(()=>location.reload(), 500); return; }
+  regBuild(); applyTheme(); CURRENT='home'; showHome(); renderDonnees(); toast(msg);
+  if(lockActive()) closeOverlay('lock-overlay');
+}
+async function annulerRestauration(){
+  let av = null; try{ av = localStorage.getItem(AVANT_RESTAU); }catch(e){}
+  if(!av) av = await idbLoadState(AVANT_RESTAU);
+  let S = null; try{ S = av ? JSON.parse(av) : null; }catch(e){}
+  if(!S){ toast('Rien à annuler.'); return; }
+  showConfirmDialog('Annuler la restauration ?', 'Le carnet revient aux données d’avant la restauration : '+etatResumeTxt(etatResume(S))+'.', async ()=>{
+    STATE = Object.assign(clone(STATE_DEFAULT), S); STATE.settings = Object.assign(clone(STATE_DEFAULT.settings), STATE.settings||{}); migrateState(); saveNow();
+    try{ localStorage.removeItem(AVANT_RESTAU); localStorage.removeItem(AVANT_RESTAU+'-le'); }catch(e){}
+    await idbSaveState(AVANT_RESTAU, '');
+    regBuild(); applyTheme(); CURRENT='home'; showHome(); renderDonnees(); toast('Restauration annulée : données d’avant remises en place.');
+  }, 'Oui, revenir en arrière', 'Non');
+}
+/* Encadré « Mes données » : dernière copie, copie restée sur l'appareil, annulation possible, adresse du carnet */
+function renderDonnees(){
+  const se = $('sync-status');
+  if(se){
+    const j = STATE.lastExport ? Math.floor((Date.now()-new Date(STATE.lastExport))/86400000) : null;
+    let h = STATE.lastExport ? 'Dernière copie rangée ailleurs : le <b>'+new Date(STATE.lastExport).toLocaleDateString('fr-FR')+'</b> ('+(j<1 ? 'aujourd’hui' : 'il y a '+j+' jour'+(j>1?'s':''))+').' : '<b>Aucune copie de sécurité rangée ailleurs</b> : si cet appareil est perdu ou cassé, tout est perdu.';
+    if(STATE.lastExportLocal && (!STATE.lastExport || STATE.lastExportLocal > STATE.lastExport)) h += ' Une copie plus récente est restée sur ce téléphone : elle ne protège pas en cas de perte.';
+    se.innerHTML = h;
+  }
+  const ru = $('restore-undo');
+  if(ru){
+    let le = null; try{ le = localStorage.getItem(AVANT_RESTAU+'-le'); }catch(e){}
+    if(le && (Date.now()-new Date(le))/86400000 > 30){ try{ localStorage.removeItem(AVANT_RESTAU); localStorage.removeItem(AVANT_RESTAU+'-le'); }catch(e){} idbSaveState(AVANT_RESTAU, ''); le = null; }
+    ru.innerHTML = le ? '<div class="info-box" style="margin-top:8px">Restauration faite le '+new Date(le).toLocaleDateString('fr-FR')+'. Les données d’avant sont gardées 30 jours. <button type="button" class="btn small" onclick="annulerRestauration()">↺ Annuler la restauration</button></div>' : '';
+  }
+  const ad = $('app-adresse'); if(ad) ad.textContent = appAdresse() || 'l’adresse où vous avez ouvert le carnet';
+  // QR code de l'adresse publiée (icons/qr-adresse.svg, fabriqué par tools/qr_adresse.py) : seulement s'il correspond à cette adresse
+  show('app-qr-wrap', appAdresse()==='https://buildsthingsbadly-ux.github.io/Carnet-Assmat/');
+}
+function envoyerAdresse(){
+  const adr = appAdresse(); if(!adr){ toast('Adresse inconnue dans cette version « fichier ».'); return; }
+  const txt = 'Carnet Assmat : ouvrez cette adresse sur la tablette ou le nouveau téléphone, installez le carnet, puis Outils ▸ Mes données ▸ « Restaurer une copie ».';
+  if(navigator.share) navigator.share({title:'Carnet Assmat', text:txt, url:adr}).catch(()=>{});
+  else copierAdresse();
+}
+function copierAdresse(){
+  const adr = appAdresse(); if(!adr) return;
+  try{ navigator.clipboard.writeText(adr).then(()=>toast('Adresse copiée : '+adr), ()=>toast('Adresse : '+adr)); }catch(e){ toast('Adresse : '+adr); }
 }
 function lockActive(){ const o = $('lock-overlay'); return !!(o && o.classList.contains('show')); }
 function wipeAll(){
-  showConfirmDialog('Tout effacer ?', 'Tous les enfants, calculs et réglages enregistrés sur ce téléphone seront supprimés définitivement. Faites une copie de sécurité avant si besoin. Continuer ?', ()=>{
-    STATE = clone(STATE_DEFAULT); saveNow(); regBuild(); applyTheme(); CURRENT='home'; showHome(); toast('Données effacées.');
+  showConfirmDialog('Tout effacer ?', 'Tous les enfants, calculs, réglages et pièces jointes (photos de certificats…) enregistrés sur cet appareil seront supprimés définitivement. Faites une copie de sécurité avant si besoin. Continuer ?', async ()=>{
+    STATE = clone(STATE_DEFAULT);
+    // pièces jointes et copies cachées (avant l'exemple, avant une restauration, données abîmées) : effacées aussi
+    try{ await pjClear(); }catch(e){}
+    try{ Object.keys(localStorage).filter(k=>k.indexOf(STORE_KEY+'-')===0).forEach(k=>localStorage.removeItem(k)); }catch(e){}
+    for(const k of [STORE_KEY+'-avant-demo', AVANT_RESTAU]) await idbSaveState(k, '');
+    saveNow(); regBuild(); applyTheme(); CURRENT='home'; showHome(); renderDonnees(); toast('Données effacées.');
   }, 'Oui, tout effacer', 'Annuler');
 }
 
@@ -436,7 +546,9 @@ const AIDE = [
   ['Pajemploi', 'Chaque mois, ce sont les parents (vos employeurs) qui déclarent votre salaire sur Pajemploi, entre le 25 du mois et le 5 du mois suivant. « Salaire du mois &amp; Pajemploi » donne exactement les chiffres à recopier : heures, jours d\'activité, jours de congés, salaire net, indemnités ; le bouton « Envoyer le récapitulatif aux parents » les leur transmet (un seul message pour les frères et sœurs de la même famille, mais une déclaration Pajemploi par enfant). Avec <b>Pajemploi+</b>, Pajemploi vous verse directement le salaire et prélève les parents.'],
   ['Agrément et durées maximales', 'Votre agrément fixe le nombre d\'enfants accueillis en même temps (4 en général). Au plus 13 h par jour (11 h de repos obligatoire) et 48 h par semaine en moyenne (plus seulement avec votre accord écrit, 2 250 h par an au maximum). Le carnet vous alerte en cas de dépassement.'],
   ['Les mises à jour de la loi', 'Chaque montant légal (SMIC, minimum garanti, salaire minimum, barème CMG, abattement…) est enregistré avec sa <b>date d\'effet</b>. Le bouton « Rechercher les mises à jour » télécharge les nouvelles valeurs : elles s\'appliquent automatiquement aux calculs concernés, à partir de la bonne date, et le carnet vous dit ce qui change pour chaque enfant. Vous pouvez aussi ajouter une valeur vous-même (Réglages ▸ ✎).'],
-  ['Mes données et mon téléphone', 'Tout est enregistré <b>uniquement sur votre téléphone</b> : rien n\'est envoyé sur internet. Si vous changez de téléphone ou effacez les données du navigateur, vous perdez tout : faites régulièrement une <b>copie de sécurité</b> (bouton sur l\'accueil) et gardez le fichier (Google Drive, e-mail…). Sur le nouveau téléphone, utilisez « Restaurer une copie ».'],
+  ['Mes données et mon téléphone', 'Tout est enregistré <b>uniquement sur votre téléphone</b> : rien n\'est envoyé sur internet. Si le téléphone est perdu, volé ou cassé, ou si vous effacez les données du navigateur, vous perdez tout, sauf si vous avez une <b>copie de sécurité rangée ailleurs</b>. Faites-la au moins une fois par mois (Outils ▸ Mes données ▸ « Faire une copie de sécurité ») et envoyez-la à vous-même : Google Drive, iCloud ou un mail à votre adresse, jamais aux parents. Notez le mot de passe sur papier. Le fichier ne s\'ouvre pas tout seul : sur le nouvel appareil, ouvrez le carnet puis « Restaurer une copie ».'],
+  ['Passer sur une tablette ou un nouveau téléphone', '1. Sur l\'ancien appareil (s\'il marche encore) : « Faire une copie de sécurité », puis envoyez-la sur votre Google Drive ou par mail à vous-même.<br>2. Sur le nouvel appareil : ouvrez l\'adresse du carnet (Outils ▸ Mes données ▸ « M\'envoyer l\'adresse du carnet ») et installez-le.<br>3. Récupérez le fichier : dans Drive, touchez-le puis ⋮ ▸ Télécharger ; dans un mail, enregistrez la pièce jointe.<br>4. Dans le carnet : « Restaurer une copie », choisissez le fichier, tapez le mot de passe.<br>5. Ensuite, saisissez seulement sur le nouvel appareil : le téléphone et la tablette <b>ne se synchronisent pas</b>. En cas d\'erreur, « Annuler la restauration » remet les données d\'avant (30 jours).'],
+  ['Avant de vendre ou donner votre téléphone', 'Faites une copie de sécurité et vérifiez qu\'elle est bien sur votre Drive ou dans vos mails, puis Réglages ▸ « Tout effacer » : les fiches, les calculs et les photos de certificats sont supprimés de l\'appareil.'],
   ['Installer l\'application sur Android', '1. Ouvrez l\'adresse du carnet dans <b>Chrome</b>.<br>2. Touchez le menu <b>⋮</b> en haut à droite.<br>3. Choisissez <b>« Installer l\'application »</b> (ou « Ajouter à l\'écran d\'accueil »).<br>L\'icône apparaît avec vos autres applications ; le carnet fonctionne ensuite même sans internet.'],
   ['Reprendre là où j\'en étais', 'Tout ce que vous saisissez est enregistré au fur et à mesure, sur chaque écran. Si vous quittez l\'application (appel, écran éteint, fermeture), elle rouvre <b>au même endroit</b> : même écran, même enfant, même mois, fiche ou journée en cours de saisie comprise. Après une longue absence, elle rouvre sur « Aujourd\'hui » et propose de reprendre. Les données de la version « fichier » et celles de l\'application installée sont séparées : passez de l\'une à l\'autre avec « Copie de sécurité » puis « Restaurer une copie ». Même principe pour changer de téléphone.'],
   ['Mises à jour de l\'application', 'Quand une nouvelle version est disponible, un bandeau « Mettre à jour » apparaît en bas de l\'écran. Vos données ne sont jamais touchées par une mise à jour. Les valeurs légales, elles, se mettent à jour séparément (Outils ▸ Réglementation).'],
@@ -476,7 +588,7 @@ function removePin(){ showConfirmDialog('Supprimer le code ?', 'Le carnet s\'ouv
 function lockNow(){ setVal('lock-input',''); setTxt('lock-msg',''); openOverlay('lock-overlay'); setTimeout(()=>{ const i=$('lock-input'); if(i) i.focus(); }, 100); }
 async function unlock(){
   if(await pinHash(val('lock-input').trim()) === STATE.settings.pin){ closeOverlay('lock-overlay'); }
-  else { setTxt('lock-msg', 'Code incorrect. Code oublié : il faut effacer les données du site et restaurer une copie de sécurité.'); }
+  else { setTxt('lock-msg', 'Code incorrect. Code oublié ? Restaurez votre dernière copie de sécurité (ci-dessous) : le code sera supprimé et vous pourrez en choisir un nouveau.'); }
 }
 let _hiddenAt = 0;
 document.addEventListener('visibilitychange', ()=>{
@@ -498,6 +610,7 @@ function init(){
   try{ history.replaceState({theme:'home'}, '', '#'); }catch(e){}
   showHome(true);
   if(STATE.settings.pin) lockNow();
+  try{ const tm = sessionStorage.getItem('carnet-toast'); if(tm){ sessionStorage.removeItem('carnet-toast'); setTimeout(()=>toast(tm), 900); } }catch(e){}
   if(STATE.settings.zone && !((STATE.vacances||{})[STATE.settings.zone]||[]).length && navigator.onLine) loadVacances(STATE.settings.zone, true);
   if(st==='migrated') toast('Vos données de l\'ancienne version (impôts, CMG) ont été reprises.');
   if(!storageOK) toast('⚠️ Ce navigateur n\'autorise pas l\'enregistrement (navigation privée ?).');

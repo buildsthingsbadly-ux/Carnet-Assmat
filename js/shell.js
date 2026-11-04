@@ -35,6 +35,7 @@ function renderAccueil(){
   setHTML('hello', 'Bonjour'+(p.nom?' '+esc(p.nom.split(' ')[0]):'')+' · <span>'+t.toLocaleDateString('fr-FR',{weekday:'long', day:'numeric', month:'long'})+'</span>');
   // Premiers pas, tant que l'essentiel n'est pas fait
   const steps = [
+    {ok: false, t:'Vous aviez déjà le carnet sur un autre téléphone ou une tablette ? Reprendre mes données', a:'syncImportPick()', si: STATE.contrats.length===0 && !STATE.lastExport},
     {ok: !!(STATE.ui||{}).demoVue, t:'Découvrir avec un exemple (sans risque)', a:'STATE.ui.demoVue=1;startDemo()', opt:true},
     {ok: Object.keys(((STATE.formation||{}).lu)||{}).length>0, t:'Comprendre mes calculs : la formation pas à pas', a:"showTheme('formation')", opt:true},
     {ok: !!p.nom, t:'Renseigner mon profil (nom, agrément)', a:"showTheme('reglages')"},

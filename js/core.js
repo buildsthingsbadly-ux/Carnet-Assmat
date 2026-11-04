@@ -401,6 +401,7 @@ function pasTaux(){ const t = parseFloat(String(((STATE && STATE.profil)||{}).pa
 function pasEstime(netImp, ie, repas){ const t = pasTaux(); return t ? Math.round(Math.max(0, (netImp||0)+(ie||0)+(repas||0))*t)/100 : 0; }
 function askText(title, message, def, cb, opts){
   const i0 = $('prompt-input'); if(i0) i0.type = (opts && opts.type) || 'text';
+  if($('prompt-eye')){ show('prompt-eye', !!(opts && opts.type==='password')); setTxt('prompt-eye', '👁 Afficher'); }
   setTxt('prompt-title', title); setTxt('prompt-message', message); setVal('prompt-input', def||'');
   _promptCb = cb; openOverlay('prompt-overlay'); setTimeout(()=>{ const i=$('prompt-input'); if(i){ i.focus(); if(i.type==='text') i.select(); } }, 50);
 }

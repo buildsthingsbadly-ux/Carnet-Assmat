@@ -293,8 +293,7 @@ function renderHome(){
   renderAlerts();
   if(typeof renderTabs==='function') renderTabs();
   regRenderStatus();
-  const se = $('sync-status');
-  if(se) se.textContent = STATE.lastExport ? 'Dernière copie de sécurité : '+new Date(STATE.lastExport).toLocaleDateString('fr-FR')+'.' : 'Aucune copie de sécurité faite depuis cet appareil.';
+  if(typeof renderDonnees==='function') renderDonnees();
 }
 
 /* Année incomplète : semaines d'accueil de l'année du contrat (date anniversaire), passées et à venir */
@@ -481,8 +480,18 @@ function computeAlerts(){
   // Rappels de calendrier
   if((mNow===4 || mNow===5) && actifs.length) out.push({lvl:'info', html:'Juin approche : la période de congés payés se termine le 31 mai. Comparez le maintien de salaire et les 10 % (année complète), ou faites payer les congés si votre contrat prévoit un paiement en juin (année incomplète).', act:'<button class="btn small" onclick="showTheme(\'cp\')">Congés payés</button>'});
   if(mNow>=3 && mNow<=5) out.push({lvl:'info', html:'Période de déclaration des revenus : calculez votre abattement fiscal avant de valider votre déclaration.', act:'<button class="btn small" onclick="showTheme(\'abattement\')">Impôts : abattement</button>'});
-  if(STATE.contrats.length && (!STATE.lastExport || (Date.now()-new Date(STATE.lastExport))/86400000 > 60))
-    out.push({lvl:'info', html:'Pensez à faire une copie de sécurité de vos données (en cas de perte ou de changement de téléphone).', act:'<button class="btn small" onclick="syncExport()">Faire une copie</button>'});
+  if(STATE.contrats.length && !isDemo()){
+    const jC = STATE.lastExport ? Math.floor((Date.now()-new Date(STATE.lastExport))/86400000) : null;
+    let mDepuis = 0; Object.values(STATE.journal||{}).forEach(J=>Object.values(J||{}).forEach(x=>{ if(x && x.validatedAt && (!STATE.lastExport || x.validatedAt > STATE.lastExport)) mDepuis++; }));
+    if(jC===null || jC > 14 || mDepuis)
+      out.push({lvl:'warn', html: jC===null ? '<b>Aucune copie de sécurité rangée ailleurs</b> : si ce téléphone est perdu ou cassé, tout est perdu.' : 'Dernière copie de sécurité il y a <b>'+jC+' jour'+(jC>1?'s':'')+'</b>'+(mDepuis ? ' ('+mDepuis+' mois validé'+(mDepuis>1?'s':'')+' depuis)' : '')+' : faites-en une nouvelle et rangez-la sur votre Drive ou dans vos mails.', act:'<button class="btn small" onclick="syncExport()">Faire une copie</button>'});
+  }
+  { const ua = navigator.userAgent || '';
+    if(/FBAN|FBAV|FB_IAB|Instagram|WhatsApp|Messenger|Snapchat|Line\/|; wv\)/i.test(ua))
+      out.push({lvl:'err', html:'Le carnet est ouvert dans le navigateur d’une autre application (WhatsApp, Facebook…). Vos données risquent d’y être perdues : ouvrez ce lien dans <b>Chrome</b> (ou <b>Safari</b> sur iPhone) avec le menu ⋮ ou ··· ▸ « Ouvrir dans le navigateur », avant de saisir quoi que ce soit.'});
+    else if((/iPhone|iPad|iPod/.test(ua) || (navigator.platform==='MacIntel' && navigator.maxTouchPoints>1)) && typeof isStandalone==='function' && !isStandalone() && /^https?:$/.test(location.protocol))
+      out.push({lvl:'warn', html:'Sur iPhone et iPad, <b>installez le carnet</b> : Safari peut effacer les données d’un site non installé après 7 jours sans visite. Touchez Partager (carré avec une flèche) ▸ « Sur l’écran d’accueil », puis ouvrez le carnet depuis cette icône.', act:'<button class="btn small" onclick="showTheme(\'aide\')">Voir comment</button>'});
+  }
   if(!STATE.regCheckedAt || (Date.now()-new Date(STATE.regCheckedAt))/86400000 > 45)
     out.push({lvl:'info', html: STATE.regCheckedAt ? 'La réglementation n\'a pas été vérifiée depuis plus de 45 jours.' : 'Le carnet contient la réglementation de sa dernière version. Vérifiez s\'il existe des valeurs plus récentes (une seconde, avec internet).', act:'<button class="btn small" onclick="regCheckUpdates(false)">Rechercher les mises à jour</button>'});
   return out;

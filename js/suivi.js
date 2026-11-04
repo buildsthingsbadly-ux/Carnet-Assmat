@@ -836,6 +836,7 @@ async function pjPut(file){
 async function pjGet(id){ const db = await pjDB(); return new Promise((ok,ko)=>{ const rq = db.transaction('pj').objectStore('pj').get(id); rq.onsuccess=()=>ok(rq.result); rq.onerror=()=>ko(rq.error); }); }
 async function pjOpen(id){ const p = await pjGet(id); if(!p){ toast('Pièce introuvable sur ce téléphone.'); return; } window.open(URL.createObjectURL(p.blob), '_blank'); }
 async function pjAll(){ const db = await pjDB(); return new Promise((ok,ko)=>{ const out={}, rq = db.transaction('pj').objectStore('pj').openCursor(); rq.onsuccess=()=>{ const cur=rq.result; if(cur){ out[cur.key]=cur.value; cur.continue(); } else ok(out); }; rq.onerror=()=>ko(rq.error); }); }
+async function pjClear(){ const db = await pjDB(); return new Promise((ok,ko)=>{ const tx = db.transaction('pj','readwrite'); tx.objectStore('pj').clear(); tx.oncomplete=ok; tx.onerror=()=>ko(tx.error); }); }
 async function pjPutRaw(id, v){ const db = await pjDB(); return new Promise((ok,ko)=>{ const tx = db.transaction('pj','readwrite'); tx.objectStore('pj').put(v, id); tx.oncomplete=ok; tx.onerror=()=>ko(tx.error); }); }
 function blobToB64(b){ return new Promise(r=>{ const fr = new FileReader(); fr.onload=()=>r(fr.result); fr.readAsDataURL(b); }); }
 async function b64ToBlob(u){ return (await fetch(u)).blob(); }
