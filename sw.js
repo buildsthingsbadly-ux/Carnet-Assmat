@@ -1,9 +1,9 @@
 /* Service worker : le carnet fonctionne hors connexion.
    - Fichiers de l'appli : servis depuis le cache, mis à jour en arrière-plan.
    - reglementation.json : toujours demandé au réseau d'abord (pour avoir les dernières valeurs légales). */
-const CACHE = 'carnet-assmat-3.27.0-13f604ff';
+const CACHE = 'carnet-assmat-3.28.0-65db8473';
 const FILES = ['./','./index.html','./app.css','./reg.js','./js/core.js','./js/contrats.js','./js/themes.js','./js/fiscal.js','./js/suivi.js','./js/docs.js','./js/io.js','./js/plus.js','./js/fiche.js','./js/formation.js','./js/shell.js',
-  './manifest.webmanifest','./fonts/fraunces-600.woff2','./fonts/worksans.woff2','./fonts/ibmplexmono-500.woff2','./fonts/ibmplexmono-600.woff2','./icons/icon-192.png','./icons/icon-512.png','./icons/icon-maskable-512.png','./reglementation.json'];
+  './manifest.webmanifest','./fonts/fraunces-600.woff2','./fonts/worksans.woff2','./fonts/ibmplexmono-500.woff2','./fonts/ibmplexmono-600.woff2','./icons/icon-192.png','./icons/icon-512.png','./icons/icon-maskable-512.png','./icons/qr-adresse.svg','./reglementation.json'];
 // la nouvelle version attend l'accord de l'utilisatrice (bandeau « Mettre à jour ») ; la toute première installation est immédiate
 // cache:'reload' : on télécharge toujours les fichiers frais, jamais une copie gardée par le navigateur (sinon une
 // nouvelle version pourrait être enregistrée avec un ancien fichier)
