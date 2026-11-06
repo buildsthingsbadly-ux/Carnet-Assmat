@@ -2,6 +2,7 @@
    CALCULS : mensualisation, mois, mois incomplet, congés payés, entretien, fin de contrat
    ===================================================================================== */
 'use strict';
+(window.__V=window.__V||{})['themes']='3.29.0';   /* version du fichier : écrite par tools/build.py */
 
 const CALC = {};      // CALC[theme]() relance le calcul
 const PREFILL = {};   // PREFILL[theme](contrat|null) remplit les cases depuis un contrat

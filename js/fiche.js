@@ -4,6 +4,7 @@
    Elle se lit à l'écran et s'imprime (ou s'enregistre en PDF). Elle marche avec ou sans suivi au jour le jour.
    ===================================================================================== */
 'use strict';
+(window.__V=window.__V||{})['fiche']='3.29.0';   /* version du fichier : écrite par tools/build.py */
 
 const FE = x=>fmtEUR(x||0);
 const FN = (x,d)=>fmtNum(x||0, d===undefined?2:d);

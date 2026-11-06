@@ -1,3 +1,4 @@
+(window.__V=window.__V||{})['formation']='3.29.0';   /* version du fichier : écrite par tools/build.py */
 /* =====================================================================
    SE FORMER : les calculs de l'assistante maternelle, du contrat à la fin
    Les chiffres des exemples sont calculés avec la réglementation du jour

@@ -2,6 +2,7 @@
    07 · ABATTEMENT FISCAL (jusqu'à 8 enfants / employeurs)   —   08 · CMG des parents
    ===================================================================================== */
 'use strict';
+(window.__V=window.__V||{})['fiscal']='3.29.0';   /* version du fichier : écrite par tools/build.py */
 
 /* ---------------------------------- ABATTEMENT ---------------------------------- */
 const AB_MAX = 8;   // un enfant par employeur ; sur une année, des contrats finissent et d'autres commencent

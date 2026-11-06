@@ -3,6 +3,7 @@
    mode démonstration (données d'exemple, jamais mélangées aux vraies)
    ===================================================================================== */
 'use strict';
+(window.__V=window.__V||{})['plus']='3.29.0';   /* version du fichier : écrite par tools/build.py */
 
 /* ---------------------------------- Lexique ---------------------------------- */
 const LEXIQUE = [

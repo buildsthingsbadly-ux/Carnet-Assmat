@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="app-version" content="3.29.0">
 <title>Carnet Assmat</title>
 <meta name="description" content="Calculs et suivi des contrats d'assistante maternelle : salaire, congés payés, mois incomplet, fin de contrat, indemnités d'entretien, abattement fiscal, CMG.">
 <meta name="theme-color" content="#204E4B">
@@ -1177,6 +1178,8 @@
   <button data-tab="outils" onclick="goTab('outils')"><span class="ti">🧰</span><span>Outils</span></button>
 </nav>
 <div class="update-bar" id="update-bar" style="display:none">Une nouvelle version du carnet est prête. <button class="btn small primary" onclick="applyUpdate()">Mettre à jour</button></div>
+<div class="update-bar" id="repair-bar" style="display:none">La dernière mise à jour s’est mal installée. Vos données ne sont pas touchées. <button class="btn small primary" onclick="reparerMiseAJour()">Réparer</button></div>
+<div class="update-bar" id="autre-bar" style="display:none"><span id="autre-bar-txt"></span> <button class="btn small primary" id="autre-bar-btn" onclick="autreBarAction()">Mettre à jour cette fenêtre</button></div>
 <div class="offline-bar" id="offline-bar" style="display:none">Hors connexion : tout fonctionne, les données restent sur le téléphone.</div>
 <script src="reg.js"></script>
 <script src="js/core.js"></script>

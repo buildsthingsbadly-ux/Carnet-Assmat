@@ -2,6 +2,7 @@
    SOCLE : outils, dates, jours fériés, stockage, référentiel réglementaire
    ===================================================================================== */
 'use strict';
+(window.__V=window.__V||{})['core']='3.29.0';   /* version du fichier : écrite par tools/build.py */
 /* Mode test (tests.html) : aucune écriture possible dans le stockage du téléphone, quoi qu'il arrive */
 const TEST_MODE = /#test$/.test(location.href);
 if(TEST_MODE){ const _set = Storage.prototype.setItem; Storage.prototype.setItem = function(k, v){ if(String(k).indexOf('assmat')===0) return; return _set.call(this, k, v); }; }
@@ -149,23 +150,32 @@ function loadState(){
         return 'new';
       }
       STATE = Object.assign(clone(STATE_DEFAULT), parsed); STATE.settings = Object.assign(clone(STATE_DEFAULT.settings), STATE.settings||{});
-      migrateState(); return 'ok';
+      migrateState(); BASE_SAVED_AT = storedSavedAt() || STATE._savedAt || ''; return 'ok';
     }
     if(migrateLegacy()) return 'migrated';
   }catch(e){ storageOK = false; }
   return 'new';
 }
+/* Plusieurs fenêtres (onglet, appli installée) partagent les mêmes données : chaque enregistrement note son heure
+   dans une petite clé « -at ». Si une autre fenêtre a enregistré depuis, on n'écrase pas : voir autreFenetreConflit (shell.js). */
+let BASE_SAVED_AT = '';
+function storedSavedAt(key){ try{ return localStorage.getItem((key||curStoreKey())+'-at') || ''; }catch(e){ return ''; } }
 let _saveTimer = null;
 function saveState(){
   clearTimeout(_saveTimer);
   _saveTimer = setTimeout(saveNow, 400);
 }
 function saveNow(){
+  const key = curStoreKey();
+  { const ext = storedSavedAt(key);
+    if(key===STORE_KEY && BASE_SAVED_AT && ext && ext > BASE_SAVED_AT && typeof autreFenetreConflit==='function'){ autreFenetreConflit(); return; } }
   STATE._savedAt = new Date().toISOString();
-  const key = curStoreKey(), json = JSON.stringify(STATE);
+  const json = JSON.stringify(STATE);
   let localOK = true;
   try{ localStorage.setItem(key, json); }
   catch(e){ localOK = false; }
+  try{ localStorage.setItem(key+'-at', STATE._savedAt); }catch(e){}
+  BASE_SAVED_AT = STATE._savedAt;
   // copie complète dans le stockage étendu (prend le relais si le stockage simple est plein)
   idbSaveState(key, json).then(ok=>{
     storageOK = localOK || ok;

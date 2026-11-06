@@ -6,6 +6,7 @@
    Le module est facultatif : tous les autres calculs fonctionnent sans lui.
    ===================================================================================== */
 'use strict';
+(window.__V=window.__V||{})['suivi']='3.29.0';   /* version du fichier : écrite par tools/build.py */
 
 /* Statuts d'une journée.  acc = enfant accueilli (entretien dû) ; ded = heures prévues déduites
    (méthode Cour de cassation) ; 'mal' = déduction limitée à 5 jours / 12 mois ; cp = congé payé. */

@@ -2,6 +2,7 @@
    CONTRATS (jusqu'à 8 enfants en cours), ACCUEIL, POINTS D'ATTENTION, NAVIGATION
    ===================================================================================== */
 'use strict';
+(window.__V=window.__V||{})['contrats']='3.29.0';   /* version du fichier : écrite par tools/build.py */
 // contrats en cours au même moment (l'agrément limite les enfants présents EN MÊME TEMPS, pas le nombre de contrats :
 // accueil périscolaire, mercredis, alternance… ; contrôle jour par jour dans les points d'attention)
 const MAX_ENFANTS = 8;
@@ -485,6 +486,12 @@ function computeAlerts(){
     let mDepuis = 0; Object.values(STATE.journal||{}).forEach(J=>Object.values(J||{}).forEach(x=>{ if(x && x.validatedAt && (!STATE.lastExport || x.validatedAt > STATE.lastExport)) mDepuis++; }));
     if(jC===null || jC > 14 || mDepuis)
       out.push({lvl:'warn', html: jC===null ? '<b>Aucune copie de sécurité rangée ailleurs</b> : si ce téléphone est perdu ou cassé, tout est perdu.' : 'Dernière copie de sécurité il y a <b>'+jC+' jour'+(jC>1?'s':'')+'</b>'+(mDepuis ? ' ('+mDepuis+' mois validé'+(mDepuis>1?'s':'')+' depuis)' : '')+' : faites-en une nouvelle et rangez-la sur votre Drive ou dans vos mails.', act:'<button class="btn small" onclick="syncExport()">Faire une copie</button>'});
+  }
+  { const dm = (STATE.regRemote || {}).demenagement;
+    let nouv = null; try{ if(dm && dm.url && /^https:/.test(dm.url)) nouv = new URL(dm.url); }catch(e){}
+    if(nouv && nouv.origin + nouv.pathname !== location.origin + location.pathname.replace(/index\.html$/, ''))
+      out.push({lvl:'err', html:'<b>Le carnet change d’adresse</b> : '+esc(nouv.href)+'. Vos données ne passent pas toutes seules d’une adresse à l’autre. 1. Faites une copie de sécurité rangée ailleurs. 2. Ouvrez la nouvelle adresse et installez le carnet. 3. Touchez « Restaurer une copie ».'+(dm.texte ? ' '+esc(dm.texte) : ''),
+        act:'<button class="btn small" onclick="syncExport()">Faire une copie</button> <button class="btn small" onclick="window.open(\''+esc(nouv.href)+'\',\'_blank\')">Ouvrir la nouvelle adresse</button>'});
   }
   { const ua = navigator.userAgent || '';
     if(/FBAN|FBAV|FB_IAB|Instagram|WhatsApp|Messenger|Snapchat|Line\/|; wv\)/i.test(ua))

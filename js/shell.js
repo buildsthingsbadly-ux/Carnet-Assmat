@@ -3,6 +3,7 @@
    mises à jour de l'application, stockage protégé, erreurs. Lancement de l'application.
    ===================================================================================== */
 'use strict';
+(window.__V=window.__V||{})['shell']='3.29.0';   /* version du fichier : écrite par tools/build.py */
 let HOME_TAB = 'accueil';
 let DASH_YM = null, ANNEE = null;
 const TAB_TITLES = {accueil:'Aujourd\'hui', mois:'Le mois', annee:'L\'année', enfants:'Mes enfants', outils:'Outils'};
@@ -326,6 +327,62 @@ window.addEventListener('offline', netStatus);
 /* =====================================================================================
    ROBUSTESSE : stockage protégé, erreurs, texte agrandi
    ===================================================================================== */
+/* ---------- Le carnet ouvert dans deux fenêtres à la fois ---------- */
+function adopterAutreFenetre(){
+  let raw = null; try{ raw = localStorage.getItem(curStoreKey()); }catch(e){}
+  if(!raw) return false;
+  try{ STATE = Object.assign(clone(STATE_DEFAULT), JSON.parse(raw)); STATE.settings = Object.assign(clone(STATE_DEFAULT.settings), STATE.settings||{}); migrateState(); }catch(e){ return false; }
+  BASE_SAVED_AT = storedSavedAt() || STATE._savedAt || '';
+  regBuild(); applyTheme(); CURRENT = 'home'; showHome(); show('autre-bar', false);
+  return true;
+}
+function autreFenetreConflit(){
+  if(window._conflitOuvert) return; window._conflitOuvert = true;
+  const ici = JSON.stringify(STATE);
+  try{ localStorage.setItem(STORE_KEY+'-conflit', ici); }catch(e){}
+  idbSaveState(STORE_KEY+'-conflit', ici);
+  adopterAutreFenetre();
+  _confirmNoCb = async ()=>{
+    window._conflitOuvert = false;
+    let s = null; try{ s = localStorage.getItem(STORE_KEY+'-conflit'); }catch(e){}
+    if(!s) s = await idbLoadState(STORE_KEY+'-conflit'); if(!s) return;
+    STATE = Object.assign(clone(STATE_DEFAULT), JSON.parse(s)); STATE.settings = Object.assign(clone(STATE_DEFAULT.settings), STATE.settings||{}); migrateState();
+    BASE_SAVED_AT = storedSavedAt(); saveNow(); regBuild(); applyTheme(); showHome(); toast('Votre saisie de cette fenêtre a été remise.');
+  };
+  showConfirmDialog('Carnet modifié dans une autre fenêtre', 'Le carnet est aussi ouvert ailleurs (un autre onglet, ou l’application installée) et il y a été modifié. Pour ne rien effacer, cette fenêtre vient d’être mise à jour avec ces modifications.\n\nCe que vous veniez de saisir ici a été gardé de côté. Pour le reprendre à la place (les modifications de l’autre fenêtre seraient alors remplacées), touchez « Reprendre ma saisie d’ici ».\n\nConseil : n’ouvrez le carnet que dans une seule fenêtre.',
+    ()=>{ window._conflitOuvert = false; }, 'Garder la version à jour', 'Reprendre ma saisie d’ici');
+}
+let _autreBar = '';
+function autreBar(txt, mode){ _autreBar = mode; setTxt('autre-bar-txt', txt); setTxt('autre-bar-btn', mode==='maj' ? 'Mettre à jour cette fenêtre' : 'Compris'); show('autre-bar', true, 'flex'); }
+function autreBarAction(){ if(_autreBar==='maj') adopterAutreFenetre(); show('autre-bar', false); }
+if(!TEST_MODE){
+  // une autre fenêtre vient d'enregistrer
+  window.addEventListener('storage', e=>{
+    if(e.key !== curStoreKey()+'-at' || !e.newValue || e.newValue===BASE_SAVED_AT) return;
+    if(document.hidden) adopterAutreFenetre();
+    else autreBar('Le carnet vient d’être modifié dans une autre fenêtre.', 'maj');
+  });
+  // une autre fenêtre est ouverte en même temps
+  try{
+    const bc = new BroadcastChannel('carnet-assmat');
+    const avertir = ()=>{ if(window._afAverti) return; window._afAverti = true; autreBar('Le carnet est aussi ouvert dans une autre fenêtre (onglet ou application installée). Travaillez dans une seule, pour ne rien perdre.', 'info'); };
+    bc.onmessage = ev=>{ if(ev.data==='ici'){ bc.postMessage('aussi'); avertir(); } else if(ev.data==='aussi') avertir(); };
+    bc.postMessage('ici');
+  }catch(e){}
+}
+/* ---------- Fichiers de deux versions différentes (mise à jour mal installée) ---------- */
+function versionsIncoherentes(){
+  const meta = (document.querySelector('meta[name="app-version"]')||{}).content, V = window.__V || {};
+  const bad = Object.keys(V).filter(k=>V[k]!==APP_VERSION);
+  if(meta && meta!==APP_VERSION) bad.push('index.html');
+  return bad;
+}
+async function reparerMiseAJour(){
+  try{ saveNow(); }catch(e){}
+  try{ const regs = await navigator.serviceWorker.getRegistrations(); for(const r of regs) await r.unregister(); }catch(e){}
+  try{ for(const k of await caches.keys()) await caches.delete(k); }catch(e){}
+  location.reload();
+}
 function protectStorage(){ try{ if(navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(()=>{}); }catch(e){} }
 let _errShown = false;
 function logError(msg){
@@ -446,6 +503,7 @@ function launch(){
   if(typeof demoBanner==='function') demoBanner();
   if(typeof setupFinSteps==='function') setupFinSteps();
   if(!TEST_MODE){ protectStorage(); try{ resumeSession(); }catch(e){ logError('reprise : '+e.message); showHome(true,'accueil'); } }
+  { const bad = versionsIncoherentes(); if(bad.length){ logError('versions mélangées : '+bad.join(', ')); show('repair-bar', true, 'flex'); } }
   _booting = false; afterNavigate();
 }
 if(TEST_MODE) launch(); else idbPreload().then(launch, launch);

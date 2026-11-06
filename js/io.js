@@ -2,7 +2,8 @@
    IMPRESSION / PDF · SAUVEGARDE · RÉGLAGES · MISES À JOUR RÉGLEMENTAIRES · AIDE · DÉMARRAGE
    ===================================================================================== */
 'use strict';
-const APP_VERSION = '3.28.0';
+(window.__V=window.__V||{})['io']='3.29.0';   /* version du fichier : écrite par tools/build.py */
+const APP_VERSION = '3.29.0';
 
 /* ---------------------------------- Impression / PDF ---------------------------------- */
 let _pc = null;
@@ -439,7 +440,7 @@ async function regCheckUpdates(silent){
     const resp = await fetch(url + (url.indexOf('?')>=0?'&':'?') + 't=' + Date.now(), {cache:'no-store'});
     if(!resp.ok) throw new Error('HTTP '+resp.status);
     const data = await resp.json();
-    regApplyRemote(data, silent);
+    regApplyRemote(data, silent, !!STATE.settings.regUrl);
   }catch(e){
     STATE.regCheckedAt = STATE.regCheckedAt || null;
     if(!silent) showConfirmDialog('Recherche impossible', 'La source de réglementation n\'a pas répondu ('+e.message+'). Vos calculs utilisent la réglementation intégrée (version du '+fmtDate(REG.version)+'). Voulez-vous voir les sources officielles pour vérifier ?', ()=>showRegNews(true), 'Voir les sources', 'Fermer');
@@ -449,8 +450,38 @@ function regValidate(d){
   if(!d || d.schema!==1 || typeof d.params!=='object' || !d.version) return false;
   return Object.values(d.params).every(p=>p && Array.isArray(p.values) && p.values.every(x=>/^\d{4}-\d{2}-\d{2}$/.test(x.du) && x.v!==undefined));
 }
-function regApplyRemote(data, silent){
+/* Bornes de vraisemblance : une faute de frappe (SMIC à 1202, taux à 7,8 au lieu de 0,078…) est refusée */
+const REG_BORNES = {smic:[5,30], salMin:[2,15], salMinTitre:[2,15], mg:[2,10], netRatio:[0.6,0.95], netRatioAM:[0.6,0.95], pss:[2000,10000],
+  iePct:[0.5,1], iePctPM:[0.5,1], ieHeuresRef:[6,12], iePlancher:[1,10], cmgCHR:[2,15], cmgPlafondH:[4,25], cmgPlafond:[3000,20000], cmgPlancher:[0,3000],
+  kmBaremeAdmin:[0.1,1], kmBaremeFiscal:[0.2,2], repasAvantage:[2,15], cpDixieme:[0.05,0.2], cpParMois:[2,3], cpMax:[24,36], ruptureDiviseur:[40,200],
+  hsReduction:[0,0.3], csgNonDed:[0,0.1], assietteCsg:[0.9,1], seuilMaj:[35,50], majMin:[0,100], majFerie:[0,100], majPremierMai:[50,200], majReposHebdo:[0,100],
+  abatMult:[1,10], abatMultMaj:[1,10], abatMult24:[1,10], abatHeuresJour:[6,12], hMaxJour:[8,24], hMaxSemaine:[35,60], agrementMax:[1,8], hsExoPlafond:[1000,20000]};
+function regHorsBornes(d){
+  const out = [];
+  Object.keys((d && d.params) || {}).forEach(k=>{
+    const p = d.params[k], b = REG_BORNES[k] || (/^cot/.test(k) ? [0,0.25] : null), ref = (REG_DEFAULT.params[k] || {}).values, last = ref && ref[ref.length-1];
+    (p.values||[]).forEach(x=>{
+      if(typeof x.v!=='number') return;
+      if(!isFinite(x.v) || (b && (x.v < b[0] || x.v > b[1])) || (!b && last && typeof last.v==='number' && last.v > 0 && (x.v > last.v*3 || x.v < last.v/3)))
+        out.push(((REG_DEFAULT.params[k]||{}).label || k)+' = '+x.v+' (au '+fmtDate(x.du)+')');
+    });
+  });
+  return out;
+}
+function regApplyRemote(data, silent, demander){
   if(!regValidate(data)){ if(!silent) toast('Fichier de réglementation invalide : rien n\'a été modifié.'); return; }
+  const hb = regHorsBornes(data);
+  if(hb.length){ logError('réglementation refusée : '+hb.slice(0,3).join(' ; ')); if(!silent) showConfirmDialog('Réglementation refusée', 'Ce fichier contient des valeurs invraisemblables : rien n’a été modifié, vos calculs restent ceux d’avant.\n\n'+hb.slice(0,6).join('\n'), ()=>{}, 'Compris', 'Fermer'); return; }
+  // autre source que celle du carnet (adresse choisie dans Réglages, ou fichier importé) : on montre d'abord ce qui change
+  if(demander){
+    const avant = regSnapshot(), garde = STATE.regRemote; STATE.regRemote = data; regBuild();
+    const ch = regDiff(avant); STATE.regRemote = garde; regBuild();
+    if(!ch.length){ if(!silent) toast('Rien ne change avec ce fichier.'); return; }
+    showConfirmDialog('Appliquer ces '+ch.length+' changement(s) ?', 'Ce fichier ne vient pas de la source habituelle du carnet. Vérifiez les valeurs avant de les appliquer à tous vos calculs :\n\n'
+      + ch.slice(0,10).map(c=>'• '+c.label+' : '+(c.old===null ? '' : JSON.stringify(c.old)+' → ')+JSON.stringify(c.v)+' (au '+fmtDate(c.du)+')').join('\n')+(ch.length>10 ? '\n…' : ''),
+      ()=>regApplyRemote(data, silent, false), 'Oui, appliquer', 'Non');
+    return;
+  }
   const before = regSnapshot();
   STATE.regRemote = data; STATE.regCheckedAt = new Date().toISOString();
   regBuild(); saveNow();
@@ -464,7 +495,7 @@ function regImportPick(){ $('reg-file-input').click(); }
 function regImportFile(file){
   if(!file) return;
   const r = new FileReader();
-  r.onload = e=>{ try{ regApplyRemote(JSON.parse(e.target.result), false); }catch(err){ toast('Fichier illisible.'); } if(CURRENT==='reglages') regRenderTable(); };
+  r.onload = e=>{ try{ regApplyRemote(JSON.parse(e.target.result), false, true); }catch(err){ toast('Fichier illisible.'); } if(CURRENT==='reglages') regRenderTable(); };
   r.readAsText(file); $('reg-file-input').value='';
 }
 function regRenderTable(){
@@ -546,7 +577,7 @@ const AIDE = [
   ['Pajemploi', 'Chaque mois, ce sont les parents (vos employeurs) qui déclarent votre salaire sur Pajemploi, entre le 25 du mois et le 5 du mois suivant. « Salaire du mois &amp; Pajemploi » donne exactement les chiffres à recopier : heures, jours d\'activité, jours de congés, salaire net, indemnités ; le bouton « Envoyer le récapitulatif aux parents » les leur transmet (un seul message pour les frères et sœurs de la même famille, mais une déclaration Pajemploi par enfant). Avec <b>Pajemploi+</b>, Pajemploi vous verse directement le salaire et prélève les parents.'],
   ['Agrément et durées maximales', 'Votre agrément fixe le nombre d\'enfants accueillis en même temps (4 en général). Au plus 13 h par jour (11 h de repos obligatoire) et 48 h par semaine en moyenne (plus seulement avec votre accord écrit, 2 250 h par an au maximum). Le carnet vous alerte en cas de dépassement.'],
   ['Les mises à jour de la loi', 'Chaque montant légal (SMIC, minimum garanti, salaire minimum, barème CMG, abattement…) est enregistré avec sa <b>date d\'effet</b>. Le bouton « Rechercher les mises à jour » télécharge les nouvelles valeurs : elles s\'appliquent automatiquement aux calculs concernés, à partir de la bonne date, et le carnet vous dit ce qui change pour chaque enfant. Vous pouvez aussi ajouter une valeur vous-même (Réglages ▸ ✎).'],
-  ['Mes données et mon téléphone', 'Tout est enregistré <b>uniquement sur votre téléphone</b> : rien n\'est envoyé sur internet. Si le téléphone est perdu, volé ou cassé, ou si vous effacez les données du navigateur, vous perdez tout, sauf si vous avez une <b>copie de sécurité rangée ailleurs</b>. Faites-la au moins une fois par mois (Outils ▸ Mes données ▸ « Faire une copie de sécurité ») et envoyez-la à vous-même : Google Drive, iCloud ou un mail à votre adresse, jamais aux parents. Notez le mot de passe sur papier. Le fichier ne s\'ouvre pas tout seul : sur le nouvel appareil, ouvrez le carnet puis « Restaurer une copie ».'],
+  ['Mes données et mon téléphone', 'Tout est enregistré <b>uniquement sur votre téléphone</b> : rien n\'est envoyé sur internet. Protégez le téléphone lui-même par un code, un schéma ou une empreinte : le code du carnet cache l\'écran mais ne chiffre pas les données. N\'ouvrez le carnet que dans une seule fenêtre à la fois. Si le téléphone est perdu, volé ou cassé, ou si vous effacez les données du navigateur, vous perdez tout, sauf si vous avez une <b>copie de sécurité rangée ailleurs</b>. Faites-la au moins une fois par mois (Outils ▸ Mes données ▸ « Faire une copie de sécurité ») et envoyez-la à vous-même : Google Drive, iCloud ou un mail à votre adresse, jamais aux parents. Notez le mot de passe sur papier. Le fichier ne s\'ouvre pas tout seul : sur le nouvel appareil, ouvrez le carnet puis « Restaurer une copie ».'],
   ['Passer sur une tablette ou un nouveau téléphone', '1. Sur l\'ancien appareil (s\'il marche encore) : « Faire une copie de sécurité », puis envoyez-la sur votre Google Drive ou par mail à vous-même.<br>2. Sur le nouvel appareil : ouvrez l\'adresse du carnet (Outils ▸ Mes données ▸ « M\'envoyer l\'adresse du carnet ») et installez-le.<br>3. Récupérez le fichier : dans Drive, touchez-le puis ⋮ ▸ Télécharger ; dans un mail, enregistrez la pièce jointe.<br>4. Dans le carnet : « Restaurer une copie », choisissez le fichier, tapez le mot de passe.<br>5. Ensuite, saisissez seulement sur le nouvel appareil : le téléphone et la tablette <b>ne se synchronisent pas</b>. En cas d\'erreur, « Annuler la restauration » remet les données d\'avant (30 jours).'],
   ['Avant de vendre ou donner votre téléphone', 'Faites une copie de sécurité et vérifiez qu\'elle est bien sur votre Drive ou dans vos mails, puis Réglages ▸ « Tout effacer » : les fiches, les calculs et les photos de certificats sont supprimés de l\'appareil.'],
   ['Installer l\'application sur Android', '1. Ouvrez l\'adresse du carnet dans <b>Chrome</b>.<br>2. Touchez le menu <b>⋮</b> en haut à droite.<br>3. Choisissez <b>« Installer l\'application »</b> (ou « Ajouter à l\'écran d\'accueil »).<br>L\'icône apparaît avec vos autres applications ; le carnet fonctionne ensuite même sans internet.'],

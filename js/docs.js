@@ -4,6 +4,7 @@
    Aucun numéro de sécurité sociale n'est stocké : une ligne est laissée pour l'écrire à la main.
    ===================================================================================== */
 'use strict';
+(window.__V=window.__V||{})['docs']='3.29.0';   /* version du fichier : écrite par tools/build.py */
 let DOCS_ID = null;
 const DOCS = [
   {id:'pajemploi', g:'Embauche', t:'Fiche d\'embauche : ce qu\'il faut saisir (CAF, Pajemploi)', d:'Toutes les informations que les parents doivent entrer pour la demande de CMG et sur Pajemploi.'},
